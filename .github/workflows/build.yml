@@ -1,0 +1,25 @@
+name: Build and verify
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Test and publish self-contained Windows x64
+        shell: pwsh
+        run: ./scripts/build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LingdongCapsule-win-x64
+          path: |
+            artifacts/LingdongCapsule-win-x64.zip
+            artifacts/SHA256SUMS.txt

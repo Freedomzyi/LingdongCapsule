@@ -1,0 +1,21 @@
+using Capsule.Core;
+var now = DateTimeOffset.UtcNow;
+var s = new IslandState();
+void Check(bool ok, string message) { if (!ok) throw new Exception(message); Console.WriteLine("PASS " + message); }
+Check(s.Mode == IslandMode.Clock, "Initial clock");
+s.UpdateMedia(new("A", "Artist", true, true));
+s.Show(new("app", "App", "Title", "Body"), now);
+s.UpdateMedia(new("B", "Artist", true, true));
+Check(s.Mode == IslandMode.Notification, "Notification retains priority during track change");
+s.Tick(now.AddSeconds(7));
+Check(s.Mode == IslandMode.Media && s.Media.Title == "B", "Resume latest track, not old frame");
+s.Show(new("app", "App", "Title", "Body"), now);
+s.UpdateMedia(new("B", "Artist", false, true)); s.Dismiss();
+Check(s.Mode == IslandMode.Clock && s.Media.Available, "Pause during notification returns clock with controls available");
+s.Show(new("app", "App", "Title", "Body"), now); s.Expand(now.AddSeconds(5)); s.Tick(now.AddSeconds(7));
+Check(s.Notification is not null && s.Expanded, "Expanded notice has extended deadline");
+s.UpdateMedia(new("", "", false, false)); s.Tick(now.AddSeconds(26));
+Check(s.Mode == IslandMode.Clock && !s.Media.Available, "Player exit and notification timeout");
+s.Show(new("a", "A", "1", ""), now); s.Show(new("b", "B", "2", ""), now.AddSeconds(3)); s.Tick(now.AddSeconds(7));
+Check(s.Notification?.App == "B" && !s.Expanded, "New notification replaces old one with fresh timeout");
+s.Tick(now.AddDays(1)); Check(s.Mode == IslandMode.Clock, "Wake after expiration");
