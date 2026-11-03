@@ -13,6 +13,7 @@ internal sealed class MspBridge : IDisposable
     private readonly Func<Task<MediaSnapshot>> readMedia;
     private readonly Func<string,Task<bool>> control;
     public bool Enabled=>node!=null;
+    internal int Generation{get;private set;}
     public string Error{get;private set;}="";
     public MspBridge(Func<Notice,Task<bool>> notify,Func<Task<MediaSnapshot>> readMedia,Func<string,Task<bool>> control){this.notify=notify;this.readMedia=readMedia;this.control=control;}
     public bool Start(string directory)
@@ -37,7 +38,7 @@ internal sealed class MspBridge : IDisposable
                 if(normalized is not ("toggle" or "play" or "pause" or "previous" or "next"))return new{ok=false,error="不支持的媒体动作"};
                 return new{ok=await control(normalized)};
             }),"控制播放、暂停、切歌");
-            candidate.Start();node=candidate;previousMedia=null;Error="";return true;
+            candidate.Start();node=candidate;Generation++;previousMedia=null;Error="";return true;
         }
         catch(Exception error){try{candidate.Stop();}catch{ }Error="MSP 启动失败："+error.GetType().Name;return false;}
     }
@@ -47,10 +48,26 @@ internal sealed class MspBridge : IDisposable
         if(previous.Title!=current.Title || previous.Artist!=current.Artist || previous.SourceId!=current.SourceId)Publish("media.track.changed",new{title=current.Title,artist=current.Artist,app=current.SourceId,playing=current.Playing});
         if(previous.Playing!=current.Playing || previous.Available!=current.Available)Publish("media.playback.changed",new{active=current.Available,playing=current.Playing,title=current.Title,artist=current.Artist});
     }
-    public void PublishNotice(Notice notice,bool privatePreview)
+    public void PublishNotice(Notice notice,bool privatePreview,NoticeImages.Image? image=null)
     {
-        if(notice.SourceId.StartsWith("msp",StringComparison.OrdinalIgnoreCase))return;
-        Publish(notice.SourceId=="self" ? "notify.lingdongcapsule.reminder.raised" : "notify.toast.raised",new{app=notice.App,source=notice.SourceId,title=privatePreview ? "" : notice.Title,body=privatePreview ? "" : notice.Body});
+        if(notice.SourceId.Equals("msp",StringComparison.OrdinalIgnoreCase) || notice.SourceId.StartsWith("msp:",StringComparison.OrdinalIgnoreCase))return;
+        var content=new List<object>();
+        if(!privatePreview && image!=null)
+        {
+            try
+            {
+                // Publish decoded thumbnail bytes; never send local paths or remote image URLs.
+                var bitmap=image.Bitmap;
+                if(bitmap.PixelWidth>0 && bitmap.PixelHeight>0 && (long)bitmap.PixelWidth*bitmap.PixelHeight<=65536)
+                {
+                    var png=new System.Windows.Media.Imaging.PngBitmapEncoder();png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    using var buffer=new System.IO.MemoryStream();png.Save(buffer);
+                    if(buffer.Length<=256*1024)content.Add(new{type="image",mimeType="image/png",data=Convert.ToBase64String(buffer.ToArray()),annotations=new{role=image.Avatar ? "avatar" : "icon"}});
+                }
+            }
+            catch(Exception){ /* Preserve the text event if a thumbnail cannot be encoded. */ }
+        }
+        Publish(notice.SourceId=="self" ? "notify.lingdongcapsule.reminder.raised" : "notify.toast.raised",new{app=notice.App,source=notice.SourceId,title=privatePreview ? "" : notice.Title,body=privatePreview ? "" : notice.Body,content});
     }
     private void Publish(string path,object payload){try{node?.Publish(path,payload);}catch(Exception error){Error="MSP 广播失败："+error.GetType().Name;}}
     private async Task<object> NotifyAsync(string title="",string body="",List<JsonElement>? content=null)
@@ -69,5 +86,5 @@ internal sealed class MspBridge : IDisposable
         }
         catch(Exception){ /* A stale UI dispatcher or invalid peer message must not stop the node. */ }
     }
-    public void Dispose(){var active=node;node=null;previousMedia=null;try{active?.Stop();}catch(Exception error){Error="MSP 停止失败："+error.GetType().Name;}}
+    public void Dispose(){var active=node;node=null;Generation++;previousMedia=null;try{active?.Stop();}catch(Exception error){Error="MSP 停止失败："+error.GetType().Name;}}
 }

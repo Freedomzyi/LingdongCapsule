@@ -32,22 +32,32 @@ public sealed class NotificationService : IDisposable
         }
         catch(Exception error) when(error is IOException or UnauthorizedAccessException){ }
     }
-    private readonly Dictionary<string,BitmapSource?> logos=new(StringComparer.OrdinalIgnoreCase);
+    private sealed class LogoEntry{public BitmapSource? Image;public bool Loading=true;public long At=Environment.TickCount64;}
+    private readonly Dictionary<string,LogoEntry> logos=new(StringComparer.OrdinalIgnoreCase);
+    private readonly CancellationTokenSource logoLifetime=new();
     private bool disposed;
-    public BitmapSource? Logo(string source)=>logos.GetValueOrDefault(source);
+    public BitmapSource? Logo(string source)=>logos.GetValueOrDefault(source)?.Image;
     private async Task LoadLogoAsync(Windows.ApplicationModel.AppInfo app,string source)
     {
-        if(logos.Count>=48)logos.Remove(logos.Keys.First());logos[source]=null;
+        if(disposed)return;
+        if(logos.TryGetValue(source,out var existing) && (existing.Loading || existing.Image!=null || Environment.TickCount64-existing.At<300000))return;
+        if(logos.Count>=48)logos.Remove(logos.Keys.First());var entry=new LogoEntry();logos[source]=entry;
+        BitmapSource? result=null;
         try
         {
-            using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var timeout=CancellationTokenSource.CreateLinkedTokenSource(logoLifetime.Token);timeout.CancelAfter(TimeSpan.FromSeconds(3));
             using var stream=await app.DisplayInfo.GetLogo(new Windows.Foundation.Size(96,96)).OpenReadAsync().AsTask(timeout.Token);
-            if(disposed || stream.Size==0 || stream.Size>4*1024*1024)return;
+            if(disposed || stream.Size==0 || stream.Size>4*1024*1024)throw new InvalidDataException();
             using var input=stream.AsStreamForRead();
             var bitmap=new BitmapImage();bitmap.BeginInit();bitmap.CacheOption=BitmapCacheOption.OnLoad;bitmap.DecodePixelWidth=96;bitmap.StreamSource=input;bitmap.EndInit();bitmap.Freeze();
-            if(!disposed && logos.ContainsKey(source))logos[source]=bitmap;
+            result=bitmap;
         }
-        catch(Exception){ /* Missing app logos use our own fallback icon. */ }
+        catch(Exception){ /* Missing WinRT logos continue through the Shell. */ }
+        if(result==null && !disposed)
+        {
+            try{using var timeout=CancellationTokenSource.CreateLinkedTokenSource(logoLifetime.Token);timeout.CancelAfter(TimeSpan.FromSeconds(3));result=await ApplicationIcons.ReadAsync(source,timeout.Token).WaitAsync(timeout.Token);}catch(Exception){ }
+        }
+        if(!disposed && logos.TryGetValue(source,out var current) && ReferenceEquals(current,entry)){entry.Image=result;entry.Loading=false;entry.At=Environment.TickCount64;}
     }
     private readonly Dictionary<string, DateTimeOffset> seen = [];
     private UserNotificationListener? listener;
@@ -56,7 +66,7 @@ public sealed class NotificationService : IDisposable
     private int dirty = 1;
     private DateTimeOffset lastPoll;
     private void OnChanged(UserNotificationListener sender, UserNotificationChangedEventArgs args) => Interlocked.Exchange(ref dirty, 1);
-    public void Dispose() { disposed=true;if (subscribed && eventAvailable && listener is not null) listener.NotificationChanged -= OnChanged;logos.Clear(); }
+    public void Dispose() { if(disposed)return;disposed=true;logoLifetime.Cancel();if (subscribed && eventAvailable && listener is not null) listener.NotificationChanged -= OnChanged;logos.Clear();logoLifetime.Dispose(); }
     public string Status { get; private set; } = "通知监听未启用";
     public Dictionary<string, string> Sources { get; } = [];
     public async Task<bool> RequestAsync()
@@ -103,7 +113,7 @@ public sealed class NotificationService : IDisposable
                     var text = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric)?.GetTextElements();
                     if (text is null) continue;
                     notices.Add(new(source, Sources[source], text.FirstOrDefault()?.Text ?? "新通知", string.Join("\n", text.Skip(1).Select(t => t.Text)),n.Id,n.CreationTime));
-                    if(!logos.ContainsKey(source))_=LoadLogoAsync(n.AppInfo,source);
+                    _=LoadLogoAsync(n.AppInfo,source);
                 }
                 catch { /* An invalid app notification must not break the batch. */ }
             }

@@ -12,4 +12,8 @@ MSP 默认关闭，开启后以 `lingdongcapsule` 节点提供 `ping`、`notify`
 
 `image` 使用 base64；`resource_link.uri` 支持 data 图片、绝对本地路径/file URI、HTTPS。顶层 avatar/avatarUrl/avatar_url/head/headimg 可提供头像，块内优先。本地图片按内容解码，允许无扩展名；拒绝网络共享/UNC、HTTP 和带用户名密码的 URL。当前 HTTPS 不跟随重定向，失败即回退，不使用 Cookie 或应用凭据。读取最多 4 MiB、1600 万像素、3 秒超时，解码宽度 96 像素。通知替换取消旧请求；图片仅在内存，不记录路径或正文。
 
-只启用可信本机节点：图片消息可引发本机文件读取或外部图片请求，只使用消息明确提供的地址，不扫描聊天目录。系统通知头像、多级系统图标回退及图片事件广播仍待完成，MSP 图片接入不代替它们的验收。
+启用事件广播时，发送已解码缩略图的 PNG 内容块及 avatar/icon 角色，不发送本地路径或图片网址。单张广播最多 256 KiB、65536 像素；隐私预览同时去除文字和图片。图片解析失败仍发送文字，节点重启或广播被关闭后不补发旧请求。
+
+系统应用图标先取 WinRT Logo，失败后后台查询 Shell 图标，最后使用本程序图标。Shell 提取限制两项并发，释放返回的 HBITMAP 和 COM 对象；失败缓存五分钟，避免通知密集时反复提取。图标缓存最多 48 项。实现依据 [Microsoft IShellItemImageFactory 文档](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellitemimagefactory-getimage)，真实来源覆盖仍待实测。
+
+只启用可信本机节点：图片消息可引发本机文件读取或外部图片请求，只使用消息明确提供的地址，不扫描聊天目录。系统通知头像提取、特殊来源图标回退和真实第三方发送端兼容性仍待完成，MSP 图片接入不代替系统通知头像验收。

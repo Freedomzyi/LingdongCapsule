@@ -31,6 +31,18 @@ internal static class MspTests
             bridge.PublishNotice(new("fixture","Test app","secret title","secret body"),privatePreview:true);
             for(var attempt=0;attempt<30 && events.Count<3;attempt++)await Task.Delay(100);
             if(!events.Any(item=>item.StartsWith("media.track.changed")) || !events.Any(item=>item.StartsWith("media.playback.changed")) || !events.Any(item=>item.StartsWith("notify.toast.raised")) || events.Any(item=>item.Contains("secret")))throw new Exception("MSP event delivery or privacy redaction failed");
+            using(var imageResolver=new NoticeImages())
+            {
+                var image=await imageResolver.ResolveAsync(new("fixture","Fixture","Pixels","",Avatar:imageSpec));
+                bridge.PublishNotice(new("fixture","Fixture","Public pixels","",Avatar:@"C:\private\avatar"),false,image);
+                for(var attempt=0;attempt<30 && !events.Any(item=>item.Contains("Public pixels"));attempt++)await Task.Delay(100);
+                var encoded=events.FirstOrDefault(item=>item.Contains("Public pixels"));
+                if(encoded==null || !encoded.Contains("image/png") || !encoded.Contains("avatar") || encoded.Contains("private"))throw new Exception("Image event lost bytes/role or leaked source path");
+                bridge.PublishNotice(new("fixture","Fixture","secret pixels","secret body"),true,image);
+                for(var attempt=0;attempt<30 && events.Count<5;attempt++)await Task.Delay(100);
+                var masked=events.Last();
+                if(masked.Contains("secret") || masked.Contains("image/png"))throw new Exception("Privacy event leaked image content");
+            }
             await client.CallAsync("lingdongcapsule","notify",new{title="MSP test",body="Independent local fixture"});
             if(received?.Title!="MSP test")throw new Exception("MSP notification did not reach adapter");
             client.Publish("notify.capsule.fixture",new{title="Subscribed fixture",body="Broadcast test only"});
@@ -90,6 +102,7 @@ internal static class MspTests
         var settings=new Settings{MspEnabled=true,MediaEnabled=false,NotificationsEnabled=true};
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings,localMspDirectory:directory);
         var peer=new MspNode("island-test-peer",nodesDir:directory);
+        var broadcasts=new System.Collections.Concurrent.ConcurrentQueue<JsonElement>();peer.On("notify.toast.raised",signal=>broadcasts.Enqueue(signal.Payload.Clone()));
         try
         {
             window.Show();peer.Start();bool reached=false;
@@ -105,6 +118,15 @@ internal static class MspTests
             var icon=(System.Windows.Controls.Image)window.FindName("NoticeIcon");var frame=(System.Windows.FrameworkElement)window.FindName("NoticeIconFrame");
             for(var attempt=0;attempt<30 && frame.Width!=settings.NotificationIconSize+5;attempt++)await Task.Delay(100);
             if(frame.Width!=settings.NotificationIconSize+5 || icon.Source is not System.Windows.Media.Imaging.BitmapSource || icon.Clip is not System.Windows.Media.RectangleGeometry clip || clip.RadiusX!=frame.Width/2 || icon.Stretch!=System.Windows.Media.Stretch.UniformToFill)throw new Exception("Actual island did not render avatar size, crop and circular clip");
+            if(!broadcasts.IsEmpty)throw new Exception("Default-off broadcast emitted or incoming MSP was echoed");
+            settings.MspPublishEvents=true;settings.PrivatePreview=false;
+            window.AcceptNotification(new("mspaint.exe","Owned fixture","UI public image","",Avatar:imageSpec),DateTimeOffset.Now);
+            for(var attempt=0;attempt<30 && broadcasts.IsEmpty;attempt++)await Task.Delay(100);
+            if(!broadcasts.TryDequeue(out var outbound) || outbound.GetProperty("title").GetString()!="UI public image" || outbound.GetProperty("content").GetArrayLength()!=1)throw new Exception("Actual island failed to publish resolved image or mistook mspaint for MSP");
+            settings.PrivatePreview=true;
+            window.AcceptNotification(new("fixture","Owned fixture","UI hidden image","hidden",Avatar:imageSpec),DateTimeOffset.Now);
+            for(var attempt=0;attempt<30 && broadcasts.IsEmpty;attempt++)await Task.Delay(100);
+            if(!broadcasts.TryDequeue(out var privateEvent) || privateEvent.GetProperty("title").GetString()!="" || privateEvent.GetProperty("content").GetArrayLength()!=0)throw new Exception("Actual island private broadcast exposed image or text");
             settings.QuietUntil=DateTimeOffset.UtcNow.AddMinutes(30);
             var muted=JsonSerializer.Serialize((await peer.CallAsync("lingdongcapsule","notify",new{title="Should be muted",body=""})).Unwrap());
             if(window.LiveState.Notification!=null || !muted.Contains("false"))throw new Exception("MSP notification bypassed quiet preference");

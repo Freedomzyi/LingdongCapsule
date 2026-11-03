@@ -11,9 +11,23 @@ using System.Windows.Media.Imaging;
 
 internal static class NotificationTests
 {
+    [System.Runtime.InteropServices.DllImport("user32.dll")]private static extern uint GetGuiResources(IntPtr process,uint flags);
     public static async Task RunAsync(string[] args)
     {
         var index=Array.IndexOf(args,"--notification-test");var output=index+1<args.Length ? Path.GetFullPath(args[index+1]) : throw new Exception("Provide an output directory");Directory.CreateDirectory(output);
+        var ownExecutable=Environment.ProcessPath ?? throw new Exception("Missing owned executable");
+        using(var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(15)))
+        using(var process=System.Diagnostics.Process.GetCurrentProcess())
+        {
+            var extracted=await ApplicationIcons.ReadAsync(ownExecutable,timeout.Token);
+            if(extracted==null || !extracted.IsFrozen || extracted.PixelWidth<=0)throw new Exception("Real Shell icon extraction failed for owned test executable");
+            var before=GetGuiResources(process.Handle,0);
+            for(var attempt=0;attempt<20;attempt++)if(await ApplicationIcons.ReadAsync(ownExecutable,timeout.Token)==null)throw new Exception("Repeated Shell extraction failed");
+            var after=GetGuiResources(process.Handle,0);
+            if(after>before+4)throw new Exception("Shell extraction retained GDI handles: "+(after-before));
+            if(await ApplicationIcons.ReadAsync(@"\\invalid\share\app.exe",timeout.Token)!=null || await ApplicationIcons.ReadAsync("https://example.invalid/app.exe",timeout.Token)!=null)throw new Exception("Shell icon accepted remote input");
+        }
+        Console.WriteLine("PASS Real Shell icon extraction from owned executable, frozen bitmap, bounded GDI ownership and remote-input rejection");
         var chimes=Enumerable.Range(1,14).Select(NotificationSound.Chime).ToArray();
         if(chimes.Select(bytes=>Convert.ToHexString(SHA256.HashData(bytes))).Distinct().Count()!=14 || chimes.Any(bytes=>System.Text.Encoding.ASCII.GetString(bytes,0,4)!="RIFF" || BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(40,4))!=bytes.Length-44))throw new Exception("Original chime catalog invalid");
         var soundFile=Path.Combine(output,"sound-test.wav");File.WriteAllBytes(soundFile,chimes[0]);

@@ -24,14 +24,15 @@ public partial class MainWindow
         state.GroupNotifications=settings.GroupNotifications;
         state.SetQuietUntil(settings.QuietUntil,now);
         if(!settings.NotificationsEnabled || settings.MutedSources.Contains(notice.SourceId) || !state.Show(notice,now))return false;
-        if(settings.MspPublishEvents)msp.PublishNotice(notice,settings.PrivatePreview);
         if(!state.LastNoticeGrouped)_=notificationSound.PlayAsync(settings);
         controlsOpen=false;overviewOpen=false;Render();_=ResolveNoticeImagesAsync(notice);return true;
     }
     private async Task ResolveNoticeImagesAsync(Notice notice)
     {
         noticeImageRequest.Cancel();noticeImageRequest.Dispose();noticeImageRequest=new();
-        await noticeImages.ResolveAsync(notice,noticeImageRequest.Token);
+        var publish=settings.MspPublishEvents;var generation=msp.Generation;
+        var image=await noticeImages.ResolveAsync(notice,noticeImageRequest.Token);
+        if(!closing && publish && settings.MspPublishEvents && generation==msp.Generation)msp.PublishNotice(notice,settings.PrivatePreview,image ?? (notifications.Logo(notice.SourceId) is {} logo ? new NoticeImages.Image(logo,false) : null));
         if(!closing && ReferenceEquals(state.Notification,notice))Render();
     }
     private void InitializeNotifications()
