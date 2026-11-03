@@ -15,6 +15,33 @@ public partial class MainWindow
     private readonly Action writePluginSettings;
     private int pluginMutationDepth;
     internal PluginCatalogEntry[] InstalledPlugins()=>PluginCatalog.Read(pluginDirectory,settings.PluginFiles,settings.PendingPluginRemovals);
+    internal bool InstallMarketPackage(string file,string id)
+    {
+        var previous=InstalledPlugins().Where(item=>item.Id==id && !item.PendingRemoval && item.Error.Length==0).ToArray();
+        if(pluginPaths.ContainsKey(id) || previous.Length==0){LoadPlugin(file,expectedMarketId:id);return true;}
+        // An update of a stopped component validates identity without creating
+        // its widget or adding it to the persisted enabled list.
+        var oldPending=settings.PendingPluginRemovals.ToList();InstalledPlugin? installed=null;pluginMutationDepth++;
+        try
+        {
+            installed=PluginPackage.Install(file,pluginDirectory);
+            using(var module=new PluginModule(installed.EntryFile))
+            {
+                var actual=module.Plugin!.Identity;
+                if(installed.Info.Id!=id || actual.Id!=id || PluginMarket.VersionOf(actual.Version)!=PluginMarket.VersionOf(installed.Info.Version))throw new InvalidDataException("市场包清单与实际组件不一致。");
+                if(previous.Any(item=>PluginMarket.VersionOf(item.Version)>PluginMarket.VersionOf(actual.Version)))throw new InvalidOperationException("市场更新不能降级已安装组件。");
+            }
+            foreach(var item in previous)if(!settings.PendingPluginRemovals.Contains(item.EntryFile,StringComparer.OrdinalIgnoreCase))settings.PendingPluginRemovals.Add(item.EntryFile);
+            writePluginSettings();
+        }
+        catch
+        {
+            settings.PendingPluginRemovals=oldPending;if(installed!=null)CleanupPluginPackage(installed.EntryFile,true);throw;
+        }
+        finally{pluginMutationDepth--;}
+        foreach(var item in previous)CleanupPluginPackage(item.EntryFile,true);
+        Render();return false;
+    }
     private void InitializePlugins(bool persist)
     {
         persistPluginState=persist;
@@ -39,7 +66,7 @@ public partial class MainWindow
         };
         Closed+=(_,_)=>plugins.Dispose();
     }
-    internal void LoadPlugin(string file,bool save=true)
+    internal void LoadPlugin(string file,bool save=true,string? expectedMarketId=null)
     {
         var oldFiles=settings.PluginFiles.ToList();var oldPaths=new Dictionary<string,string>(pluginPaths,StringComparer.OrdinalIgnoreCase);
         var oldFailures=new Dictionary<string,string>(settings.PluginFailures);var oldPending=settings.PendingPluginRemovals.ToList();
@@ -56,6 +83,12 @@ public partial class MainWindow
                 if(!string.Equals(installed.EntryFile,path,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("选择的文件不是安装清单指定入口。");
                 if(settings.PendingPluginRemovals.Contains(path,StringComparer.OrdinalIgnoreCase))throw new InvalidOperationException("此安装包正在等待清理，请重新安装可信包。");
                 expected=installed.Info;
+            }
+            if(expectedMarketId!=null && expected?.Id!=expectedMarketId)throw new InvalidDataException("安装包与选择的市场组件不一致。");
+            if(expectedMarketId!=null)
+            {
+                var next=PluginMarket.VersionOf(expected!.Version);
+                if(plugins.ActiveIds.Contains(expectedMarketId) && PluginMarket.VersionOf(plugins.Identity(expectedMarketId).Version)>next || InstalledPlugins().Any(item=>item.Id==expectedMarketId && item.Error.Length==0 && !item.PendingRemoval && PluginMarket.VersionOf(item.Version)>next))throw new InvalidOperationException("已安装更高版本，市场更新不能降级组件。");
             }
             if(expected!=null && pluginPaths.TryGetValue(expected.Id,out previousPath)){previousIndex=plugins.ActiveIds.ToList().IndexOf(expected.Id);plugins.Disable(expected.Id);oldDisabled=true;}
             var id=plugins.Enable(path);enabledId=id;

@@ -8,10 +8,10 @@ internal static class CardDialog
 {
     internal static string? Show(string title,string description,string accept,string? initial=null,bool destructive=false)
     {
-        var window=new Window{Title=title,Width=330,SizeToContent=SizeToContent.Height,WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,AllowsTransparency=true,Background=Brushes.Transparent,ShowInTaskbar=false,Topmost=true,WindowStartupLocation=WindowStartupLocation.CenterScreen,FontFamily=new("Microsoft YaHei UI")};
+        var window=new Window{Title=title,Width=330,SizeToContent=SizeToContent.Height,WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,AllowsTransparency=true,Background=Brushes.Transparent,ShowInTaskbar=false,Topmost=true,WindowStartupLocation=WindowStartupLocation.CenterScreen,FontFamily=Design.UserFont};
         var panel=new StackPanel{Margin=new Thickness(6)};
         var heading=new TextBlock{Text=title,FontSize=19,FontWeight=FontWeights.SemiBold,TextAlignment=TextAlignment.Center,Margin=new Thickness(0,8,0,8)};Design.Bind(heading,TextBlock.ForegroundProperty,"TextPrimary");panel.Children.Add(heading);
-        var detail=new TextBlock{Text=description,FontSize=13,TextWrapping=TextWrapping.Wrap,TextAlignment=TextAlignment.Center,Margin=new Thickness(0,0,0,16)};Design.Bind(detail,TextBlock.ForegroundProperty,"TextSecondary");panel.Children.Add(detail);
+        var detail=new TextBlock{Text=description,FontSize=13,TextWrapping=TextWrapping.Wrap,TextAlignment=TextAlignment.Center,Margin=new Thickness(0,0,0,16)};Design.Bind(detail,TextBlock.ForegroundProperty,"TextSecondary");panel.Children.Add(new ScrollViewer{Content=detail,MaxHeight=Math.Max(80,Math.Min(300,SystemParameters.WorkArea.Height-220)),VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled});
         TextBox? input=null;
         if(initial!=null)
         {

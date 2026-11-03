@@ -39,6 +39,16 @@ internal static class MarketTests
         using(var redirect=new HttpClient(new Handler(_=>{var response=new HttpResponseMessage(HttpStatusCode.Redirect);response.Headers.Location=new Uri("https://untrusted.example/package.zip");return response;})))await Reject(()=>new PluginMarket(redirect).DownloadAsync(package,root,new(0,1,0,0),default));
         using(var canceled=new CancellationTokenSource()){canceled.Cancel();await Reject(()=>market.DownloadAsync(package,root,new(0,1,0,0),canceled.Token));}
         if(Directory.EnumerateFiles(root).Any())throw new Exception("Rejected market input left a downloaded file");
+        var installs=0;var batch=await new MarketUpdater(market).RunAsync([package with{Id="failed.clock",Sha256=new string('0',64)},package],root,new(0,1,0),(file,id)=>{if(!File.Exists(file))throw new Exception("Batch install file missing");installs++;return false;},_=>{},default);
+        if(batch.Succeeded!=1 || batch.Failures.Count!=1 || installs!=1 || batch.Canceled || Directory.EnumerateFiles(root).Any())throw new Exception("Batch update did not continue after a failed item or clean downloads");
+        using(var stop=new CancellationTokenSource())
+        {
+            var stopped=await new MarketUpdater(market).RunAsync([package,package],root,new(0,1,0),(file,id)=>{stop.Cancel();return false;},_=>{},stop.Token);
+            if(stopped.Succeeded!=1 || !stopped.Canceled || Directory.EnumerateFiles(root).Any())throw new Exception("Batch cancellation did not preserve completed item and stop remaining work");
+        }
+        var rejectedInstall=await new MarketUpdater(market).RunAsync([package],root,new(0,1,0),(file,id)=>throw new IOException("Owned install failure"),_=>{},default);
+        if(rejectedInstall.Succeeded!=0 || rejectedInstall.Failures.Count!=1 || Directory.EnumerateFiles(root).Any())throw new Exception("Batch failed installer leaked downloaded file");
+        Console.WriteLine("PASS Batch per-item failure isolation, continuation, cancellation and temporary ZIP cleanup");
         Console.WriteLine("PASS Market catalog, verified real ZIP, identity/version/host/SHA validation, source/redirect bounds, size, cancel and cleanup");
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplyTheme(0);
         PluginCatalogEntry[] local=[];
@@ -53,8 +63,20 @@ internal static class MarketTests
             if(Descendants<System.Windows.Controls.Button>(window).Any(button=>button.Content as string=="安装"))throw new Exception("Market search did not filter package cards");
             search.Text="";local=[new("owned-test.dll",package.Name,package.Id,"0.0.1",true,false,"")];var toggle=Descendants<System.Windows.Controls.CheckBox>(window).Single();toggle.IsChecked=true;
             if(!Descendants<System.Windows.Controls.Button>(window).Any(button=>button.Content as string=="更新"))throw new Exception("Market did not identify an installed update");
+            if(!Descendants<System.Windows.Controls.Button>(window).Any(button=>button.Content as string=="更新全部（1）" && button.IsEnabled))throw new Exception("Market batch update count was not refreshed");
             local=[local[0] with{Version="0.1.0"}];toggle.IsChecked=false;
             if(!Descendants<System.Windows.Controls.Button>(window).Any(button=>button.Content as string=="已启用" && !button.IsEnabled))throw new Exception("Market offered an already enabled version");
+            if(!Descendants<System.Windows.Controls.Button>(window).Any(button=>button.Content as string=="暂无更新" && !button.IsEnabled))throw new Exception("Market batch update remained enabled without newer versions");
+            var bounded=false;
+            _=System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle,new Action(()=>
+            {
+                var dialog=Application.Current.Windows.OfType<Window>().Single(item=>item.Title=="Owned long update list");dialog.UpdateLayout();
+                bounded=dialog.ActualHeight<=SystemParameters.WorkArea.Height && Descendants<System.Windows.Controls.ScrollViewer>(dialog).Any(view=>view.ScrollableHeight>0);
+                Descendants<System.Windows.Controls.Button>(dialog).Single(button=>button.Content as string=="取消").RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            }));
+            var accepted=CardDialog.Show("Owned long update list",string.Join("\n",Enumerable.Repeat("Owned test package · 0.1.0",100)),"继续");
+            if(accepted!=null || !bounded)throw new Exception("Long update confirmation did not scroll within screen or cancel safely");
+            Console.WriteLine("PASS Batch update count and scroll-bounded confirmation canceled via owned WPF event");
             var island=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:new Settings{MediaEnabled=false,NotificationsEnabled=false,ClockEnabled=false},localPluginDirectory:Path.Combine(root,"installed"));
             string? installFile=null;
             try

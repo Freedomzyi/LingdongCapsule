@@ -24,7 +24,7 @@ public sealed class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string,int> movePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string,int> movePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage)
     {
         this.settings = settings; this.save = save;
         Closed+=(_,_)=>soundPreview.Dispose();
@@ -80,7 +80,7 @@ public sealed class SettingsWindow : Window
             try{loadPlugin(picker.FileName);RefreshPlugins();}catch(Exception error){Design.PresentMessage("插件未能加载",error.Message);}
         };
         pluginPage.Children.Add(pluginLoad);pluginPage.Children.Add(Design.Card(pluginRows));RefreshPlugins();
-        PluginMarketWindow? marketWindow=null;var marketButton=new Button{Content="打开插件市场",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,0,0,12)};marketButton.Click+=(_,_)=>{if(marketWindow!=null){marketWindow.Activate();return;}marketWindow=new PluginMarketWindow(loadPlugin,installedPlugins,RefreshPlugins){Owner=this};marketWindow.Closed+=(_,_)=>marketWindow=null;marketWindow.Show();};pluginPage.Children.Add(marketButton);
+        PluginMarketWindow? marketWindow=null;var marketButton=new Button{Content="打开插件市场",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,0,0,12)};marketButton.Click+=(_,_)=>{if(marketWindow!=null){marketWindow.Activate();return;}marketWindow=new PluginMarketWindow(loadPlugin,installedPlugins,RefreshPlugins,installPackage:installMarketPackage){Owner=this};marketWindow.Closed+=(_,_)=>marketWindow=null;marketWindow.Show();};pluginPage.Children.Add(marketButton);
         Heading(pluginPage,"已安装但未启用");var refreshInstalled=new Button{Content="刷新已安装组件",Padding=new Thickness(12,8,12,8),Margin=new Thickness(0,0,0,10)};refreshInstalled.Click+=(_,_)=>RefreshPlugins();pluginPage.Children.Add(refreshInstalled);pluginPage.Children.Add(Design.Card(installedRows));
         var pluginErrors=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,10,0,0)};Design.Bind(pluginErrors,TextBlock.ForegroundProperty,"TextSecondary");pluginPage.Children.Add(pluginErrors);
         var priorPlugins=string.Join("|",activePlugins());var pluginTimer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};pluginTimer.Tick+=(_,_)=>{var current=string.Join("|",activePlugins());if(current!=priorPlugins){priorPlugins=current;RefreshPlugins();}pluginErrors.Text=string.Join("\n",settings.PluginFailures.Values);};pluginTimer.Start();Closed+=(_,_)=>pluginTimer.Stop();

@@ -13,6 +13,7 @@ internal sealed class PluginMarketWindow : Window
     private readonly PluginMarket market;
     private readonly CancellationTokenSource lifetime=new();
     private readonly Action<string> install;
+    private readonly Func<string,string,bool> installPackage;
     private readonly Func<PluginCatalogEntry[]> installed;
     private readonly Action changed;
     private readonly StackPanel rows=new();
@@ -20,13 +21,15 @@ internal sealed class PluginMarketWindow : Window
     private readonly TextBox search=new(){Background=Brushes.Transparent,BorderThickness=new(0),Padding=new(10,8,10,8),ToolTip="搜索名称、作者或描述",MaxLength=256};
     private readonly Button refresh=new(){Content="刷新目录",Padding=new(12,8,12,8)};
     private readonly Button categoryButton=new(){Content="全部类别",Padding=new(12,8,12,8),Margin=new(8,0,0,0)};
+    private readonly Button updateAll=new(){Content="更新全部",Padding=new(12,8,12,8),Margin=new(8,0,0,0)};
     private readonly CheckBox updates=new(){Content="只看更新",Margin=new(8,0,0,0),VerticalAlignment=VerticalAlignment.Center};
     private MarketPlugin[] packages=[];
     private string category="";
     private bool newest,working,closed;
-    internal PluginMarketWindow(Action<string> install,Func<PluginCatalogEntry[]> installed,Action changed,HttpClient? testHttp=null)
+    internal PluginMarketWindow(Action<string> install,Func<PluginCatalogEntry[]> installed,Action changed,HttpClient? testHttp=null,Func<string,string,bool>? installPackage=null)
     {
         this.install=install;this.installed=installed;this.changed=changed;
+        this.installPackage=installPackage ?? ((path,id)=>{install(path);return true;});
         http=testHttp ?? new HttpClient(new HttpClientHandler{AllowAutoRedirect=false,UseCookies=false}){Timeout=TimeSpan.FromSeconds(25)};market=new(http);
         Title="灵动胶囊 · 插件市场";Width=Math.Min(660,SystemParameters.WorkArea.Width-40);Height=Math.Min(700,SystemParameters.WorkArea.Height-48);
         WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.NoResize;AllowsTransparency=true;Background=Brushes.Transparent;WindowStartupLocation=WindowStartupLocation.CenterOwner;FontFamily=Design.UserFont;FontSize=13;
@@ -37,8 +40,8 @@ internal sealed class PluginMarketWindow : Window
         var controls=new StackPanel();Grid.SetRow(controls,1);layout.Children.Add(controls);
         var searchLayout=new Grid();searchLayout.Children.Add(search);var placeholder=new TextBlock{Text="搜索组件、作者或描述",Margin=new(11,0,0,0),VerticalAlignment=VerticalAlignment.Center,IsHitTestVisible=false};Design.Bind(placeholder,TextBlock.ForegroundProperty,"TextSecondary");searchLayout.Children.Add(placeholder);
         var searchBorder=new Border{CornerRadius=new(12),Child=searchLayout,Margin=new(0,0,0,10)};Design.Bind(searchBorder,Border.BackgroundProperty,"CardFill");Design.Bind(search,ForegroundProperty,"TextPrimary");controls.Children.Add(searchBorder);
-        var toolbar=new WrapPanel();toolbar.Children.Add(refresh);toolbar.Children.Add(categoryButton);var sorting=new Button{Content="按名称",Padding=new(12,8,12,8),Margin=new(8,0,0,0)};toolbar.Children.Add(sorting);toolbar.Children.Add(updates);controls.Children.Add(toolbar);
-        Grid.SetRow(status,2);Design.Bind(status,TextBlock.ForegroundProperty,"TextSecondary");layout.Children.Add(status);
+        var toolbar=new WrapPanel();toolbar.Children.Add(refresh);toolbar.Children.Add(categoryButton);var sorting=new Button{Content="按名称",Padding=new(12,8,12,8),Margin=new(8,0,0,0)};toolbar.Children.Add(sorting);toolbar.Children.Add(updates);toolbar.Children.Add(updateAll);controls.Children.Add(toolbar);
+        var statusArea=new ScrollViewer{Content=status,MaxHeight=140,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};Grid.SetRow(statusArea,2);Design.Bind(status,TextBlock.ForegroundProperty,"TextSecondary");layout.Children.Add(statusArea);
         var scroll=new ScrollViewer{Content=rows,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};Grid.SetRow(scroll,3);layout.Children.Add(scroll);
         search.TextChanged+=(_,_)=>{placeholder.Visibility=search.Text.Length==0 ? Visibility.Visible : Visibility.Collapsed;Render();};updates.Checked+=(_,_)=>Render();updates.Unchecked+=(_,_)=>Render();sorting.Click+=(_,_)=>{newest=!newest;sorting.Content=newest ? "按版本" : "按名称";Render();};
         categoryButton.Click+=(_,_)=>
@@ -47,6 +50,7 @@ internal sealed class PluginMarketWindow : Window
             foreach(var name in new[]{""}.Concat(packages.Select(item=>item.Category).Distinct().Order())){var value=name;var option=new MenuItem{Header=value.Length==0 ? "全部类别" : value,IsCheckable=true,IsChecked=category==value};option.Click+=(_,_)=>{category=value;categoryButton.Content=value.Length==0 ? "全部类别" : value;Render();};menu.Items.Add(option);}menu.IsOpen=true;
         };
         refresh.Click+=async(_,_)=>await RefreshAsync();Loaded+=async(_,_)=>await RefreshAsync();
+        updateAll.Click+=async(_,_)=>await UpdateAllAsync();
         Closed+=(_,_)=>{closed=true;lifetime.Cancel();http.Dispose();lifetime.Dispose();};
     }
     internal async Task RefreshAsync()
@@ -59,6 +63,7 @@ internal sealed class PluginMarketWindow : Window
     private void Render()
     {
         rows.Children.Clear();var local=installed();var query=search.Text.Trim();
+        var updateCount=EligibleUpdates().Length;updateAll.Content=updateCount==0 ? "暂无更新" : $"更新全部（{updateCount}）";updateAll.IsEnabled=!working && updateCount>0;
         IEnumerable<MarketPlugin> visible=packages.Where(item=>(category.Length==0 || item.Category==category) && (query.Length==0 || (item.Name+" "+item.Author+" "+item.Description).Contains(query,StringComparison.CurrentCultureIgnoreCase)));
         visible=newest ? visible.OrderByDescending(item=>PluginMarket.VersionOf(item.Version)) : visible.OrderBy(item=>item.Name);
         foreach(var item in visible)
@@ -78,12 +83,15 @@ internal sealed class PluginMarketWindow : Window
     private async Task InstallAsync(MarketPlugin package,string? existing)
     {
         if(working || closed)return;
-        if(CardDialog.Show("安装并运行此组件？",$"{package.Name} · {package.Author}\n许可：{package.License}\n插件与主程序同进程运行，可访问本机资源。请仅安装信任的组件。","继续")==null)return;
+        if(CardDialog.Show("安装或启用此组件？",$"{package.Name} · {package.Author}\n许可：{package.License}\n插件与主程序同进程运行，可访问本机资源。新安装会启用，更新保留原状态；请仅安装信任的组件。","继续")==null)return;
         working=true;refresh.IsEnabled=false;status.Text=existing==null ? "正在下载并校验…" : "正在启用…";Render();string? download=null;
         try
         {
             download=existing==null ? await market.DownloadAsync(package,Path.Combine(Settings.Folder,"Downloads"),typeof(MainWindow).Assembly.GetName().Version!,lifetime.Token) : null;
-            if(closed)return;install(existing ?? download!);changed();status.Text="组件已启用。";
+            if(closed)return;
+            if(existing!=null){install(existing);status.Text="组件已启用。";}
+            else status.Text=installPackage(download!,package.Id) ? "组件已安装并启用。" : "组件已更新，继续保持停用。";
+            changed();
         }
         catch(Exception error)
         {if(!closed)status.Text="安装未完成："+error.Message;}
@@ -92,5 +100,26 @@ internal sealed class PluginMarketWindow : Window
             if(download!=null)try{File.Delete(download);}catch(IOException){ }catch(UnauthorizedAccessException){ }
             working=false;if(!closed){refresh.IsEnabled=true;Render();}
         }
+    }
+    private MarketPlugin[] EligibleUpdates()
+    {
+        var local=installed();var host=typeof(MainWindow).Assembly.GetName().Version!;
+        return packages.Where(package=>PluginMarket.VersionOf(package.MinimumHostVersion)<=host && local.Any(item=>item.Id==package.Id && item.Error.Length==0 && !item.PendingRemoval) &&
+            local.Where(item=>item.Id==package.Id && item.Error.Length==0 && !item.PendingRemoval).All(item=>PluginMarket.VersionOf(item.Version)<PluginMarket.VersionOf(package.Version))).ToArray();
+    }
+    private async Task UpdateAllAsync()
+    {
+        if(working || closed)return;var candidates=EligibleUpdates();if(candidates.Length==0)return;
+        var list=string.Join("\n",candidates.Select(item=>item.Name+" · "+item.Version));
+        if(CardDialog.Show($"更新 {candidates.Length} 个组件？",list+"\n\n组件可访问本机资源。更新保留启用/停用状态；失败项保留旧版，其余组件继续更新。","全部更新")==null)return;
+        working=true;refresh.IsEnabled=false;Render();
+        try
+        {
+            var result=await new MarketUpdater(market).RunAsync(candidates,Path.Combine(Settings.Folder,"Downloads"),typeof(MainWindow).Assembly.GetName().Version!,installPackage,name=>{if(!closed)status.Text="正在更新："+name;},lifetime.Token);
+            if(closed)return;changed();status.Text=$"已更新 {result.Succeeded} 个，失败 {result.Failures.Count} 个。"+(result.Canceled ? "更新已取消。" : "");
+            if(result.Failures.Count>0)status.Text+="\n"+string.Join("\n",result.Failures.Select(item=>item.Key+"："+item.Value));
+        }
+        catch(Exception error){if(!closed)status.Text="更新未完成："+error.Message;}
+        finally{working=false;if(!closed){refresh.IsEnabled=true;Render();}}
     }
 }

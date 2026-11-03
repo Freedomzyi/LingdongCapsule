@@ -90,8 +90,11 @@ internal static class PluginTests
             using(var zip=ZipFile.Open(mismatch,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.2.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
             var mismatchRejected=false;try{window.LoadPlugin(mismatch,save:false);}catch(InvalidDataException){mismatchRejected=true;}
             if(!mismatchRejected || window.LivePluginView.Children.Count!=1 || windowSettings.PluginFiles.Single()!=retained)throw new Exception("Failed plugin upgrade did not restore previous entry");
+            var downgrade=Path.Combine(packageRoot,"downgrade.zip");using(var zip=ZipFile.Open(downgrade,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.0.1\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
+            var originalView=window.LivePluginView.Children[0];var downgradeRejected=false;try{window.InstallMarketPackage(downgrade,"fixture.clock");}catch(InvalidOperationException){downgradeRejected=true;}
+            if(!downgradeRejected || window.LivePluginView.Children[0]!=originalView || windowSettings.PluginFiles.Single()!=retained)throw new Exception("Market downgrade changed an active component before rejection");
             var preferences=System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences);
-            failSave=true;var failed=false;try{window.LoadPlugin(valid);}catch(IOException){failed=true;}
+            failSave=true;var failed=false;try{window.InstallMarketPackage(valid,"fixture.clock");}catch(IOException){failed=true;}
             if(!failed || windowSettings.PluginFiles.Single()!=retained || window.LivePluginView.Children.Count!=1 || System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences)!=preferences || saved.Length!=0 || writes!=1)throw new Exception("Save failure did not restore old plugin, restart path and preferences");
             failed=false;try{window.DisablePlugin("fixture.clock");}catch(IOException){failed=true;}
             if(!failed || windowSettings.PluginFiles.Single()!=retained || window.LivePluginView.Children.Count!=1)throw new Exception("Failed disable changed live plugin");
@@ -115,7 +118,14 @@ internal static class PluginTests
             var catalog=window.InstalledPlugins();var stoppedRow=catalog.Single(item=>item.EntryFile==stopped);
             if(!stoppedRow.CanEnable || stoppedRow.Name!="Second" || catalog.Single(item=>item.EntryFile==retained).CanEnable)throw new Exception("Installed catalog active/stopped state failed");
             window.LoadPlugin(stopped);if(window.LivePluginView.Children.Count!=2 || !windowSettings.PluginFiles.Contains(stopped))throw new Exception("Stopped installed package could not be re-enabled by entry");
-            window.DisablePlugin("fixture.second");var pendingBeforeRemoval=windowSettings.PendingPluginRemovals.ToArray();failSave=true;failed=false;
+            window.DisablePlugin("fixture.second");preferences=System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences);failSave=true;failed=false;
+            try{window.InstallMarketPackage(secondPackage,"fixture.second");}catch(IOException){failed=true;}
+            if(!failed || window.LivePluginView.Children.Count!=1 || !window.InstalledPlugins().Any(item=>item.EntryFile==stopped && item.CanEnable) || System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences)!=preferences)throw new Exception("Stopped update save failure changed original component or preferences");
+            failSave=false;
+            if(window.InstallMarketPackage(secondPackage,"fixture.second") || window.LivePluginView.Children.Count!=1 || windowSettings.PluginFiles.Single()!=retained || System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences)!=preferences)throw new Exception("Stopped component update activated it or changed preferences");
+            stopped=window.InstalledPlugins().Single(item=>item.Id=="fixture.second" && item.CanEnable).EntryFile;
+            Console.WriteLine("PASS Stopped market update preserves disabled state/preferences; save failure retains previous package");
+            var pendingBeforeRemoval=windowSettings.PendingPluginRemovals.ToArray();failSave=true;failed=false;
             var stoppedManifest=Path.Combine(Path.GetDirectoryName(stopped)!,"plugin.json");var originalManifest=File.ReadAllText(stoppedManifest);
             File.WriteAllText(stoppedManifest,originalManifest.Replace("0.1.0","0.2.0"));var wrongVersion=false;
             try{window.LoadPlugin(stopped);}catch(InvalidDataException){wrongVersion=true;}
