@@ -244,9 +244,14 @@ public partial class MainWindow : Window
     private uint testNoticeId;
     private void TestNotice() { if(!AcceptNotification(new("self", "灵动胶囊 · 测试", "通知交互已就绪", "这是一条本地测试通知。真实系统通知需要授权；点击展开，再次点击收起。",++testNoticeId), DateTimeOffset.Now))Design.PresentMessage("通知暂未显示","请检查通知开关或安静时段。"); }
     private void ApplyCapture() { if (!SetWindowDisplayAffinity(new WindowInteropHelper(this).Handle, settings.ShowInCapture ? 0u : 0x11u)) { /* Supported capture tools only; no global capture guarantee. */ } }
-    private void OpenSettings()
+    internal void OpenSettings()
     {
-        if (settingsWindow is not null) { settingsWindow.Activate(); return; }
+        if (closing) return;
+        if (settingsWindow is not null)
+        {
+            if (settingsWindow.WindowState == WindowState.Minimized) settingsWindow.WindowState = WindowState.Normal;
+            settingsWindow.Show(); settingsWindow.Activate(); return;
+        }
         settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin,InstallMarketPackage,DisplayComponents,MoveDisplayComponent);
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
