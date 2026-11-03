@@ -1,4 +1,4 @@
-param([string]$Dotnet='dotnet',[switch]$IncludeLiveMedia)
+param([string]$Dotnet='dotnet',[switch]$IncludeLiveMedia,[switch]$IncludeNativeToast)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 if($Dotnet -eq 'dotnet' -and (Test-Path -LiteralPath (Join-Path $root '.tools\dotnet\dotnet.exe'))){$Dotnet=Join-Path $root '.tools\dotnet\dotnet.exe'}
@@ -31,6 +31,7 @@ try {
         @{Name='overview';Project='tests/Capsule.WindowsTests';Args=@('--overview-test',(Join-Path $evidence 'overview'))}
     )
     if($IncludeLiveMedia){$suites+=@{Name='live-media';Project='tests/Capsule.WindowsTests';Args=@('--audio-probe','--render-media',(Join-Path $evidence 'media'))}}
+    if($IncludeNativeToast){$suites+=@{Name='native-toast';Project='tests/Capsule.WindowsTests';Args=@('--native-toast-test')}}
     foreach($suite in $suites){
         $watch=[Diagnostics.Stopwatch]::StartNew()
         $arguments=@('run','--project',$suite.Project,'-c','Release','--')+$suite.Args

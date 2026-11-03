@@ -312,3 +312,12 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 许可清单曾因 PowerShell 数组拼接被拆成两个路径，发布门禁拒绝错误清单，旧输出未被替换；修复后用新暂存目录重试，失败目录保留诊断。来源与范围在 licenses/SOURCES.md。
 - Windows PowerShell 5.1 对真实 ZIP 解压验证通过：artifacts/published-tests/15a16fd629544f9d81ec345e16b490ad。核对 517 个条目、程序/许可清单哈希和脚本 BOM；子进程共享运行时根指向不存在的专用目录，实际 coreclr 从解压包加载，自己的安装入口初始化并正常退出，未执行安装。该包来自开发工作树，sourceDirty=true；随后将主程序与引导验证加入 CI，仅允许无本程序数据的新用户环境。本机既有数据拒绝保护已验证。
 - 上述解压与运行时来源证明仍不是干净 Windows 全部安装验收。正式候选须由固定干净提交重新构建、核验 CI 与下载包，再完成全部交付门槛。
+
+## 干净发行包与真实系统通知补充验证
+
+- 干净提交 c0ee939cdb3d0ed42e1a63f4d1a1ec7cd2577217 的本地构建及 PS5 解压安装入口通过：artifacts/published-tests/f6e22b1462054d6789d5a33a5d6545a1；归档 SHA256 8CF6B25A8EBDD93FE38C3513E7ECD753DAD46B3E57EF558D4C5D86B12E6681D7。仍不代表实际安装或正式候选。
+- 0e90f93 的 GitHub Actions run 41739749280 成功，包含干净构建、解压安装入口和无本程序数据时主程序/初次引导启动。Windows runner 不能替代干净 Windows 11 安装维护验收。
+- licenses/** 禁止 Git 换行转换并重新入库，Windows SDK 原始 RTF 的提交内容与工作文件均为 246945 字节，避免克隆后改变原始来源文本。
+- 本机通知权限已为 Allowed，没有请求或修改权限。新增可选 --native-toast-test，以随机独立 AUMID/快捷方式发送静音自建 Windows toast；从真实 NotificationService 到系统通知数据库精确 ID/身份/时间/文本匹配，再解码自建头像，全部通过：artifacts/native-toast-tests/f234305dbef14d9ca7b4114fa65046ee。日志只记录结果，不记录其他通知正文。结束撤销自己的 toast、快捷方式与身份登记，不触碰日用应用登记。
+- 首次测试发现系统保留的部分通知 AppInfo 返回 NotImplementedException；测试枚举已像生产适配器一样跳过无法解析身份的项目。此链路通过不等于真实微信头像、WPF 显示或物理交互通过。没有控制真实播放器。
+- 顺序整合脚本以 -IncludeNativeToast 显式启用此真实系统测试；默认无测试通知，也不向 CI 请求通知权限。
