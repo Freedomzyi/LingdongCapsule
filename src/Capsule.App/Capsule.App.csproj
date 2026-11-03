@@ -6,7 +6,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest><Version>0.1.0</Version>
     <ApplicationIcon>../../assets/icon.ico</ApplicationIcon>
   </PropertyGroup>
-  <ItemGroup><Using Remove="System.Windows.Forms"/><Using Remove="System.Drawing"/><ProjectReference Include="../Capsule.Core/Capsule.Core.csproj" /></ItemGroup>
+  <ItemGroup><Using Remove="System.Windows.Forms"/><Using Remove="System.Drawing"/><ProjectReference Include="../Capsule.Core/Capsule.Core.csproj" /><ProjectReference Include="../Capsule.PluginApi/Capsule.PluginApi.csproj" /></ItemGroup>
   <ItemGroup><Resource Include="../../assets/icon.ico" Link="Assets/icon.ico"/><Resource Include="../../assets/icon.png" Link="Assets/icon.png"/></ItemGroup>
   <ItemGroup><PackageReference Include="NAudio.Core" Version="2.2.1"/><PackageReference Include="NAudio.Wasapi" Version="2.2.1"/><PackageReference Include="ModelSensingProtocol" Version="0.1.0-alpha.1"/></ItemGroup>
 </Project>

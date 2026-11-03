@@ -23,6 +23,7 @@ internal static class Program
         if(args.Contains("--release-test")){await ReleaseTests.RunAsync();return;}
         if(args.Contains("--solo-test")){await SoloTests.RunAsync();return;}
         if(args.Contains("--msp-test")){await MspTests.RunAsync();return;}
+        if(args.Contains("--plugin-test")){PluginTests.Run();return;}
         if(args.Contains("--overview-test")){await OverviewTests.RunAsync(args);return;}
         if(args.Contains("--notification-test")){await NotificationTests.RunAsync(args);return;}
         if(args.Contains("--shortcut-test")){await ShortcutTests.RunAsync();return;}
