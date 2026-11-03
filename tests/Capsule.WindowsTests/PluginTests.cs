@@ -28,6 +28,7 @@ internal static class PluginTests
     internal static async Task RunAsync()
     {
         var packageRoot=Path.Combine(Environment.CurrentDirectory,"artifacts","plugin-package-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(packageRoot);
+        PluginPackageTests.Run(packageRoot,typeof(FixturePlugin).Assembly.Location);
         var valid=Path.Combine(packageRoot,"valid.zip");
         using(var zip=ZipFile.Open(valid,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.1.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
         var installed=PluginPackage.Install(valid,Path.Combine(packageRoot,"installed"));

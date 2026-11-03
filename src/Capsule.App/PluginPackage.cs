@@ -37,6 +37,8 @@ internal static class PluginPackage
         PluginPackageInfo info;using(var stream=manifest.Open())info=JsonSerializer.Deserialize<PluginPackageInfo>(stream,new JsonSerializerOptions{PropertyNameCaseInsensitive=true}) ?? throw new InvalidDataException("插件清单为空。");
         if(!Regex.IsMatch(info.Id ?? "",@"^[a-z][a-z0-9.-]{2,79}$") || string.IsNullOrWhiteSpace(info.Name) || info.Name.Length>80 || !Version.TryParse(info.Version,out _))throw new InvalidDataException("插件清单身份无效。");
         var entryPath=Relative(info.Entry);if(!entryPath.EndsWith(".dll",StringComparison.OrdinalIgnoreCase) || !names.Contains(entryPath))throw new InvalidDataException("插件入口不存在或不是 DLL。");
+        var actualEntry=zip.Entries.First(item=>string.Equals(Relative(item.FullName),entryPath,StringComparison.OrdinalIgnoreCase));
+        if(actualEntry.FullName.EndsWith('/') || actualEntry.Length==0)throw new InvalidDataException("插件入口必须是非空文件。");
         var basePath=Path.GetFullPath(root);Directory.CreateDirectory(basePath);
         if(File.GetAttributes(basePath).HasFlag(FileAttributes.ReparsePoint))throw new InvalidDataException("插件根目录不能是重解析点。");
         var target=Path.Combine(basePath,"package-"+Guid.NewGuid().ToString("N"));
@@ -70,6 +72,7 @@ internal static class PluginPackage
         if(!Regex.IsMatch(folder,@"^package-[a-f0-9]{32}$"))return null;
         var directory=Path.Combine(basePath,folder);var receipt=Path.Combine(directory,".capsule-install.json");
         if(!File.Exists(receipt) || File.GetAttributes(basePath).HasFlag(FileAttributes.ReparsePoint) || File.GetAttributes(directory).HasFlag(FileAttributes.ReparsePoint))return null;
+        if(File.GetAttributes(receipt).HasFlag(FileAttributes.ReparsePoint) || new FileInfo(receipt).Length>16384)return null;
         using var json=JsonDocument.Parse(File.ReadAllText(receipt));var data=json.RootElement;
         return data.GetProperty("schema").GetInt32()==1 && string.Equals(data.GetProperty("root").GetString()?.TrimEnd(Path.DirectorySeparatorChar),basePath,StringComparison.OrdinalIgnoreCase) && data.GetProperty("folder").GetString()==folder ? directory : null;
     }
