@@ -7,15 +7,24 @@ namespace Capsule.App;
 
 internal static class Design
 {
-    public static void ApplySystemTheme()
+    public static void ApplySystemTheme()=>ApplyTheme(2);
+    public static void ApplyTheme(int mode)
     {
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-        if (key?.GetValue("AppsUseLightTheme") is not int value || value != 0) return;
-        Set("PageFill", "#1C1C1E"); Set("CardFill", "#2C2C2E"); Set("TextPrimary", "#F5F5F7"); Set("TextSecondary", "#A1A1AA"); Set("ButtonFill", "#3A3A3C");
+        var dark=mode==0 || mode==2 && key?.GetValue("AppsUseLightTheme") is int value && value==0;
+        Set("PageFill",dark ? "#1C1C1E" : "#F5F5F7");Set("CardFill",dark ? "#2C2C2E" : "#FFFFFF");Set("TextPrimary",dark ? "#F5F5F7" : "#1D1D1F");Set("TextSecondary",dark ? "#A1A1AA" : "#7A7A82");Set("ButtonFill",dark ? "#3A3A3C" : "#E9E9EF");
     }
-    private static void Set(string name, string color) => System.Windows.Application.Current.Resources[name] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+    private static void Set(string name,string color)
+    {
+        var value=(Color)ColorConverter.ConvertFromString(color);
+        if(System.Windows.Application.Current.Resources[name] is SolidColorBrush brush && !brush.IsFrozen)brush.Color=value;
+        else System.Windows.Application.Current.Resources[name]=new SolidColorBrush(value);
+    }
     public static void Bind(FrameworkElement element, DependencyProperty property, string resource) => element.SetResourceReference(property, resource);
-    public static Border Card(UIElement content) => new() { Background = (Brush)System.Windows.Application.Current.FindResource("CardFill"), CornerRadius = new(16), Padding = new(16, 10, 16, 10), Margin = new(0, 0, 0, 12), Child = content };
+    public static Border Card(UIElement content)
+    {
+        var card=new Border{CornerRadius=new(16),Padding=new(16,10,16,10),Margin=new(0,0,0,12),Child=content};Bind(card,Border.BackgroundProperty,"CardFill");return card;
+    }
     public static void PresentMessage(string title, string message)
     {
         var window = new Window { Title = title, Width = 360, SizeToContent = SizeToContent.Height, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, AllowsTransparency = true, Background = Brushes.Transparent, WindowStartupLocation = WindowStartupLocation.CenterScreen, Topmost = true, FontFamily = new("Microsoft YaHei UI") };

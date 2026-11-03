@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null)
     {
         settings=initialSettings ?? Settings.Load();
+        Design.ApplyTheme(settings.ThemeMode);
         shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();
         InitializeVisibility();
@@ -54,13 +55,14 @@ public partial class MainWindow : Window
             tray.MouseUp += (_, e) => { if (e.Button == Forms.MouseButtons.Right) Dispatcher.Invoke(ShowTrayMenu); };
             tray.DoubleClick += (_, _) => Dispatcher.Invoke(OpenSettings);
             SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
+            SystemEvents.UserPreferenceChanged+=OnThemePreferenceChanged;
             SystemEvents.PowerModeChanged += OnPowerChanged;
             timer.Tick += async (_, _) => await RefreshAsync(); timer.Start();
             await RefreshAsync();
             if (Environment.GetCommandLineArgs().Contains("--settings")) OpenSettings();
             else if (!suppressOnboarding && !settings.OnboardingCompleted && !Environment.GetCommandLineArgs().Contains("--startup")) ShowWelcome();
         };
-        Closed += (_, _) => { closing = true;visibilityProbe.Stop();shortcuts.Dispose(); timer.Stop();panelCollapse.Stop();notificationSound.Dispose();overview.Dispose();mediaTimer.Stop();audio.Dispose();lyricRequest?.Cancel();lyricRequest?.Dispose();lyricsClient.Dispose(); media.Dispose(); notifications.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); settingsWindow?.Close(); welcomeWindow?.Close(); SystemEvents.DisplaySettingsChanged -= OnDisplayChanged; SystemEvents.PowerModeChanged -= OnPowerChanged; };
+        Closed += (_, _) => { closing = true;visibilityProbe.Stop();shortcuts.Dispose(); timer.Stop();panelCollapse.Stop();notificationSound.Dispose();overview.Dispose();mediaTimer.Stop();audio.Dispose();lyricRequest?.Cancel();lyricRequest?.Dispose();lyricsClient.Dispose(); media.Dispose(); notifications.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); settingsWindow?.Close(); welcomeWindow?.Close(); SystemEvents.UserPreferenceChanged-=OnThemePreferenceChanged;SystemEvents.DisplaySettingsChanged -= OnDisplayChanged; SystemEvents.PowerModeChanged -= OnPowerChanged; };
     }
     private IntPtr WindowHook(IntPtr hwnd, int msg, IntPtr wp, IntPtr lp, ref bool handled)
     {
@@ -70,6 +72,7 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
     private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(Position);
+    private void OnThemePreferenceChanged(object sender,UserPreferenceChangedEventArgs e){if(!closing && settings.ThemeMode==2)Dispatcher.BeginInvoke(()=>Design.ApplyTheme(2));}
     private void OnPowerChanged(object sender, PowerModeChangedEventArgs e) { if (e.Mode == PowerModes.Resume) Dispatcher.BeginInvoke(() => { state.Tick(DateTimeOffset.Now); notifications.ResetBaseline(); Position(); }); }
     private void Position()
     {
@@ -176,6 +179,7 @@ public partial class MainWindow : Window
     }
     private void SaveAndApplySettings()
     {
+        Design.ApplyTheme(settings.ThemeMode);
         try{settings.Save();}catch(Exception exception){Design.PresentMessage("设置未能保存",exception.Message);}
         media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
         if(!settings.MediaEnabled)state.UpdateMedia(new("","",false,false));

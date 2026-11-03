@@ -52,6 +52,7 @@ public sealed class SettingsWindow : Window
         var panel=pages["个性化中心"];
 
         Heading(panel, "外观与动效");
+        AddSelection(panel,"界面主题",()=>new Dictionary<string,string>{{"0","深色"},{"1","浅色"},{"2","跟随系统"}},settings.ThemeMode.ToString(),value=>{settings.ThemeMode=int.Parse(value);Design.ApplyTheme(settings.ThemeMode);foreach(var tab in tabs)if(tab.Value.Background!=Brushes.Transparent)tab.Value.SetResourceReference(Control.BackgroundProperty,"ButtonFill");},"设置、引导和弹窗即时切换；岛体材质主题仍在单独对齐。");
         var appearance = new StackPanel();
         AddSlider(appearance, "播放与通知宽度", 220, 480, settings.Width, v => settings.Width = v, "逻辑像素；播放固定宽度，通知不会超过此值。");
         AddSlider(appearance, "折叠高度", 32, 60, settings.CompactHeight, v => settings.CompactHeight = v, "逻辑像素；默认 35，控制时钟与紧凑媒体高度，不压缩展开内容。", 1);
