@@ -8,6 +8,8 @@ Push-Location $root
 try {
     & $Dotnet run --project tests/Capsule.Tests -c Release
     if ($LASTEXITCODE -ne 0) { throw 'State tests failed' }
+    & $Dotnet build tests/Capsule.WindowsTests -c Release
+    if ($LASTEXITCODE -ne 0) { throw 'Windows integration test build failed' }
     & $Dotnet publish src/Capsule.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false -o artifacts/app
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
     foreach($name in 'Capsule.Core.pdb','LingdongCapsule.pdb') {
