@@ -35,6 +35,7 @@ internal static class LyricsTests
             var result=await lyrics.FetchAsync(track,default);
             if(result.Source!="QQ 音乐" || result.Lines.Count!=2 || result.Lines[0].Translation!="自写测试译文" || handler.Paths.Count!=3)throw new Exception("QQ relay failure did not fall back using matched mid");
             if((await lyrics.FetchAsync(track with{Artist=""},default)).Lines.Count!=0 || handler.Paths.Count!=3 || lyrics.Status!="等待音乐")throw new Exception("Unavailable lyric identity retained a previous connected status or made a request");
+            if((await lyrics.FetchAsync(track with{IsVideo=true},default)).Lines.Count!=0 || handler.Paths.Count!=3)throw new Exception("Video metadata triggered a lyric lookup");
         }
         using(var handler=new Handler(request=>
         {

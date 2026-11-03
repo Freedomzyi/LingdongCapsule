@@ -17,7 +17,7 @@ public sealed partial class LyricsClient : IDisposable
 
     public async Task<LyricsDocument> FetchAsync(MediaSnapshot track, CancellationToken cancellation)
     {
-        if (!track.Available || string.IsNullOrWhiteSpace(track.Artist) || track.Title == "未知曲目" || Normalize(track.Title).Length==0 || Normalize(track.Artist).Length==0){Status="等待音乐";return LyricsDocument.Empty;}
+        if (!track.Available || track.IsVideo || string.IsNullOrWhiteSpace(track.Artist) || track.Title == "未知曲目" || Normalize(track.Title).Length==0 || Normalize(track.Artist).Length==0){Status="等待音乐";return LyricsDocument.Empty;}
         Status = "正在获取歌词";
         var netease=track.SourceId.Contains("netease",StringComparison.OrdinalIgnoreCase) || track.SourceId.Contains("cloudmusic",StringComparison.OrdinalIgnoreCase);
         var order=netease ? new[]{"netease","netease-official","tencent","qq-official","lrclib"} : new[]{"tencent","qq-official","netease","netease-official","lrclib"};

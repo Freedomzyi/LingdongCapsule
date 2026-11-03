@@ -14,6 +14,10 @@ Check(ComponentOrder.Effective(new[]{"plugin:stopped.clock","hardware","media","
 var overflowingTime=new string('9',400);
 Check(LyricsDocument.Parse("["+overflowingTime+":00]Test").Lines.Count==0 && LyricsDocument.Parse("[offset:"+overflowingTime+"]\n[00:01.00]Test").Lines.Count==0,"Non-finite lyric timestamps and offsets are rejected");
 Check(!LyricsDocument.Parse("[00:01.00]Test",wordTiming:"[1000,2000](1000,"+overflowingTime+",0)Test").HasWordTiming,"Non-finite word durations fall back to normal lyric timing");
+Check(MediaSessionPolicy.Matches("LX-Music-Desktop.exe","lxmusic") && MediaSessionPolicy.Matches("Microsoft.MicrosoftEdge.Stable!App","browser") && !MediaSessionPolicy.Matches("qqmusic.exe","netease") && MediaSessionPolicy.Matches("QQMusic.exe","other","qqmusic.EXE"),"Media source aliases and explicit source selection are preserved");
+var validity=new StaleMediaSessions();
+Check(!validity.IsStale("bilibili.test","Owned title",false,false,0) && !validity.IsStale("bilibili.test","Owned title",false,false,100) && validity.IsStale("bilibili.test","Owned title",false,false,250),"Tracked stale media requires two separated missing-window observations");
+Check(!validity.IsStale("bilibili.test","Owned title",true,false,300) && !validity.IsStale("bilibili.test","Owned title",false,null,400) && !validity.IsStale("qqmusic","Owned title",false,false,1000),"Playing, unknown evidence and untracked apps cannot be discarded as stale");
 Check(s.Mode == IslandMode.Clock, "Initial clock");
 s.UpdateMedia(new("A", "Artist", true, true));
 s.Show(new("app", "App", "Title", "Body"), now);

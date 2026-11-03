@@ -22,7 +22,7 @@ public partial class MainWindow
     }
     private void UpdateLyrics(MediaSnapshot track)
     {
-        var key=!SoloSelected && settings.MediaEnabled && settings.LyricsEnabled && track.Available && track.Artist.Length>0 ? $"{track.SourceId}|{track.Title}|{track.Artist}|{track.Duration.TotalSeconds:0}" : "";
+        var key=!SoloSelected && settings.MediaEnabled && settings.LyricsEnabled && track.Available && !track.IsVideo && track.Artist.Length>0 ? $"{track.SourceId}|{track.Title}|{track.Artist}|{track.Album}|{track.Duration.TotalSeconds:0}" : "";
         if(key==lyricKey)return;
         lyricKey=key;lyricRequest?.Cancel();lyricRequest?.Dispose();lyricRequest=null;lyrics=LyricsDocument.Empty;
         if(key.Length==0)return;

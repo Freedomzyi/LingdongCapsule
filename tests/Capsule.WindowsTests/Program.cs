@@ -20,6 +20,7 @@ internal static class Program
     }
     private static async Task RunAsync(string[] args)
     {
+        if(args.Contains("--media-test")){await MediaTests.RunAsync();return;}
         if(args.Contains("--lyrics-test")){await LyricsTests.RunAsync();return;}
         if(args.Contains("--lyrics-live")){await LyricsTests.RunLiveAsync();return;}
         if(args.Contains("--market-live")){await MarketTests.RunLiveAsync(args.Contains("--download"));return;}

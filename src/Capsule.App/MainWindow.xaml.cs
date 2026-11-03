@@ -66,6 +66,7 @@ public partial class MainWindow : Window
         panelCollapse.Tick+=(_,_)=>{if(overview.DialogOpen || seeking)return;panelCollapse.Stop();if(!IsMouseOver){overviewOpen=false;controlsOpen=false;Render();}};
         LiveLyrics.FrameProvider=CurrentLyricFrame;
         InitializeMediaControls();
+        media.Changed+=OnNativeMediaChanged;Closed+=(_,_)=>media.Changed-=OnNativeMediaChanged;
         InitializeNotifications();
         SizeChanged+=(_,_)=>CenterOnMonitor();
         desiredHeight = settings.CompactHeight; Height = desiredHeight;
@@ -98,7 +99,8 @@ public partial class MainWindow : Window
     }
     private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(Position);
     private void OnThemePreferenceChanged(object sender,UserPreferenceChangedEventArgs e){if(!closing && settings.ThemeMode==2)Dispatcher.BeginInvoke(()=>Design.ApplyTheme(2));}
-    private void OnPowerChanged(object sender, PowerModeChangedEventArgs e) { if (e.Mode == PowerModes.Resume) Dispatcher.BeginInvoke(() => { state.Tick(DateTimeOffset.Now); notifications.ResetBaseline(); Position(); }); }
+    private void OnPowerChanged(object sender, PowerModeChangedEventArgs e) { if (e.Mode == PowerModes.Resume) Dispatcher.BeginInvoke(() => { media.Invalidate();state.Tick(DateTimeOffset.Now); notifications.ResetBaseline(); Position();_=RefreshAsync(); }); }
+    private void OnNativeMediaChanged(){if(!closing && !Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(async()=>await RefreshAsync());}
     private void Position()
     {
         BeginAnimation(WidthProperty, null); BeginAnimation(HeightProperty, null);
@@ -116,6 +118,8 @@ public partial class MainWindow : Window
             media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
             solo.Configure(settings.MediaEnabled && SoloSelected);
             var latest = await media.ReadAsync();
+            if(closing)return;
+            timer.Interval=TimeSpan.FromMilliseconds(media.PollMilliseconds);
             if(SoloSelected)
             {
                 var local=solo.Snapshot();
@@ -170,7 +174,7 @@ public partial class MainWindow : Window
         NoticePanel.Visibility = mode == IslandMode.Notification ? Visibility.Visible : Visibility.Collapsed;
         Track.Text = state.Media.Title; Artist.Text = state.Media.Artist;
         CoverArt.Source = media.Cover; CoverFrame.Visibility = media.Cover is null ? Visibility.Collapsed : Visibility.Visible;
-        Artist.Visibility = IsMediaExpanded ? Visibility.Visible : Visibility.Collapsed;
+        Artist.Visibility = IsMediaExpanded && state.Media.Artist.Length>0 ? Visibility.Visible : Visibility.Collapsed;
         var coverSize = IsMediaExpanded ? 38 : Math.Clamp(settings.CompactHeight - 10, 22, 40);
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();

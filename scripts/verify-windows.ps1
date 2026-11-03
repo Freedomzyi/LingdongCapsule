@@ -11,6 +11,7 @@ try {
     $suites=@(
         @{Name='core';Project='tests/Capsule.Tests';Args=@()},
         @{Name='lyrics';Project='tests/Capsule.WindowsTests';Args=@('--lyrics-test')},
+        @{Name='media';Project='tests/Capsule.WindowsTests';Args=@('--media-test')},
         @{Name='materials';Project='tests/Capsule.WindowsTests';Args=@('--material-test')},
         @{Name='plugins';Project='tests/Capsule.WindowsTests';Args=@('--plugin-test')},
         @{Name='market';Project='tests/Capsule.WindowsTests';Args=@('--market-test')},
