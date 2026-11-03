@@ -11,6 +11,9 @@ public sealed class Settings
     public int ClockLayout{get;set;}
     public bool HardwareEnabled{get;set;}
     public bool HardwareFirst{get;set;}
+    public bool StandbyActive{get;set;}
+    public int StandbyScene{get;set;}=1;
+    public bool StandbyDoubleClick{get;set;}
     public bool MediaShortcutsEnabled{get;set;}
     public bool IslandShortcutEnabled{get;set;}
     public Dictionary<ShortcutAction,ShortcutChord> Shortcuts{get;set;}=Enum.GetValues<ShortcutAction>().ToDictionary(action=>action,ShortcutChord.Default);
@@ -71,6 +74,7 @@ public sealed class Settings
         ThemeMode=Math.Clamp(ThemeMode,0,2);
         FontName??="";
         ClockLayout=Math.Clamp(ClockLayout,0,1);
+        StandbyScene=Math.Clamp(StandbyScene,1,3);
         static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;
         Width=Limit(Width,220,480,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
         NotificationMode=Math.Clamp(NotificationMode,0,2);NotificationHeight=Limit(NotificationHeight,40,120,55);

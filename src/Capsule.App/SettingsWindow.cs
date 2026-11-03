@@ -115,6 +115,9 @@ public sealed class SettingsWindow : Window
         panel=pages["显示设置"];
         Heading(panel,"显示位置与形态");
         var clockOptions=new StackPanel();
+        AddSelection(clockOptions,"待机场景",()=>new Dictionary<string,string>{{"1","时间"},{"2","空白"},{"3","媒体控制"}},settings.StandbyScene.ToString(),value=>settings.StandbyScene=int.Parse(value),"待机时仅显示所选内容；通知仍可临时覆盖，媒体控制需要已有媒体会话。");
+        AddCheck(clockOptions,"待机模式",settings.StandbyActive,value=>settings.StandbyActive=value,"临时使用单一场景，退出后恢复原有组件开关与顺序。");
+        AddCheck(clockOptions,"双击切换待机",settings.StandbyDoubleClick,value=>settings.StandbyDoubleClick=value,"双击岛体内容区域切换待机；启用后单击会等待系统双击判定时间。");
         AddSelection(clockOptions,"空闲组件顺序",()=>new Dictionary<string,string>{{"clock","时钟 → 硬件"},{"hardware","硬件 → 时钟"}},settings.HardwareFirst ? "hardware" : "clock",value=>settings.HardwareFirst=value=="hardware","调整折叠态已启用的时钟与硬件组件排列；关闭的组件不占位置。");
         AddSelection(clockOptions,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟对应当前定制组件；时间与日期按 HH:mm 与 MM/dd 显示，并根据内容收窄。");
         AddCheck(clockOptions,"显示时间日期",settings.ClockEnabled,value=>settings.ClockEnabled=value,"关闭后不显示时钟文本；仍保留空闲面板点击入口，不影响播放和通知。");

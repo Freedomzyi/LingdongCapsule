@@ -27,6 +27,8 @@ public partial class MainWindow : Window
     private readonly OverviewView overview;
     private readonly OverviewService compactHardware=new();
     private long nextHardwareSample;
+    private readonly DispatcherTimer islandClickDelay=new();
+    private bool skipIslandRelease;
     internal OverviewSample? CompactHardwareSample{get;private set;}
     private bool overviewOpen;
     private readonly DispatcherTimer panelCollapse=new();
@@ -40,6 +42,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         ApplyUserFont();
         InitializeVisibility();
+        islandClickDelay.Interval=TimeSpan.FromMilliseconds(Forms.SystemInformation.DoubleClickTime);
+        islandClickDelay.Tick+=(_,_)=>{islandClickDelay.Stop();if(!closing)HandleIslandClick();};
+        Closed+=(_,_)=>islandClickDelay.Stop();
+        Shell.PreviewMouseLeftButtonDown+=(_,args)=>
+        {
+            if(settings.StandbyDoubleClick && state.Notification==null && args.ClickCount==2 && (ReferenceEquals(args.OriginalSource,Shell) || ReferenceEquals(args.OriginalSource,ClockTime) || ReferenceEquals(args.OriginalSource,ClockDate)))
+            {islandClickDelay.Stop();skipIslandRelease=true;SetStandby(!settings.StandbyActive);SaveAndApplySettings();args.Handled=true;}
+        };
         overview=new OverviewView(settings,SaveAndApplySettings);OverviewHost.Content=overview;
         MouseEnter+=(_,_)=>panelCollapse.Stop();
         MouseLeave+=(_,_)=>{if(overviewOpen || controlsOpen){panelCollapse.Interval=TimeSpan.FromMilliseconds(overviewOpen ? 900 : 3000);panelCollapse.Start();}};
@@ -109,10 +119,10 @@ public partial class MainWindow : Window
     private void Render()
     {
         var clockNow=DateTime.Now;
-        ClockTime.Text=settings.ClockEnabled ? clockNow.ToString("HH:mm") : "";
+        ClockTime.Text=settings.ClockEnabled || settings.StandbyActive && settings.StandbyScene==1 ? clockNow.ToString("HH:mm") : "";
         ClockDate.Text=clockNow.ToString("MM/dd");
         ClockDate.Visibility=settings.ClockEnabled && settings.ClockLayout==1 ? Visibility.Visible : Visibility.Collapsed;
-        HardwarePanel.Visibility=settings.HardwareEnabled ? Visibility.Visible : Visibility.Collapsed;
+        HardwarePanel.Visibility=settings.HardwareEnabled && !settings.StandbyActive ? Visibility.Visible : Visibility.Collapsed;
         var hardwareIndex=Clock.Children.IndexOf(HardwarePanel);
         var targetIndex=settings.HardwareFirst ? 0 : Clock.Children.Count-1;
         if(hardwareIndex!=targetIndex){Clock.Children.Remove(HardwarePanel);Clock.Children.Insert(targetIndex,HardwarePanel);}
@@ -124,9 +134,11 @@ public partial class MainWindow : Window
         if(!settings.OverviewEnabled)overviewOpen=false;
         var showOverview=overviewOpen && mode!=IslandMode.Notification;
         var showMedia = !showOverview && (mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available));
+        if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
         OverviewHost.Visibility=showOverview ? Visibility.Visible : Visibility.Collapsed;
         Clock.Visibility = mode == IslandMode.Clock && !showMedia && !showOverview ? Visibility.Visible : Visibility.Collapsed;
-        if(settings.HardwareEnabled && Clock.Visibility==Visibility.Visible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
+        if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)Clock.Visibility=settings.StandbyScene==1 ? Visibility.Visible : Visibility.Collapsed;
+        if(HardwarePanel.Visibility==Visibility.Visible && Clock.Visibility==Visibility.Visible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
         {
             nextHardwareSample=Environment.TickCount64+1000;var sample=compactHardware.Sample();CompactHardwareSample=sample;
             CpuUsage.Text=sample.Cpu is {} cpu ? $"CPU {cpu:0}%" : "CPU —";RamUsage.Text=sample.Memory is {} ram ? $"RAM {ram}%" : "RAM —";
@@ -141,7 +153,7 @@ public partial class MainWindow : Window
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
         var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(104, SystemParameters.WorkArea.Width - 16)) : 104;
-        if(mode==IslandMode.Clock && !showMedia && !showOverview && (settings.HardwareEnabled || settings.ClockEnabled && settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
+        if(Clock.Visibility==Visibility.Visible && !showMedia && !showOverview && (HardwarePanel.Visibility==Visibility.Visible || settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);
         var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? settings.ShowTomorrow ? 278 : 258 : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;
@@ -164,6 +176,13 @@ public partial class MainWindow : Window
         BeginAnimation(HeightProperty, new DoubleAnimation(height, duration) { EasingFunction = ease });
     }
     private void OnIslandClick(object sender, MouseButtonEventArgs e)
+    {
+        if(skipIslandRelease){skipIslandRelease=false;e.Handled=true;return;}
+        if(settings.StandbyDoubleClick && state.Notification==null && (ReferenceEquals(e.OriginalSource,Shell) || ReferenceEquals(e.OriginalSource,ClockTime) || ReferenceEquals(e.OriginalSource,ClockDate))){islandClickDelay.Stop();islandClickDelay.Start();return;}
+        HandleIslandClick();
+    }
+    internal void SetStandby(bool active){settings.StandbyActive=active;controlsOpen=false;overviewOpen=false;Render();}
+    private void HandleIslandClick()
     {
         if (state.Notification is {} notice)
         {
