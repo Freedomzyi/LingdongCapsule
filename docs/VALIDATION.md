@@ -334,3 +334,6 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 整机归一化平均 CPU / 私有内存峰值：空闲 0.100% / 87.61 MiB；隐藏 0.093% / 100.30 MiB；通知密集 0.263% / 106.59 MiB；组合组件 0.109% / 138.16 MiB；自建媒体频谱 0.544% / 147.16 MiB。媒体含测试宿主/静音发布器及先前组件开销，歌词关闭、实体材质；不是正式打包进程、真实播放器、全部配置、24 小时或干净系统结果。逐秒句柄/线程等原始数据保留，短时变化不能推断长期无泄漏。
 - 对照实际参照源码 ConsoleWindow.Settings.cs 和 Renderer.Paint.cs，修正玻璃参数仅液态玻璃显示、玻璃隐藏背景不透明度；切换及引导后的刷新不清零偏好、不重复保存。十二参数与质量仍有唯一入口。专项 artifacts/material-settings-test.log、settings-sync-tests/cd2abad8823d4f2b86cfb9b1da6143f8 通过。
 - 液态玻璃合成背板不再受隐藏的实体/亚克力透明度影响；亚克力透明度改为背板上主题涂层强度（最大 140/255），零值保留完整模糊背板，不露出未处理桌面。核心像素测试及真实岛体在零透明度下的玻璃/亚克力、隐藏/恢复/实体切换和缩放回归用于验证。
+
+- 1dac10907f4ab7538f1f7b6140fa921645ce3a94 的干净本地发行构建与 PS5 解压安装入口通过，SHA256 6070E9082F41212B478DDBCBE878A6BDF06839B12F3C539E915AAEF9B60A3B8B，证据 artifacts/published-tests/66ec41e19861487fb413feabfd583f6c；公开构建 run 41741095896 成功。
+- 同一实现的二十一组顺序整合（含显式真实自建系统通知）全部通过：artifacts/verification/20261103-234214-8412/results.json。此次设置同步证据 settings-sync-tests/8188e9f4b1fc47d3ab5cfe6e6eb40d5c；真实系统图片证据 native-toast-tests/b87340f26a634d12be4b0da2a70baa82。源码测试后仅有通知说明文档更新；不将这些结果扩大成物理操作或第三方软件验收。

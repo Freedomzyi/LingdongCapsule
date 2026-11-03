@@ -8,6 +8,6 @@ Windows 通知 API 不提供图片元素，本功能使用 Windows 自带 winsql
 
 后台最多两项存储读取；查询仅开短连接，忙等待 100 ms，SQL 指令进度回调以 200 ms 为中止预算，最多三次落库重试。取消、关闭或更换通知不再贴回旧图；关闭头像开关隐藏已缓存的系统图片。查询结束先释放语句和连接，再解码或请求图片，不在图片网络等待期间占用通知库。
 
-本机仅只读核对过 Notification / NotificationHandler 的表结构，未读取用户通知载荷用于开发验证。专项使用自建数据库、正文和像素，验证只读查询、身份拒绝、编码/DTD、取消与数据库内容不变，并进入已有解码链。真实 QQ 等头像、操作系统权限撤销和新旧 Windows 版本兼容仍待实机验收；不能用合成数据宣称全部系统通知头像均可用。
+本机已只读核对 Notification / NotificationHandler 表结构，并用独立随机 AUMID 的自建静音 Windows toast 验证真实监听→精确系统图片行→头像解码；仅读取自己生成的匹配载荷进行取证，不使用私人通知正文作为测试数据。合成数据库专项另验证身份拒绝、编码/DTD、取消和数据库内容不变。可用 verify-windows.ps1 -IncludeNativeToast 显式运行真实系统专项，要求已有通知权限，不主动请求或修改权限。真实 QQ 等头像、操作系统权限撤销和新旧 Windows 版本兼容仍待实机验收；不能用合成数据宣称全部系统通知头像均可用。
 
 实现参考：[Windows SQLite 支持](https://blogs.windows.com/windowsdeveloper/2017/02/06/using-sqlite-databases-uwp-apps/)、[SQLite 只读打开](https://www.sqlite.org/c3ref/open.html)、[SQLite 绑定参数](https://www.sqlite.org/c3ref/bind_blob.html)、[SQLite 查询取消](https://www.sqlite.org/c3ref/progress_handler.html)。不分发额外 SQLite 二进制。
