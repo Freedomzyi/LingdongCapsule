@@ -76,8 +76,11 @@ internal static class ShortcutTests
             islandSettings.Width=80;island.SetStandby(false);
             for(var attempt=0;attempt<30 && island.ActualWidth>80.5;attempt++)await Task.Delay(100);
             if(island.ActualWidth>80.5)throw new Exception("Compact components exceeded configured global width");
+            var autoHide=islandSettings.AutoHide;islandSettings.AutoHide=false;
             islandSettings.Width=280;island.SetStandby(false);
+            for(var attempt=0;attempt<40 && island.CompactHardwareSample is not{Cpu:>=0 and <=100,Memory:>=0 and <=100};attempt++)await Task.Delay(100);
             if(island.CompactHardwareSample is not{Cpu:>=0 and <=100,Memory:>=0 and <=100} || ((FrameworkElement)island.FindName("HardwarePanel")).Visibility!=Visibility.Visible)throw new Exception("Compact hardware component did not receive valid real readings");
+            islandSettings.AutoHide=autoHide;
             island.SetIslandHidden(true);
             for(var attempt=0;attempt<30 && ((FrameworkElement)island.FindName("IslandSurface")).Opacity>0.001;attempt++)await Task.Delay(100);
             if(!island.ManuallyHidden || ((Button)island.FindName("WakeButton")).Visibility!=Visibility.Collapsed || ((FrameworkElement)island.FindName("IslandSurface")).Opacity>0.001)throw new Exception("Manual hide left visible island UI");
