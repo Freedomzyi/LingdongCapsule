@@ -146,6 +146,8 @@ public partial class MainWindow : Window
         ClockDate.Text=clockNow.ToString("MM/dd");
         ClockDate.Visibility=settings.ClockEnabled && settings.ClockLayout==1 ? Visibility.Visible : Visibility.Collapsed;
         HardwarePanel.Visibility=settings.HardwareEnabled && !settings.StandbyActive ? Visibility.Visible : Visibility.Collapsed;
+        plugins.View.Visibility=settings.StandbyActive || plugins.ActiveIds.Count==0 ? Visibility.Collapsed : Visibility.Visible;
+        plugins.View.Margin=new Thickness(settings.ClockEnabled || settings.HardwareEnabled ? 12 : 0,0,0,0);
         var hardwareIndex=Clock.Children.IndexOf(HardwarePanel);
         var targetIndex=settings.HardwareFirst ? 0 : 2;
         if(hardwareIndex!=targetIndex){Clock.Children.Remove(HardwarePanel);Clock.Children.Insert(targetIndex,HardwarePanel);}
@@ -179,7 +181,6 @@ public partial class MainWindow : Window
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
         var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(80, SystemParameters.WorkArea.Width - 16)) : Math.Min(104,settings.Width);
-        plugins.View.Visibility=settings.StandbyActive ? Visibility.Collapsed : Visibility.Visible;
         if(Clock.Visibility==Visibility.Visible && !showMedia && !showOverview && (plugins.ActiveIds.Count>0 || HardwarePanel.Visibility==Visibility.Visible || settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);

@@ -29,6 +29,11 @@ internal static class PluginPackageTests
         using(var zip=ZipFile.Open(directoryEntry,ZipArchiveMode.Create)){Write(zip,"plugin.json","{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.1.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntry("fixture.dll/");}
         var directoryRejected=false;try{PluginPackage.Install(directoryEntry,Path.Combine(root,"directory-entry-target"));}catch(InvalidDataException){directoryRejected=true;}
         if(!directoryRejected)throw new Exception("Directory accepted as plugin entry");
+        var collision=Path.Combine(root,"extract-collision.zip");var collisionRoot=Path.Combine(root,"extract-collision");
+        using(var zip=ZipFile.Open(collision,ZipArchiveMode.Create)){Write(zip,"plugin.json","{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.1.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(fixture,"fixture.dll");Write(zip,"folder","file blocks directory");Write(zip,"folder/child.txt","must not survive");}
+        var extractFailed=false;try{PluginPackage.Install(collision,collisionRoot);}catch(IOException){extractFailed=true;}
+        if(!extractFailed || Directory.EnumerateDirectories(collisionRoot).Any())throw new Exception("Mid-extraction failure left an unmanaged partial package");
+        Console.WriteLine("PASS Mid-extraction failure cleans files through ownership receipt and preserves original IO failure");
         Console.WriteLine("PASS Plugin package malicious-input matrix rejects before destination creation");
     }
     private static void Write(ZipArchive zip,string name,string text){using var writer=new StreamWriter(zip.CreateEntry(name).Open());writer.Write(text);}

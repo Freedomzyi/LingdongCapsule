@@ -6,6 +6,7 @@ if($Dotnet -eq 'dotnet' -and (Test-Path -LiteralPath (Join-Path $root '.tools\do
 }
 Push-Location $root
 try {
+    & (Join-Path $PSScriptRoot 'build-plugins.ps1') -Dotnet $Dotnet
     & $Dotnet run --project tests/Capsule.Tests -c Release
     if ($LASTEXITCODE -ne 0) { throw 'State tests failed' }
     & $Dotnet build tests/Capsule.WindowsTests -c Release
@@ -23,6 +24,8 @@ try {
     }
     New-Item -ItemType Directory -Path artifacts/app/docs -Force | Out-Null
     Copy-Item docs/* -Destination artifacts/app/docs -Recurse -Force
+    New-Item -ItemType Directory -Path artifacts/app/plugins -Force | Out-Null
+    Copy-Item artifacts/plugins/*.zip,artifacts/plugins/SHA256SUMS.txt -Destination artifacts/app/plugins -Force
     Compress-Archive -Path artifacts/app/* -DestinationPath artifacts/LingdongCapsule-win-x64.zip -Force
     $hash = Get-FileHash artifacts/LingdongCapsule-win-x64.zip -Algorithm SHA256
     "$($hash.Hash)  LingdongCapsule-win-x64.zip" | Set-Content artifacts/SHA256SUMS.txt -Encoding ascii

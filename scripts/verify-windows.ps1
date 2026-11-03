@@ -7,6 +7,7 @@ New-Item -ItemType Directory -Path $evidence -Force | Out-Null
 $results=[Collections.Generic.List[object]]::new()
 Push-Location $root
 try {
+    & (Join-Path $PSScriptRoot 'build-plugins.ps1') -Dotnet $Dotnet
     $suites=@(
         @{Name='core';Project='tests/Capsule.Tests';Args=@()},
         @{Name='materials';Project='tests/Capsule.WindowsTests';Args=@('--material-test')},

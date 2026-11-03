@@ -29,6 +29,16 @@ internal static class PluginTests
     {
         var packageRoot=Path.Combine(Environment.CurrentDirectory,"artifacts","plugin-package-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(packageRoot);
         PluginPackageTests.Run(packageRoot,typeof(FixturePlugin).Assembly.Location);
+        var samplePackage=Path.Combine(Environment.CurrentDirectory,"artifacts","plugins","capsule.centerclock-0.1.0.zip");
+        if(!File.Exists(samplePackage))throw new Exception("Build the real plugin package first: scripts/build-plugins.ps1");
+        var sampleInstalled=PluginPackage.Install(samplePackage,Path.Combine(packageRoot,"sample-installed"));
+        using(var sampleModule=new PluginModule(sampleInstalled.EntryFile))
+        {
+            var sample=sampleModule.Plugin!;var sampleView=(TextBlock)sample.CreateWidget(new Host());sample.Update(new(new DateTimeOffset(2026,11,3,12,34,0,TimeSpan.Zero),true,new("","",false,false)));
+            if(sample.Identity.Id!="capsule.centerclock" || sampleView.Text!="12:34" || ((System.Windows.Media.SolidColorBrush)sampleView.Foreground).Color!=System.Windows.Media.Colors.White)throw new Exception("Built sample package API/time/theme failed");
+            sample.Update(new(new DateTimeOffset(2026,11,3,12,35,0,TimeSpan.Zero),false,new("","",false,false)));
+            if(sampleView.Text!="12:35" || ((System.Windows.Media.SolidColorBrush)sampleView.Foreground).Color.R>100)throw new Exception("Built sample package light theme failed");
+        }
         var valid=Path.Combine(packageRoot,"valid.zip");
         using(var zip=ZipFile.Open(valid,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.1.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
         var installed=PluginPackage.Install(valid,Path.Combine(packageRoot,"installed"));
@@ -61,7 +71,7 @@ internal static class PluginTests
         if(runtime.ActiveIds.Count!=0 || !runtime.Errors.ContainsKey(id))throw new Exception("Plugin callback failure was not isolated");
         Console.WriteLine("PASS Independent plugin assembly loading, shared API, widget update and disposal");
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
-        var windowSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false};
+        var windowSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,ClockEnabled=false};
         var missing=Path.Combine(packageRoot,"missing.dll");windowSettings.PluginFiles.Add(missing);
         var failSave=false;var saved="";var writes=0;
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:windowSettings,localPluginDirectory:Path.Combine(packageRoot,"window-installed"),pluginSettingsWriter:()=>{writes++;if(failSave)throw new IOException("Owned simulated save failure");saved=System.Text.Json.JsonSerializer.Serialize(windowSettings);});
@@ -73,6 +83,8 @@ internal static class PluginTests
             for(var attempt=0;attempt<30 && ((TextBlock)window.LivePluginView.Children[0]).Text=="Test";attempt++)await Task.Delay(100);
             var text=(TextBlock)window.LivePluginView.Children[0];
             if(text.Text.Length!=5 || !text.Text.Contains(':') || !text.IsVisible)throw new Exception("Actual island plugin did not display live clock");
+            window.UpdateLayout();var center=text.TransformToAncestor(window).Transform(new Point(text.ActualWidth/2,text.ActualHeight/2));
+            if(Math.Abs(center.X-window.ActualWidth/2)>1)throw new Exception("Standalone plugin clock is offset by hidden module spacing");
             window.LoadPlugin(valid,save:false);var retained=windowSettings.PluginFiles.Single();
             var mismatch=Path.Combine(packageRoot,"version-mismatch.zip");
             using(var zip=ZipFile.Open(mismatch,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.2.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
@@ -130,6 +142,10 @@ internal static class PluginTests
             windowSettings.PluginPreferences["fixture.clock"]=new(){["fail"]="true"};
             for(var attempt=0;attempt<30 && window.LivePluginView.Children.Count!=0;attempt++)await Task.Delay(100);
             if(window.LivePluginView.Children.Count!=0 || windowSettings.PluginFiles.Count!=0 || !windowSettings.PluginFailures.ContainsKey("fixture.clock"))throw new Exception("Faulted plugin was not removed from restart list");
+            window.LoadPlugin(samplePackage,save:false);
+            for(var attempt=0;attempt<30 && ((TextBlock)window.LivePluginView.Children[0]).Text.Length==0;attempt++)await Task.Delay(100);
+            if(((TextBlock)window.LivePluginView.Children[0]).Text!=DateTime.Now.ToString("HH:mm"))throw new Exception("Built sample clock did not render in actual island");
+            Console.WriteLine("PASS Built distributable sample plugin time/themes and actual island loading");
             Console.WriteLine("PASS Actual island hosts and updates an independently loaded plugin widget");
         }
         finally{window.Close();}

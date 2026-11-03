@@ -45,6 +45,7 @@ internal static class PluginPackage
         Directory.CreateDirectory(target);
         try
         {
+            File.WriteAllText(Path.Combine(target,".capsule-install.json"),JsonSerializer.Serialize(new{schema=1,root=basePath,folder=Path.GetFileName(target)}));
             var buffer=new byte[8192];long expanded=0;
             foreach(var entry in zip.Entries)
             {
@@ -55,12 +56,16 @@ internal static class PluginPackage
                 using var input=entry.Open();using var output=new FileStream(destination,FileMode.CreateNew,FileAccess.Write,FileShare.None);int count;long length=0;
                 while((count=input.Read(buffer,0,buffer.Length))>0){length+=count;expanded+=count;if(length>16*1024*1024 || expanded>64*1024*1024)throw new InvalidDataException("实际展开体积超限。");output.Write(buffer,0,count);}
             }
-            File.WriteAllText(Path.Combine(target,".capsule-install.json"),JsonSerializer.Serialize(new{schema=1,root=basePath,folder=Path.GetFileName(target)}));
             return new(info,target,Path.Combine(target,entryPath));
         }
-        catch
+        catch(Exception installError)
         {
-            if(Path.GetFullPath(target).StartsWith(basePath+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) && !File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))Directory.Delete(target,true);
+            try
+            {
+                if(!Uninstall(Path.Combine(target,entryPath),basePath) && Path.GetFullPath(target).StartsWith(basePath+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) && !File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))Directory.Delete(target,false);
+            }
+            catch(Exception cleanupError) when(cleanupError is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
+            {throw new AggregateException("安装失败，残留包未能清理；可在已安装目录中检查。",installError,cleanupError);}
             throw;
         }
     }

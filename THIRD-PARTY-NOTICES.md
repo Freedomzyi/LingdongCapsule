@@ -1,12 +1,12 @@
 # 来源和依赖
 
-ModelSensingProtocol 0.1.0-alpha.1：MSP 协议 SDK，MIT 许可。来源 https://github.com/ModelSensingProtocol/msp-dotnet ，NuGet 包声明源码提交 c1055f5edab6da32f6b2539c10b6c3adcc24a211。通过包引用用于后续独立适配，未复制 NotchPeninsula 的 MSP 桥接实现。当前尚未启用 MSP 节点或网络发现。
+ModelSensingProtocol 0.1.0-alpha.1：MSP 协议 SDK，MIT 许可。来源 https://github.com/ModelSensingProtocol/msp-dotnet ，NuGet 包声明源码提交 c1055f5edab6da32f6b2539c10b6c3adcc24a211。通过包引用用于后续独立适配，未复制 NotchPeninsula 的 MSP 桥接实现。默认不启动 MSP 节点；用户启用后使用本机共享目录发现与协议通信，主动事件广播另有默认关闭的独立开关。
 
 本项目独立编写，使用 NotchPeninsula 的实际使用体验作为需求参照，未复制其源码、DLL、图片、字体或构建资源。感谢 https://github.com/GEORGEWWWU/NotchPeninsula 提供的体验启发；本项目与该项目无官方关联。
 
 构建使用微软 .NET、WPF、Windows SDK 的公开接口，运行时依赖随自包含发布输出分发。保留输出中的微软许可和第三方声明。源码依赖由项目文件及 .NET SDK 定义，不依赖旧程序或临时提取目录。
 
-字体使用系统已安装的 Microsoft YaHei UI，不随包分发字体文件。程序与托盘图标为本项目原创几何图形，SVG、PNG、ICO 及生成脚本一并提供。可选图标生成脚本使用 Pillow（仅资产制作，不是构建或运行依赖），Pillow 许可见 https://github.com/python-pillow/Pillow/blob/main/LICENSE 。无外部图标或付费素材。
+字体使用系统已安装字体，支持用户选择，不随包分发字体文件。程序与托盘图标为本项目原创几何图形，SVG、PNG、ICO 及生成脚本一并提供。可选图标生成脚本使用 Pillow（仅资产制作，不是构建或运行依赖），Pillow 许可见 https://github.com/python-pillow/Pillow/blob/main/LICENSE 。无外部图标或付费素材。
 
 14 种内置轻提示音由本项目的 NotificationSound.Chime 独立合成 PCM WAV，随项目 MIT 许可；没有打包 NotchPeninsula、Apple 或聊天软件的提示音。运行时使用 Windows 提供的媒体解码器，自选音频由使用者选取并保存在自己的配置目录。
 
