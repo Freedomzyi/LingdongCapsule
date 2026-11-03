@@ -1,5 +1,7 @@
 # 来源和依赖
 
+ModelSensingProtocol 0.1.0-alpha.1：MSP 协议 SDK，MIT 许可。来源 https://github.com/ModelSensingProtocol/msp-dotnet ，NuGet 包声明源码提交 c1055f5edab6da32f6b2539c10b6c3adcc24a211。通过包引用用于后续独立适配，未复制 NotchPeninsula 的 MSP 桥接实现。当前尚未启用 MSP 节点或网络发现。
+
 本项目独立编写，使用 NotchPeninsula 的实际使用体验作为需求参照，未复制其源码、DLL、图片、字体或构建资源。感谢 https://github.com/GEORGEWWWU/NotchPeninsula 提供的体验启发；本项目与该项目无官方关联。
 
 构建使用微软 .NET、WPF、Windows SDK 的公开接口，运行时依赖随自包含发布输出分发。保留输出中的微软许可和第三方声明。源码依赖由项目文件及 .NET SDK 定义，不依赖旧程序或临时提取目录。

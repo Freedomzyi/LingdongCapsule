@@ -8,5 +8,5 @@
   </PropertyGroup>
   <ItemGroup><Using Remove="System.Windows.Forms"/><Using Remove="System.Drawing"/><ProjectReference Include="../Capsule.Core/Capsule.Core.csproj" /></ItemGroup>
   <ItemGroup><Resource Include="../../assets/icon.ico" Link="Assets/icon.ico"/><Resource Include="../../assets/icon.png" Link="Assets/icon.png"/></ItemGroup>
-  <ItemGroup><PackageReference Include="NAudio.Core" Version="2.2.1"/><PackageReference Include="NAudio.Wasapi" Version="2.2.1"/></ItemGroup>
+  <ItemGroup><PackageReference Include="NAudio.Core" Version="2.2.1"/><PackageReference Include="NAudio.Wasapi" Version="2.2.1"/><PackageReference Include="ModelSensingProtocol" Version="0.1.0-alpha.1"/></ItemGroup>
 </Project>
