@@ -2,6 +2,8 @@ using Capsule.App;
 using Capsule.PluginApi;
 using System.Windows;
 using System.Windows.Controls;
+using System.IO;
+using System.IO.Compression;
 
 public sealed class FixturePlugin : ICapsulePlugin
 {
@@ -24,6 +26,15 @@ internal static class PluginTests
     }
     internal static async Task RunAsync()
     {
+        var packageRoot=Path.Combine(Environment.CurrentDirectory,"artifacts","plugin-package-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(packageRoot);
+        var valid=Path.Combine(packageRoot,"valid.zip");
+        using(var zip=ZipFile.Open(valid,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.1.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
+        var installed=PluginPackage.Install(valid,Path.Combine(packageRoot,"installed"));
+        using(var loaded=new PluginModule(installed.EntryFile))if(loaded.Plugin?.Identity.Id!="fixture.clock")throw new Exception("Installed package did not load independently");
+        var unsafePackage=Path.Combine(packageRoot,"unsafe.zip");using(var zip=ZipFile.Open(unsafePackage,ZipArchiveMode.Create)){using var writer=new StreamWriter(zip.CreateEntry("../escape.txt").Open());writer.Write("must not escape");}
+        var rejected=false;try{PluginPackage.Install(unsafePackage,Path.Combine(packageRoot,"unsafe-target"));}catch(InvalidDataException){rejected=true;}
+        if(!rejected || File.Exists(Path.Combine(packageRoot,"escape.txt")))throw new Exception("Traversal package was not rejected");
+        Console.WriteLine("PASS Plugin package installation and traversal rejection");
         using var module=new PluginModule(typeof(FixturePlugin).Assembly.Location);
         var plugin=module.Plugin!;var view=plugin.CreateWidget(new Host());
         plugin.Update(new(new DateTimeOffset(2026,11,3,12,34,0,TimeSpan.Zero),true,new("","",false,false)));
@@ -42,10 +53,12 @@ internal static class PluginTests
         if(runtime.ActiveIds.Count!=0 || !runtime.Errors.ContainsKey(id))throw new Exception("Plugin callback failure was not isolated");
         Console.WriteLine("PASS Independent plugin assembly loading, shared API, widget update and disposal");
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
-        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:new Settings{MediaEnabled=false,NotificationsEnabled=false});
+        var windowSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false};
+        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:windowSettings,localPluginDirectory:Path.Combine(packageRoot,"window-installed"));
         try
         {
-            window.Show();await Task.Delay(300);window.LoadPlugin(typeof(FixturePlugin).Assembly.Location,save:false);
+            window.Show();await Task.Delay(300);window.LoadPlugin(valid,save:false);
+            if(windowSettings.PluginFiles.Count!=1 || !windowSettings.PluginFiles[0].EndsWith("fixture.dll"))throw new Exception("Installed plugin entry was not retained for restart");
             for(var attempt=0;attempt<30 && ((TextBlock)window.LivePluginView.Children[0]).Text=="Test";attempt++)await Task.Delay(100);
             var text=(TextBlock)window.LivePluginView.Children[0];
             if(text.Text.Length!=5 || !text.Text.Contains(':') || !text.IsVisible)throw new Exception("Actual island plugin did not display live clock");

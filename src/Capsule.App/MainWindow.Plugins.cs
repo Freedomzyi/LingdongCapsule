@@ -7,6 +7,7 @@ namespace Capsule.App;
 public partial class MainWindow
 {
     private PluginRuntime plugins=null!;
+    private string pluginDirectory="";
     internal System.Windows.Controls.StackPanel LivePluginView=>plugins.View;
     private readonly Dictionary<string,string> pluginPaths=new(StringComparer.OrdinalIgnoreCase);
     private uint pluginNoticeId;
@@ -21,7 +22,11 @@ public partial class MainWindow
     }
     internal void LoadPlugin(string file,bool save=true)
     {
-        var path=Path.GetFullPath(file);var id=plugins.Enable(path);pluginPaths[id]=path;
+        var path=Path.GetFullPath(file);PluginPackageInfo? expected=null;
+        if(path.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){var installed=PluginPackage.Install(path,pluginDirectory);path=installed.EntryFile;expected=installed.Info;}
+        var id=plugins.Enable(path);
+        if(expected!=null && id!=expected.Id){plugins.Disable(id);throw new InvalidDataException("清单 ID 与插件实际 ID 不一致，未启用。");}
+        pluginPaths[id]=path;
         if(!settings.PluginFiles.Contains(path,StringComparer.OrdinalIgnoreCase))settings.PluginFiles.Add(path);
         if(save)SaveAndApplySettings();else Render();
     }

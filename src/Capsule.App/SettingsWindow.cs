@@ -59,11 +59,11 @@ public sealed class SettingsWindow : Window
             }
             if(pluginRows.Children.Count==0)pluginRows.Children.Add(new TextBlock{Text="尚未加载外部插件。",Margin=new Thickness(0,8,0,8)});
         }
-        var pluginLoad=new Button{Content="加载本地插件 DLL…",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,12,0,12)};
+        var pluginLoad=new Button{Content="安装插件包／加载 DLL…",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,12,0,12)};
         pluginLoad.Click+=(_,_)=>
         {
-            var picker=new Microsoft.Win32.OpenFileDialog{Filter="灵动胶囊插件|*.dll",CheckFileExists=true};if(picker.ShowDialog(this)!=true)return;
-            if(CardDialog.Show("加载此插件？","插件代码会在本程序中运行，请仅加载信任的插件。插件及依赖保留在原目录，需要实现灵动胶囊 PluginApi。","加载")==null)return;
+            var picker=new Microsoft.Win32.OpenFileDialog{Filter="灵动胶囊插件|*.zip;*.dll",CheckFileExists=true};if(picker.ShowDialog(this)!=true)return;
+            if(CardDialog.Show("加载此插件？","插件代码会在本程序中运行，请仅加载信任的插件。ZIP 包安装到胶囊目录；单独 DLL 及依赖保留原位置。需要实现灵动胶囊 PluginApi。","加载")==null)return;
             try{loadPlugin(picker.FileName);RefreshPlugins();}catch(Exception error){Design.PresentMessage("插件未能加载",error.Message);}
         };
         pluginPage.Children.Add(pluginLoad);pluginPage.Children.Add(Design.Card(pluginRows));RefreshPlugins();
