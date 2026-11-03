@@ -29,4 +29,9 @@ public partial class MainWindow
     {
         plugins.Disable(id);if(pluginPaths.Remove(id,out var path))settings.PluginFiles.RemoveAll(file=>string.Equals(file,path,StringComparison.OrdinalIgnoreCase));SaveAndApplySettings();
     }
+    private void MovePlugin(string id,int direction)
+    {
+        if(!plugins.Move(id,direction))return;
+        settings.PluginFiles=plugins.ActiveIds.Select(item=>pluginPaths[item]).Concat(settings.PluginFiles).Distinct(StringComparer.OrdinalIgnoreCase).ToList();SaveAndApplySettings();
+    }
 }

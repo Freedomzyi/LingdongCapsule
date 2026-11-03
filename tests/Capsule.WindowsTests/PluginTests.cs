@@ -5,7 +5,7 @@ using System.Windows.Controls;
 
 public sealed class FixturePlugin : ICapsulePlugin
 {
-    public PluginIdentity Identity=>new("fixture.clock","Test clock","0.1.0");
+    public PluginIdentity Identity=>new(System.IO.Path.GetFileName(typeof(FixturePlugin).Assembly.Location).Contains("second",StringComparison.OrdinalIgnoreCase) ? "fixture.second" : "fixture.clock","Test clock","0.1.0");
     public bool Disposed{get;private set;}
     private readonly TextBlock view=new();
     public FrameworkElement CreateWidget(ICapsulePluginHost host){view.Text=host.ReadSetting("label","Test");return view;}
@@ -33,6 +33,10 @@ internal static class PluginTests
         var id=runtime.Enable(typeof(FixturePlugin).Assembly.Location);
         runtime.Update(new(new DateTimeOffset(2026,11,3,10,12,0,TimeSpan.Zero),true,new("","",false,false)));
         if(runtime.View.Children.Count!=1 || ((TextBlock)runtime.View.Children[0]).Text!="10:12")throw new Exception("Runtime did not host plugin widget");
+        var secondFolder=System.IO.Path.Combine(Environment.CurrentDirectory,"artifacts","plugin-tests",Guid.NewGuid().ToString("N"));System.IO.Directory.CreateDirectory(secondFolder);var secondFile=System.IO.Path.Combine(secondFolder,"fixture.second.dll");System.IO.File.Copy(typeof(FixturePlugin).Assembly.Location,secondFile);
+        var secondId=runtime.Enable(secondFile);var secondView=runtime.View.Children[1];
+        if(!runtime.Move(secondId,-1) || runtime.ActiveIds.First()!=secondId || !ReferenceEquals(runtime.View.Children[0],secondView))throw new Exception("Plugin order did not match visual order");
+        runtime.Disable(secondId);
         runtime.Disable(id);if(runtime.View.Children.Count!=0 || runtime.ActiveIds.Count!=0)throw new Exception("Runtime did not remove disabled widget");
         runtime.Enable(typeof(FixturePlugin).Assembly.Location);runtime.Update(new(DateTimeOffset.Now,true,new("throw","",true,true)));
         if(runtime.ActiveIds.Count!=0 || !runtime.Errors.ContainsKey(id))throw new Exception("Plugin callback failure was not isolated");
