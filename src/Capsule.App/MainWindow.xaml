@@ -1,19 +1,46 @@
-<Window x:Class="Capsule.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+<Window x:Class="Capsule.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:Capsule.App"
  Title="灵动胶囊" Width="104" Height="35" WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" ShowActivated="False" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
+ <Window.Resources>
+  <Style x:Key="MediaButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+   <Setter Property="Width" Value="40"/><Setter Property="Height" Value="40"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="White"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid><Border x:Name="Hover" Background="#29292E" CornerRadius="20" Opacity="0"/><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.1"/></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.16"/></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="InlineButton" TargetType="Button" BasedOn="{StaticResource MediaButton}"><Setter Property="Width" Value="23"/><Setter Property="Height" Value="24"/><Setter Property="FontSize" Value="12"/><Setter Property="Background" Value="Transparent"/></Style>
+  <Style x:Key="TimelineSlider" TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider"><Grid Height="24" Background="Transparent"><Border Background="#38FFFFFF" Height="3.5" CornerRadius="2" VerticalAlignment="Center"/><Track x:Name="PART_Track" VerticalAlignment="Center"><Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Height="3.5"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="White" CornerRadius="2"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton><Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Height="3.5" Opacity="0"/></Track.IncreaseRepeatButton><Track.Thumb><Thumb Width="9" Height="9"><Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse x:Name="Dot" Fill="White" Opacity="0"/><ControlTemplate.Triggers><Trigger Property="IsDragging" Value="True"><Setter TargetName="Dot" Property="Opacity" Value="1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Thumb.Template></Thumb></Track.Thumb></Track></Grid></ControlTemplate></Setter.Value></Setter></Style>
+ </Window.Resources>
+ <Grid>
  <Border x:Name="Shell" Background="#F5101012" BorderBrush="#333338" BorderThickness="1" CornerRadius="20" Padding="14,7" ClipToBounds="True" MouseLeftButtonUp="OnIslandClick" MouseRightButtonUp="OnRightClick">
   <Grid ClipToBounds="True">
    <TextBlock x:Name="Clock" Foreground="White" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
    <StackPanel x:Name="MediaPanel" Visibility="Collapsed" VerticalAlignment="Center">
     <Grid>
-     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <Border x:Name="CoverFrame" Width="32" Height="32" CornerRadius="7" Margin="0,0,9,0" Visibility="Collapsed" ClipToBounds="True"><Image x:Name="CoverArt" Stretch="UniformToFill"><Image.Clip><RectangleGeometry Rect="0,0,32,32" RadiusX="7" RadiusY="7"/></Image.Clip></Image></Border>
+     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <Border x:Name="CoverFrame" Width="32" Height="32" CornerRadius="7" Margin="0,0,9,0" Visibility="Collapsed" ClipToBounds="True" MouseLeftButtonUp="OnCoverClick"><Image x:Name="CoverArt" Stretch="UniformToFill"><Image.Clip><RectangleGeometry Rect="0,0,32,32" RadiusX="7" RadiusY="7"/></Image.Clip></Image></Border>
      <StackPanel Grid.Column="1" VerticalAlignment="Center">
       <TextBlock x:Name="Track" Foreground="White" FontSize="13" TextTrimming="CharacterEllipsis" TextAlignment="Center"/>
+      <local:LyricView x:Name="LiveLyrics" Height="31" Visibility="Collapsed"/>
       <TextBlock x:Name="Artist" Foreground="#ADADB5" FontSize="11" TextTrimming="CharacterEllipsis" TextAlignment="Center" Margin="0,2,0,0"/>
      </StackPanel>
+     <StackPanel x:Name="InlineControls" Grid.Column="2" Orientation="Horizontal" Margin="5,0,0,0" Visibility="Collapsed" VerticalAlignment="Center">
+      <Button Style="{StaticResource InlineButton}" Tag="previous" Click="OnControl" AutomationProperties.Name="上一首"><local:TransportIcon Kind="Previous" Width="12" Height="12"/></Button>
+      <Button x:Name="InlinePlay" Style="{StaticResource InlineButton}" Tag="toggle" Click="OnControl" AutomationProperties.Name="播放或暂停"><local:TransportIcon x:Name="InlinePlayGlyph" Kind="Play" Width="12" Height="12"/></Button>
+      <Button Style="{StaticResource InlineButton}" Tag="next" Click="OnControl" AutomationProperties.Name="下一首"><local:TransportIcon Kind="Next" Width="12" Height="12"/></Button>
+     </StackPanel>
+     <local:AudioBarsView x:Name="Spectrum" Grid.Column="3" Width="22" Height="18" Margin="8,0,0,0" Visibility="Collapsed"/>
     </Grid>
-    <StackPanel x:Name="Controls" Visibility="Collapsed" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-     <Button Content="上一首" Tag="previous" Click="OnControl" Background="#29292E" Foreground="White" Padding="9,6"/><Button x:Name="Play" Content="播放 / 暂停" Tag="toggle" Click="OnControl" Background="#29292E" Foreground="White" Padding="9,6" Margin="6,0"/><Button Content="下一首" Tag="next" Click="OnControl" Background="#29292E" Foreground="White" Padding="9,6"/>
+    <StackPanel x:Name="Controls" Visibility="Collapsed" Margin="0,14,0,0">
+     <Grid x:Name="TimelineSection" Height="24">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="Elapsed" Foreground="#A1A1AA" FontSize="10" Text="0:00" VerticalAlignment="Center"/>
+      <Slider x:Name="SeekBar" Style="{StaticResource TimelineSlider}" Grid.Column="1" Margin="8,0" Minimum="0" Maximum="1" SmallChange="0.01" LargeChange="0.1" IsMoveToPointEnabled="True" AutomationProperties.Name="播放进度"/>
+      <TextBlock x:Name="Total" Grid.Column="2" Foreground="#A1A1AA" FontSize="10" Text="0:00" VerticalAlignment="Center"/>
+     </Grid>
+     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,11,0,0">
+      <Button Tag="previous" Click="OnControl" Style="{StaticResource MediaButton}" AutomationProperties.Name="上一首"><local:TransportIcon Kind="Previous" Width="18" Height="18"/></Button>
+      <Button x:Name="Play" Tag="toggle" Click="OnControl" Style="{StaticResource MediaButton}" Margin="14,0" AutomationProperties.Name="播放或暂停"><local:TransportIcon x:Name="PlayGlyph" Kind="Play" Width="22" Height="22"/></Button>
+      <Button Tag="next" Click="OnControl" Style="{StaticResource MediaButton}" AutomationProperties.Name="下一首"><local:TransportIcon Kind="Next" Width="18" Height="18"/></Button>
+     </StackPanel>
+     <Grid x:Name="VolumeSection" Visibility="Collapsed" Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons" Foreground="#A1A1AA" FontSize="13" VerticalAlignment="Center"/><Slider x:Name="VolumeBar" Grid.Column="1" Minimum="0" Maximum="1" SmallChange="0.05" LargeChange="0.1" AutomationProperties.Name="系统音量"/></Grid>
     </StackPanel>
    </StackPanel>
    <StackPanel x:Name="NoticePanel" Visibility="Collapsed" VerticalAlignment="Center">
@@ -23,4 +50,6 @@
    </StackPanel>
   </Grid>
  </Border>
+ <local:CapsuleProgressView x:Name="CoverRing"/>
+ </Grid>
 </Window>

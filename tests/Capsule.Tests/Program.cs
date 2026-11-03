@@ -19,3 +19,17 @@ Check(s.Mode == IslandMode.Clock && !s.Media.Available, "Player exit and notific
 s.Show(new("a", "A", "1", ""), now); s.Show(new("b", "B", "2", ""), now.AddSeconds(3)); s.Tick(now.AddSeconds(7));
 Check(s.Notification?.App == "B" && !s.Expanded, "New notification replaces old one with fresh timeout");
 s.Tick(now.AddDays(1)); Check(s.Mode == IslandMode.Clock, "Wake after expiration");
+
+var lyrics=LyricsDocument.Parse("[00:01.00]Alpha\n[00:03.50][00:05.00]Beta","[00:01.00]One\n[00:03.50]Two");
+Check(lyrics.Lines.Count==3 && lyrics.At(TimeSpan.FromMilliseconds(900)).Line is null,"LRC multiple time tags and initial silence");
+Check(lyrics.At(TimeSpan.FromMilliseconds(1500)).Line?.Translation=="One","Translation matched by time");
+Check(Math.Abs(lyrics.At(TimeSpan.FromMilliseconds(2250)).Progress-0.5)<0.001,"Line progress is based on playback time");
+Check(lyrics.At(TimeSpan.FromMilliseconds(900),0.2).Line?.Text=="Alpha","User lyric offset advances line selection");
+var words=LyricsDocument.Parse("[00:01.00]Alpha Beta",wordTiming:"[1000,2000](1000,1000,0)Alpha (2000,1000,0)Beta");
+Check(words.HasWordTiming && words.Lines[0].Words.Count==2,"Time-before-text YRC parsed");
+var suffix=LyricsDocument.Parse("[00:01.00]AlphaBeta",wordTiming:"[1000,2000]Alpha(1000,1000)Beta(2000,1000)");
+Check(suffix.HasWordTiming && suffix.Lines[0].Words[1].StartMs==2000,"Text-before-time word timing parsed");
+var mismatch=LyricsDocument.Parse("[00:01.00]Original",wordTiming:"[1000,2000](1000,1000,0)Wrong");
+Check(!mismatch.HasWordTiming,"Different lyric version does not acquire incorrect word timing");
+s.MediaClockSwitch=false;s.UpdateMedia(new("Paused","Artist",false,true));Check(s.Mode==IslandMode.Media,"Disabling media-clock switch retains paused media");
+s.MediaClockSwitch=true;Check(s.Mode==IslandMode.Clock,"Re-enabling media-clock switch returns paused clock");

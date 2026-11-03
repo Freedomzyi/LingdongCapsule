@@ -6,12 +6,29 @@ public sealed class Settings
 {
     public double Width { get; set; } = 280;
     public double CompactHeight { get; set; } = 35;
-    public int MotionMs { get; set; } = 350;
+    public int MotionMs { get; set; } = 450;
     public bool ShowInCapture { get; set; } = true;
     public bool PrivatePreview { get; set; } = true;
     public bool NotificationsEnabled { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public bool OnboardingCompleted { get; set; }
+    public bool LyricsEnabled { get; set; }=true;
+    public bool TranslationEnabled { get; set; }=true;
+    public bool KaraokeEnabled { get; set; }=true;
+    public bool ScrollLyrics { get; set; }=true;
+    public double LyricOffsetSeconds { get; set; }
+    public bool MediaEnabled {get;set;}=true;
+    public bool ExpandedMediaControls {get;set;}=true;
+    public bool ReturnToPlayer {get;set;}=true;
+    public bool CoverProgress {get;set;}=true;
+    public bool ShowSpectrum {get;set;}=true;
+    public bool MediaClockSwitch {get;set;}=true;
+    public string MediaSourceKind {get;set;}="other";
+    public string ManualMediaSource {get;set;}="";
+    public bool Topmost {get;set;}=true;
+    public string MonitorId {get;set;}="";
+    public int IslandShape {get;set;}=1;
+    public double BottomRadius {get;set;}=12;
     public HashSet<string> MutedSources { get; set; } = [];
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LingdongCapsule");
     public static Settings Load()

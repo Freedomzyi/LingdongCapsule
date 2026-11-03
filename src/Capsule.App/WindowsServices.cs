@@ -17,19 +17,59 @@ public sealed class MediaService : IDisposable
     private DateTimeOffset lastRead;
     private GlobalSystemMediaTransportControlsSessionMediaProperties? cachedProperties;
     private DateTimeOffset propertiesReadAt;
+    private TimeSpan positionAtRead, duration;
+    private DateTimeOffset positionReadAt;
+    private bool enabled=true;
+    private string sourceKind="other",manualSource="";
+    public void Configure(bool active,string kind,string selected)
+    {
+        if(enabled==active && sourceKind==kind && manualSource==selected)return;
+        enabled=active;sourceKind=kind;manualSource=selected;sessionDirty=true;
+    }
+    public IReadOnlyDictionary<string,string> Sources=>manager?.GetSessions().Select(item=>item.SourceAppUserModelId).Distinct().ToDictionary(id=>id,id=>System.IO.Path.GetFileNameWithoutExtension(id)) ?? [];
+    private GlobalSystemMediaTransportControlsSession? SelectSession()
+    {
+        if(manager is null)return null;
+        var all=manager.GetSessions();
+        if(manualSource.Length>0)return all.FirstOrDefault(item=>item.SourceAppUserModelId.Equals(manualSource,StringComparison.OrdinalIgnoreCase));
+        bool Matches(GlobalSystemMediaTransportControlsSession item)
+        {
+            var id=item.SourceAppUserModelId.ToLowerInvariant();
+            return sourceKind switch
+            {
+                "qqmusic"=>id.Contains("qqmusic"),"netease"=>id.Contains("cloudmusic") || id.Contains("netease"),
+                "browser"=>new[]{"chrome","msedge","firefox","brave","opera"}.Any(id.Contains),
+                "other"=>true,_=>id.Contains(sourceKind,StringComparison.OrdinalIgnoreCase)
+            };
+        }
+        var candidates=all.Where(Matches).ToArray();
+        var current=manager.GetCurrentSession();
+        if(current is not null && Matches(current) && current.GetPlaybackInfo().PlaybackStatus==GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)return current;
+        return candidates.FirstOrDefault(item=>item.GetPlaybackInfo().PlaybackStatus==GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing) ?? (current is not null && Matches(current) ? current : candidates.FirstOrDefault());
+    }
+    public TimeSpan Duration => duration;
+    public TimeSpan Position
+    {
+        get
+        {
+            var value = positionAtRead + (lastSnapshot.Playing ? DateTimeOffset.UtcNow - positionReadAt : TimeSpan.Zero);
+            return TimeSpan.FromMilliseconds(Math.Clamp(value.TotalMilliseconds, 0, duration > TimeSpan.Zero ? duration.TotalMilliseconds : double.MaxValue));
+        }
+    }
     public BitmapImage? Cover { get; private set; }
     public string SourceId => session?.SourceAppUserModelId ?? "";
     private void OnPlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) { playbackDirty = true; }
     private void OnSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args) { sessionDirty = true; }
     private void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender, SessionsChangedEventArgs args) { sessionDirty = true; }
     private void OnPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) { metadataDirty = true; }
+    private void OnTimelineChanged(GlobalSystemMediaTransportControlsSession sender, TimelinePropertiesChangedEventArgs args) { playbackDirty = true; }
     private void Attach(GlobalSystemMediaTransportControlsSession? next)
     {
         if (ReferenceEquals(session, next)) return;
-        if (session is not null) { session.PlaybackInfoChanged -= OnPlaybackChanged; session.MediaPropertiesChanged -= OnPropertiesChanged; }
+        if (session is not null) { session.PlaybackInfoChanged -= OnPlaybackChanged; session.MediaPropertiesChanged -= OnPropertiesChanged; session.TimelinePropertiesChanged-=OnTimelineChanged; }
         session = next;
         metadataDirty = true; cachedProperties = null;
-        if (session is not null) { session.PlaybackInfoChanged += OnPlaybackChanged; session.MediaPropertiesChanged += OnPropertiesChanged; }
+        if (session is not null) { session.PlaybackInfoChanged += OnPlaybackChanged; session.MediaPropertiesChanged += OnPropertiesChanged; session.TimelinePropertiesChanged+=OnTimelineChanged; }
     }
     public void Dispose() { Attach(null); if (manager is not null) { manager.CurrentSessionChanged -= OnSessionChanged; manager.SessionsChanged -= OnSessionsChanged; } manager = null; }
     public string Status { get; private set; } = "媒体尚未连接";
@@ -37,6 +77,7 @@ public sealed class MediaService : IDisposable
     {
         try
         {
+            if(!enabled){if(manager is not null)Dispose();Cover=null;duration=TimeSpan.Zero;Status="媒体已关闭";return lastSnapshot=new("","",false,false);}
             if (manager is not null && !sessionDirty && !playbackDirty && !metadataDirty && DateTimeOffset.UtcNow - lastRead < TimeSpan.FromSeconds(5)) return lastSnapshot;
             lastRead = DateTimeOffset.UtcNow; sessionDirty = false; playbackDirty = false;
             if (manager is null)
@@ -44,8 +85,8 @@ public sealed class MediaService : IDisposable
                 manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
                 manager.CurrentSessionChanged += OnSessionChanged; manager.SessionsChanged += OnSessionsChanged;
             }
-            Attach(manager.GetCurrentSession());
-            if (session is null) { metadataDirty = false; Status = "未发现系统媒体会话"; Cover = null; coverKey = ""; return lastSnapshot = new("", "", false, false); }
+            Attach(SelectSession());
+            if (session is null) { metadataDirty = false;duration=TimeSpan.Zero;positionAtRead=TimeSpan.Zero; Status = "未发现系统媒体会话"; Cover = null; coverKey = ""; return lastSnapshot = new("", "", false, false); }
             var target = session;
             if (metadataDirty || cachedProperties is null || DateTimeOffset.UtcNow - propertiesReadAt > TimeSpan.FromSeconds(10))
             {
@@ -55,13 +96,17 @@ public sealed class MediaService : IDisposable
             }
             var props = cachedProperties;
             var playing = target.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            var timeline=target.GetTimelineProperties();
+            duration=timeline.EndTime>TimeSpan.Zero ? timeline.EndTime : timeline.MaxSeekTime;
+            positionAtRead=timeline.Position;
+            positionReadAt=Math.Abs((DateTimeOffset.UtcNow-timeline.LastUpdatedTime).TotalSeconds)<30 ? timeline.LastUpdatedTime : DateTimeOffset.UtcNow;
             var key = target.SourceAppUserModelId + "|" + props.Title + "|" + props.Artist;
             if (key != coverKey)
             {
                 coverKey = key; Cover = null;
                 try
                 {
-                    if (props.Thumbnail is not null)
+                    if (props.Thumbnail is not null && !(target.SourceAppUserModelId.Contains("potplayer",StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(props.Artist)))
                     {
                         using var data = await props.Thumbnail.OpenReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
                         if (data.Size <= 8 * 1024 * 1024)
@@ -74,7 +119,7 @@ public sealed class MediaService : IDisposable
                 catch { /* Missing or malformed cover art does not invalidate a media session. */ }
             }
             Status = "系统媒体已连接";
-            return lastSnapshot = new(string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title, props.Artist, playing, true);
+            return lastSnapshot = new(string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title, props.Artist, playing, true, props.AlbumTitle, duration, target.SourceAppUserModelId);
         }
         catch (Exception e) { Status = "媒体暂不可用（" + e.GetType().Name + "）"; Dispose(); Cover = null; coverKey = ""; return new("", "", false, false); }
     }
@@ -82,7 +127,7 @@ public sealed class MediaService : IDisposable
     {
         try
         {
-            var current = manager?.GetCurrentSession();
+            var current = session;
             if (current is null) return false;
             if (action == "previous") return await current.TrySkipPreviousAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             if (action == "next") return await current.TrySkipNextAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
@@ -100,6 +145,21 @@ public sealed class MediaService : IDisposable
             return false;
         }
         catch { return false; }
+    }
+    public async Task<bool> SeekAsync(double ratio,string? expectedTitle=null)
+    {
+        try
+        {
+            var target=session;
+            if(target is null || duration<=TimeSpan.Zero)return false;
+            if(expectedTitle is not null && (await target.TryGetMediaPropertiesAsync()).Title!=expectedTitle)return false;
+            var timeline=target.GetTimelineProperties();
+            var total=timeline.EndTime>TimeSpan.Zero ? timeline.EndTime : timeline.MaxSeekTime;
+            if(total<=TimeSpan.Zero)return false;
+            var result=await target.TryChangePlaybackPositionAsync((long)(total.Ticks*Math.Clamp(ratio,0,1))).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            playbackDirty=true;return result;
+        }
+        catch{return false;}
     }
 }
 

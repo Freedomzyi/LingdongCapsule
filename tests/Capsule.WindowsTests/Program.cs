@@ -47,6 +47,73 @@ internal static class Program
         }
         catch (Exception ex) { Console.WriteLine($"Notification unavailable: {ex.GetType().Name}; HRESULT=0x{ex.HResult:X8}"); }
 
+        if(args.Contains("--audio-probe"))
+        {
+            using var audio=new AudioService();
+            var volume=audio.Volume;
+            if(!audio.HasDevice || !audio.SetVolume(volume))throw new Exception("Default output volume interface unavailable");
+            audio.Tick(true);await Task.Delay(2200);
+            var bands=audio.Bands;
+            Console.WriteLine($"Audio live: connected={audio.Status}; fiveBands={bands.Length==5}; signal={bands.Any(value=>value>0)}; normalized={bands.All(value=>double.IsFinite(value)&&value>=0&&value<=1)}");
+            if(bands.Length!=5 || bands.Any(value=>!double.IsFinite(value)||value<0||value>1))throw new Exception("Spectrum output invalid");
+        }
+        if(args.Contains("--render-media"))
+        {
+            var renderAt=Array.IndexOf(args,"--render-media");
+            var directory=renderAt+1<args.Length ? Path.GetFullPath(args[renderAt+1]) : throw new Exception("A render output directory is required");
+            Directory.CreateDirectory(directory);
+            var app=new Capsule.App.App();app.InitializeComponent();Design.ApplySystemTheme();
+            var window=new Capsule.App.MainWindow(suppressOnboarding:true);
+            var initial=await media.ReadAsync();var initialPosition=media.Position;var changedPlayback=false;var changedPosition=false;
+            try
+            {
+                if(!initial.Playing){if(!await media.ControlAsync("toggle"))throw new Exception("Media could not play for lyric rendering");changedPlayback=true;}
+                window.Show();
+                for(var attempt=0;attempt<100 && window.CurrentLyrics.Lines.Count==0;attempt++)await Task.Delay(400);
+                if(window.CurrentLyrics.Lines.Count==0)throw new Exception("Actual window did not load lyrics");
+                var lyric=(LyricView)window.FindName("LiveLyrics");
+                if(lyric.FrameProvider?.Invoke().Line is not {Text.Length:>0})
+                {
+                    var line=window.CurrentLyrics.Lines.First(row=>row.Text.Length>0);
+                    changedPosition=await media.SeekAsync(Math.Clamp((line.StartMs+600)/Math.Max(1,initial.Duration.TotalMilliseconds),0,1),initial.Title);
+                    for(var attempt=0;attempt<30 && lyric.FrameProvider?.Invoke().Line is not {Text.Length:>0};attempt++)await Task.Delay(200);
+                }
+                if(lyric.Visibility!=System.Windows.Visibility.Visible)throw new Exception("Live lyric view was not visible");
+                await Task.Delay(600);window.UpdateLayout();
+                void Capture(string name)
+                {
+                    var dpi=System.Windows.Media.VisualTreeHelper.GetDpi(window);
+                    var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth*dpi.DpiScaleX),(int)Math.Ceiling(window.ActualHeight*dpi.DpiScaleY),96*dpi.DpiScaleX,96*dpi.DpiScaleY,System.Windows.Media.PixelFormats.Pbgra32);
+                    bitmap.Render(window);
+                    var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    using var output=File.Create(Path.Combine(directory,name));encoder.Save(output);
+                }
+                Capture("lyrics-compact.png");
+                var shell=(System.Windows.Controls.Border)window.FindName("Shell");
+                shell.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice,0,System.Windows.Input.MouseButton.Left){RoutedEvent=System.Windows.UIElement.MouseLeftButtonUpEvent});
+                await Task.Delay(600);window.UpdateLayout();Capture("media-expanded.png");
+                if(((System.Windows.Controls.Slider)window.FindName("SeekBar")).Maximum!=1 || window.ActualHeight<150)throw new Exception("Expanded timeline layout invalid");
+                Console.WriteLine($"PASS Actual WPF lyric and expanded media rendered; lines={window.CurrentLyrics.Lines.Count}; wordTimed={window.CurrentLyrics.HasWordTiming}; height={window.ActualHeight:0}");
+            }
+            finally
+            {
+                var latest=await media.ReadAsync();
+                if(latest.Title==initial.Title && latest.SourceId==initial.SourceId)
+                {
+                    if(changedPosition && initial.Duration>TimeSpan.Zero)await media.SeekAsync(initialPosition.TotalSeconds/initial.Duration.TotalSeconds,initial.Title);
+                    if(changedPlayback && latest.Playing)await media.ControlAsync("toggle");
+                }
+                window.Close();
+            }
+        }
+        if(args.Contains("--lyrics-live"))
+        {
+            using var client=new LyricsClient();
+            using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(50));
+            var document=await client.FetchAsync(snapshot,timeout.Token);
+            Console.WriteLine($"Lyrics live: source={document.Source}; lines={document.Lines.Count}; wordTimed={document.HasWordTiming}; status={client.Status}");
+            if(document.Lines.Count==0)throw new Exception("Current media has no matched lyrics; parity not verified");
+        }
         if (args.Contains("--startup-cycle"))
         {
             const string run = @"Software\Microsoft\Windows\CurrentVersion\Run";

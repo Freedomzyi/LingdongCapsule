@@ -28,6 +28,9 @@ public partial class MainWindow : Window
     public MainWindow(bool suppressOnboarding = false)
     {
         InitializeComponent();
+        LiveLyrics.FrameProvider=CurrentLyricFrame;
+        InitializeMediaControls();
+        SizeChanged+=(_,_)=>CenterOnMonitor();
         desiredHeight = settings.CompactHeight; Height = desiredHeight;
         if (Environment.GetCommandLineArgs().Contains("--inspect")) ShowInTaskbar = true;
         SourceInitialized += (_, _) => { var h = new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(h)?.AddHook(WindowHook); ApplyCapture(); };
@@ -45,7 +48,7 @@ public partial class MainWindow : Window
             if (Environment.GetCommandLineArgs().Contains("--settings")) OpenSettings();
             else if (!suppressOnboarding && !settings.OnboardingCompleted && !Environment.GetCommandLineArgs().Contains("--startup")) ShowWelcome();
         };
-        Closed += (_, _) => { closing = true; timer.Stop(); media.Dispose(); notifications.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); settingsWindow?.Close(); welcomeWindow?.Close(); SystemEvents.DisplaySettingsChanged -= OnDisplayChanged; SystemEvents.PowerModeChanged -= OnPowerChanged; };
+        Closed += (_, _) => { closing = true; timer.Stop();mediaTimer.Stop();audio.Dispose();lyricRequest?.Cancel();lyricRequest?.Dispose();lyricsClient.Dispose(); media.Dispose(); notifications.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); settingsWindow?.Close(); welcomeWindow?.Close(); SystemEvents.DisplaySettingsChanged -= OnDisplayChanged; SystemEvents.PowerModeChanged -= OnPowerChanged; };
     }
     private IntPtr WindowHook(IntPtr hwnd, int msg, IntPtr wp, IntPtr lp, ref bool handled)
     {
@@ -59,41 +62,43 @@ public partial class MainWindow : Window
         BeginAnimation(WidthProperty, null); BeginAnimation(HeightProperty, null);
         Width = desiredWidth; Height = desiredHeight;
         BeginAnimation(LeftProperty, null);
-        Left = SystemParameters.WorkArea.Left + (SystemParameters.WorkArea.Width - Width) / 2;
-        Top = SystemParameters.WorkArea.Top + 8;
+        CenterOnMonitor();
     }
+    private void CenterOnMonitor()=>MonitorPlacement.Center(new WindowInteropHelper(this).Handle,settings.MonitorId,Environment.GetCommandLineArgs().Any(arg=>arg is "--inspect" or "--render-media") ? 80 : settings.IslandShape==0 ? 0 : 8);
     private async Task RefreshAsync()
     {
         if (busy || closing) return;
         busy = true;
         try
         {
+            media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
             var latest = await media.ReadAsync();
             if (!latest.Available || (state.Media.Playing && !latest.Playing)) controlsOpen = false;
             state.UpdateMedia(latest);
+            UpdateLyrics(latest);
             if (lastNotificationsEnabled != settings.NotificationsEnabled) { notifications.ResetBaseline(); lastNotificationsEnabled = settings.NotificationsEnabled; if (!lastNotificationsEnabled) state.Dismiss(); }
             if (settings.NotificationsEnabled) foreach (var n in await notifications.ReadAsync(settings.MutedSources)) { state.Show(n, DateTimeOffset.Now); controlsOpen = false; }
             if (closing) return;
             state.Tick(DateTimeOffset.Now); Render();
-            settingsWindow?.UpdateStatus(media.Status, settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
+            settingsWindow?.UpdateStatus(media.Status+"\n"+(settings.LyricsEnabled ? lyricsClient.Status : "歌词已关闭"), settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
         }
         finally { busy = false; }
     }
     private void Render()
     {
         Clock.Text = DateTime.Now.ToString("HH:mm");
+        state.MediaClockSwitch=settings.MediaClockSwitch;
         var mode = state.Mode;
         var showMedia = mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available);
         Clock.Visibility = mode == IslandMode.Clock && !showMedia ? Visibility.Visible : Visibility.Collapsed;
         MediaPanel.Visibility = showMedia ? Visibility.Visible : Visibility.Collapsed;
         NoticePanel.Visibility = mode == IslandMode.Notification ? Visibility.Visible : Visibility.Collapsed;
         Track.Text = state.Media.Title; Artist.Text = state.Media.Artist;
-        Play.Content = state.Media.Playing ? "暂停" : "播放";
         CoverArt.Source = media.Cover; CoverFrame.Visibility = media.Cover is null ? Visibility.Collapsed : Visibility.Visible;
-        Artist.Visibility = controlsOpen ? Visibility.Visible : Visibility.Collapsed;
-        var coverSize = controlsOpen ? 32 : Math.Clamp(settings.CompactHeight - 10, 22, 40);
+        Artist.Visibility = IsMediaExpanded ? Visibility.Visible : Visibility.Collapsed;
+        var coverSize = IsMediaExpanded ? 38 : Math.Clamp(settings.CompactHeight - 10, 22, 40);
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
-        Controls.Visibility = controlsOpen ? Visibility.Visible : Visibility.Collapsed;
+        RenderLyrics();
         if (state.Notification is { } n)
         {
             NoticeApp.Text = n.App;
@@ -104,10 +109,14 @@ public partial class MainWindow : Window
         }
         else { NoticeApp.Text = ""; NoticeTitle.Text = ""; NoticeBody.Text = ""; }
         var width = mode == IslandMode.Notification || showMedia ? Math.Min(settings.Width, Math.Max(104, SystemParameters.WorkArea.Width - 16)) : 104;
-        var height = mode == IslandMode.Notification ? (state.Expanded ? 190 : 64) : showMedia && controlsOpen ? 112 : settings.CompactHeight;
-        Shell.Padding = mode == IslandMode.Notification || controlsOpen ? new Thickness(14, 7, 14, 7) : new Thickness(12, 4, 12, 4);
-        Shell.CornerRadius = new CornerRadius(height > 100 ? 22 : height / 2);
+        var height = mode == IslandMode.Notification ? (state.Expanded ? 190 : 64) : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;
+        MediaPanel.VerticalAlignment=IsMediaExpanded ? VerticalAlignment.Top : VerticalAlignment.Center;
+        MediaPanel.Margin=IsMediaExpanded ? new Thickness(0,19,0,0) : new Thickness(0);
+        Shell.Padding = mode == IslandMode.Notification || IsMediaExpanded ? new Thickness(14, 7, 14, 7) : LiveLyrics.Visibility==Visibility.Visible ? new Thickness(12,1,12,1) : new Thickness(12, 4, 12, 4);
+        Shell.CornerRadius = settings.IslandShape==0 ? new CornerRadius(0,0,settings.BottomRadius,settings.BottomRadius) : new CornerRadius(height > 100 ? 22 : height / 2);
+        Topmost=settings.Topmost;
         Animate(width, height);
+        RenderMediaControls();
     }
     private void Animate(double width, double height)
     {
@@ -117,8 +126,6 @@ public partial class MainWindow : Window
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         BeginAnimation(WidthProperty, new DoubleAnimation(width, duration) { EasingFunction = ease });
         BeginAnimation(HeightProperty, new DoubleAnimation(height, duration) { EasingFunction = ease });
-        var left = SystemParameters.WorkArea.Left + (SystemParameters.WorkArea.Width - width) / 2;
-        BeginAnimation(LeftProperty, new DoubleAnimation(left, duration) { EasingFunction = ease });
     }
     private void OnIslandClick(object sender, MouseButtonEventArgs e)
     {
@@ -141,9 +148,16 @@ public partial class MainWindow : Window
     private void OpenSettings()
     {
         if (settingsWindow is not null) { settingsWindow.Activate(); return; }
-        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, () => { settings.Save(); ApplyCapture(); Render(); }, TestNotice, ConfigureStartup, ShowWelcome);
+        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources);
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
+    }
+    private void SaveAndApplySettings()
+    {
+        try{settings.Save();}catch(Exception exception){Design.PresentMessage("设置未能保存",exception.Message);}
+        media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
+        if(!settings.MediaEnabled)state.UpdateMedia(new("","",false,false));
+        ApplyCapture();UpdateLyrics(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
     }
     private void ConfigureStartup(bool enabled) { StartupService.SetEnabled(enabled); settings.StartWithWindows = enabled; settings.Save(); }
     private void ShowTrayMenu()

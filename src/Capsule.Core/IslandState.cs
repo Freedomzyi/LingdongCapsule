@@ -1,6 +1,6 @@
 namespace Capsule.Core;
 
-public record MediaSnapshot(string Title, string Artist, bool Playing, bool Available);
+public record MediaSnapshot(string Title, string Artist, bool Playing, bool Available, string Album = "", TimeSpan Duration = default, string SourceId = "");
 public record Notice(string SourceId, string App, string Title, string Body);
 public enum IslandMode { Clock, Media, Notification }
 
@@ -11,7 +11,8 @@ public sealed class IslandState
     public Notice? Notification { get; private set; }
     public bool Expanded { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
-    public IslandMode Mode => Notification is not null ? IslandMode.Notification : Media.Playing ? IslandMode.Media : IslandMode.Clock;
+    public bool MediaClockSwitch {get;set;}=true;
+    public IslandMode Mode => Notification is not null ? IslandMode.Notification : Media.Available && (Media.Playing || !MediaClockSwitch) ? IslandMode.Media : IslandMode.Clock;
     public void UpdateMedia(MediaSnapshot media) => Media = media;
     public void Show(Notice notice, DateTimeOffset now) { Notification = notice; Expanded = false; ExpiresAt = now.AddSeconds(6); }
     public void Expand(DateTimeOffset now) { Expanded = true; ExpiresAt = now.AddSeconds(20); }
