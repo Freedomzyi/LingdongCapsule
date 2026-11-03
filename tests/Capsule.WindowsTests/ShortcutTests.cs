@@ -59,6 +59,9 @@ internal static class ShortcutTests
         try
         {
             island.Show();await Task.Delay(900);
+            islandSettings.BackgroundOpacity=50;island.SetStandby(false);
+            if(((System.Windows.Media.SolidColorBrush)((Border)island.FindName("Shell")).Background).Color.A!=128 || ((TextBlock)island.FindName("ClockTime")).Opacity!=1)throw new Exception("Background opacity affected text or did not apply");
+            islandSettings.BackgroundOpacity=96;island.SetStandby(false);
             if(((System.Windows.Media.SolidColorBrush)((Border)island.FindName("Shell")).Background).Color.R<200 || ((System.Windows.Media.SolidColorBrush)((TextBlock)island.FindName("ClockTime")).Foreground).Color.R>100)throw new Exception("Light island theme has unreadable foreground/background");
             var date=(TextBlock)island.FindName("ClockDate");var clock=(FrameworkElement)island.FindName("Clock");
             if(((StackPanel)clock).Children[0]!=(UIElement)island.FindName("HardwarePanel"))throw new Exception("Configured hardware-first order was not applied");
