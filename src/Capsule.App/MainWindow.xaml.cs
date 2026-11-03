@@ -120,7 +120,9 @@ public partial class MainWindow : Window
             if (closing) return;
             state.Tick(DateTimeOffset.Now); Render();
             if(overviewOpen)await overview.TickAsync();
-            settingsWindow?.UpdateStatus(media.Status+"\n"+(settings.LyricsEnabled ? lyricsClient.Status : "歌词已关闭"), settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
+            var mediaStatus=!settings.MediaEnabled ? "媒体已关闭" : SoloSelected ? solo.Snapshot().Connected ? "Just Solo 本机已连接" : "等待 Just Solo 本机服务（127.0.0.1:47290）" : media.Status;
+            var lyricStatus=!settings.LyricsEnabled ? "歌词已关闭" : SoloSelected ? "歌词由 Just Solo 本机服务提供" : lyricsClient.Status;
+            settingsWindow?.UpdateStatus(mediaStatus+"\n"+lyricStatus, settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
         }
         finally { busy = false; }
     }

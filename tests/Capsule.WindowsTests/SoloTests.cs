@@ -25,7 +25,12 @@ internal static class SoloTests
         if(!connection.Snapshot().Connected || connection.Snapshot().Lyrics.Lines.Count!=1)throw new Exception("Fragmented local lyric message not received");
         if(!await connection.SetVolumeAsync(.25))throw new Exception("Volume command failed");var volume=await socket.ReceiveAsync(new ArraySegment<byte>(buffer),timeout.Token);
         if(!Encoding.UTF8.GetString(buffer,0,volume.Count).Contains("0.25"))throw new Exception("Volume command value incorrect");
+        await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure,"test disconnect",timeout.Token);
+        for(var attempt=0;attempt<30 && connection.Snapshot().Connected;attempt++)await Task.Delay(25);
+        if(connection.Snapshot().Connected || connection.Snapshot().Lyrics.Lines.Count!=0)throw new Exception("Disconnected connection retained stale lyrics");
+        using var reconnect=await listener.AcceptTcpClientAsync().WaitAsync(TimeSpan.FromSeconds(5));
         connection.Configure(false);if(connection.Snapshot().Connected || connection.Snapshot().Lyrics.Lines.Count!=0)throw new Exception("Disabled connection retained stale state");
-        Console.WriteLine("PASS Local WebSocket handshake, fragmented lyrics, volume command and disable cleanup");
+        await Task.Delay(150);if(connection.Snapshot().Connected)throw new Exception("Canceled reconnect published a stale connection");
+        Console.WriteLine("PASS Local handshake, fragmented lyrics, volume, disconnect cleanup, reconnect and cancellation");
     }
 }
