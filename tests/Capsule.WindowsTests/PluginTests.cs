@@ -85,6 +85,16 @@ internal static class PluginTests
             if(text.Text.Length!=5 || !text.Text.Contains(':') || !text.IsVisible)throw new Exception("Actual island plugin did not display live clock");
             window.UpdateLayout();var center=text.TransformToAncestor(window).Transform(new Point(text.ActualWidth/2,text.ActualHeight/2));
             if(Math.Abs(center.X-window.ActualWidth/2)>1)throw new Exception("Standalone plugin clock is offset by hidden module spacing");
+            var render=typeof(Capsule.App.MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
+            var ownInk=System.Windows.Media.Brushes.Coral;text.Foreground=ownInk;
+            var opacity=windowSettings.BackgroundOpacity;windowSettings.BackgroundOpacity=42;Design.ApplyTheme(1);render.Invoke(window,null);
+            if(!ReferenceEquals(text.Foreground,ownInk))throw new Exception("Host opacity/theme traversal replaced plugin-owned color");
+            text.ClearValue(TextBlock.ForegroundProperty);render.Invoke(window,null);
+            if(((System.Windows.Media.SolidColorBrush)text.Foreground).Color!=System.Windows.Media.Color.FromRgb(29,29,31))throw new Exception("Plugin without its own foreground did not inherit light island ink");
+            Design.ApplyTheme(0);render.Invoke(window,null);
+            if(((System.Windows.Media.SolidColorBrush)text.Foreground).Color!=System.Windows.Media.Colors.White)throw new Exception("Plugin inherited ink did not follow dark theme");
+            windowSettings.BackgroundOpacity=opacity;render.Invoke(window,null);
+            Console.WriteLine("PASS Plugin-owned color survives host theme/opacity changes; unset foreground inherits both themes");
             window.LoadPlugin(valid,save:false);var retained=windowSettings.PluginFiles.Single();
             var mismatch=Path.Combine(packageRoot,"version-mismatch.zip");
             using(var zip=ZipFile.Open(mismatch,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.2.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}

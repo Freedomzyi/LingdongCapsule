@@ -20,6 +20,7 @@ public partial class MainWindow
         void Visit(DependencyObject parent)
         {
             if(ReferenceEquals(parent,OverviewHost))return;
+            if(parent is Border {Tag:string tag} && tag.StartsWith("plugin:",StringComparison.Ordinal))return;
             if(parent is TextBlock text)text.Foreground=ink;
             if(parent is TransportIcon icon)icon.InvalidateVisual();
             for(var index=0;index<VisualTreeHelper.GetChildrenCount(parent);index++)Visit(VisualTreeHelper.GetChild(parent,index));
