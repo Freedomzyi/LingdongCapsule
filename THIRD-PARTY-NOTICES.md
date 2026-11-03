@@ -9,3 +9,5 @@
 “灵动胶囊”是本项目显示名称，也被其他厂商用于相关功能；不主张对该词独占，与 Apple、Microsoft、荣耀均无隶属或背书关系。
 
 NAudio.Core / NAudio.Wasapi 2.2.1：系统输出音频分析、默认设备及音量控制，MIT 许可。来源：https://github.com/naudio/NAudio 。通过 NuGet 引用原库，未复制 NotchPeninsula 的音频实现。
+
+天气数据按需使用 Open-Meteo（https://open-meteo.com/）及其地名解析接口。天气数据为 CC BY 4.0，许可：https://creativecommons.org/licenses/by/4.0/ ，地名数据来源 GeoNames。界面天气标题提示中保留来源说明；未启用系统定位。公共免费接口用于非商业用途，商业发行需按服务当时的条款配置对应服务方案。

@@ -20,6 +20,7 @@ internal static class Program
     }
     private static async Task RunAsync(string[] args)
     {
+        if(args.Contains("--overview-test")){await OverviewTests.RunAsync(args);return;}
         // Default probe is read-only. Interactive scenarios must be explicitly selected.
         var media = new MediaService();
         var snapshot = await media.ReadAsync();

@@ -29,6 +29,9 @@ public sealed class Settings
     public string MonitorId {get;set;}="";
     public int IslandShape {get;set;}=1;
     public double BottomRadius {get;set;}=12;
+    public bool OverviewEnabled {get;set;}=true;
+    public bool ShowTomorrow {get;set;}=true;
+    public string WeatherCity {get;set;}="";
     public HashSet<string> MutedSources { get; set; } = [];
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LingdongCapsule");
     public static Settings Load()

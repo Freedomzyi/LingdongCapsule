@@ -26,7 +26,7 @@ public partial class MainWindow
         VolumeBar.ValueChanged+=(_,_)=>{if(!volumeUpdating && !audio.SetVolume(VolumeBar.Value))Design.PresentMessage("音量暂不可用","未能连接当前系统输出设备，请稍后重试。");};
         Shell.MouseWheel+=(_,e)=>
         {
-            if(state.Notification is not null || !state.Media.Available)return;
+            if(state.Notification is not null || overviewOpen || !state.Media.Available)return;
             audio.SetVolume(audio.Volume+e.Delta/120d*0.05);UpdateTimeline();e.Handled=true;
         };
     }
@@ -46,10 +46,11 @@ public partial class MainWindow
         PlayGlyph.Kind=state.Media.Playing ? TransportKind.Pause : TransportKind.Play;
         InlinePlayGlyph.Kind=PlayGlyph.Kind;
         Spectrum.Visibility=settings.ShowSpectrum && state.Media.Playing ? Visibility.Visible : Visibility.Collapsed;
-        Spectrum.Active=settings.ShowSpectrum && state.Media.Playing;
-        audio.Tick(settings.ShowSpectrum && state.Media.Playing && settings.MediaEnabled);
+        var visibleMedia=MediaPanel.Visibility==Visibility.Visible;
+        Spectrum.Active=settings.ShowSpectrum && state.Media.Playing && visibleMedia;
+        audio.Tick(settings.ShowSpectrum && state.Media.Playing && settings.MediaEnabled && visibleMedia);
         CoverRing.Radius=Shell.CornerRadius.TopLeft;
-        CoverRing.Active=settings.CoverProgress && state.Mode==Capsule.Core.IslandMode.Media && state.Media.Playing && media.Duration>TimeSpan.Zero;
+        CoverRing.Active=settings.CoverProgress && visibleMedia && state.Mode==Capsule.Core.IslandMode.Media && state.Media.Playing && media.Duration>TimeSpan.Zero;
         mediaTimer.IsEnabled=expanded;
         if(expanded)UpdateTimeline();
     }

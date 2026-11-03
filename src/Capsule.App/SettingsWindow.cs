@@ -73,6 +73,10 @@ public sealed class SettingsWindow : Window
         AddSelection(positionOptions,"岛体形态",()=>new Dictionary<string,string>{{"1","灵动胶囊"},{"0","刘海"}},settings.IslandShape.ToString(),v=>settings.IslandShape=int.Parse(v),"刘海贴合屏幕上沿；胶囊保留顶部间距。");
         AddSlider(positionOptions,"刘海底部圆角",0,28,settings.BottomRadius,v=>settings.BottomRadius=v,"逻辑像素，仅刘海形态生效。",1);
         panel.Children.Add(Design.Card(positionOptions));
+        var overviewOptions=new StackPanel();
+        AddCheck(overviewOptions,"*空闲信息面板",settings.OverviewEnabled,v=>settings.OverviewEnabled=v,"空闲时单击时钟展开天气、网速、硬件状态和内存排行；也可从托盘打开。城市只在面板顶部编辑。");
+        AddCheck(overviewOptions,"明日天气",settings.ShowTomorrow,v=>settings.ShowTomorrow=v,"空闲面板显示第二天预报，不影响今日天气。");
+        panel.Children.Add(Design.Card(overviewOptions));
         panel=pages["媒体设置"];
         Heading(panel,"媒体识别");
         var mediaOptions=new StackPanel();
