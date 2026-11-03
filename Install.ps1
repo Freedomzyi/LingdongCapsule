@@ -1,4 +1,4 @@
-param([string]$InstallDir=(Join-Path $env:LOCALAPPDATA 'Programs\LingdongCapsule'))
+﻿param([string]$InstallDir=(Join-Path $env:LOCALAPPDATA 'Programs\LingdongCapsule'))
 $ErrorActionPreference='Stop'
 $source=(Resolve-Path -LiteralPath $PSScriptRoot).Path
 $target=[IO.Path]::GetFullPath($InstallDir).TrimEnd('\')

@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $target=(Resolve-Path -LiteralPath $PSScriptRoot).Path.TrimEnd('\')
 $manifest=Join-Path $target 'installed-files.json'
 if(-not(Test-Path -LiteralPath $manifest) -or -not(Test-Path -LiteralPath (Join-Path $target 'LingdongCapsule.exe'))){throw '没有找到本程序的安装清单，停止卸载。便携版可退出后手动移除解压目录。'}

@@ -1,6 +1,9 @@
-param([string]$Dotnet = 'dotnet')
+﻿param([string]$Dotnet = 'dotnet')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+if($Dotnet -eq 'dotnet' -and (Test-Path -LiteralPath (Join-Path $root '.tools\dotnet\dotnet.exe'))) {
+    $Dotnet=Join-Path $root '.tools\dotnet\dotnet.exe'
+}
 Push-Location $root
 try {
     & $Dotnet run --project tests/Capsule.Tests -c Release

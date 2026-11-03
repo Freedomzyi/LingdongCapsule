@@ -7,3 +7,4 @@ artifacts/
 *.cer
 installed-files.json
 **/__pycache__/
+.tools/

@@ -28,6 +28,8 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 ./scripts/build.ps1
 ```
 
+构建脚本优先使用仓库本地可选的 `.tools/dotnet/dotnet.exe`，不存在时使用系统 SDK。本地 SDK 不提交 Git，也不随软件发布；项目不依赖任何会话临时目录。
+
 生成 `artifacts/LingdongCapsule-win-x64.zip` 和 `artifacts/SHA256SUMS.txt`。源码调试：
 
 ```powershell
