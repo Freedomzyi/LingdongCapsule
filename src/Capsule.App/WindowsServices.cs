@@ -165,6 +165,23 @@ public sealed class MediaService : IDisposable
 
 public sealed class NotificationService : IDisposable
 {
+    private readonly Dictionary<string,BitmapSource?> logos=new(StringComparer.OrdinalIgnoreCase);
+    private bool disposed;
+    public BitmapSource? Logo(string source)=>logos.GetValueOrDefault(source);
+    private async Task LoadLogoAsync(Windows.ApplicationModel.AppInfo app,string source)
+    {
+        if(logos.Count>=48)logos.Remove(logos.Keys.First());logos[source]=null;
+        try
+        {
+            using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var stream=await app.DisplayInfo.GetLogo(new Windows.Foundation.Size(96,96)).OpenReadAsync().AsTask(timeout.Token);
+            if(disposed || stream.Size==0 || stream.Size>4*1024*1024)return;
+            using var input=stream.AsStreamForRead();
+            var bitmap=new BitmapImage();bitmap.BeginInit();bitmap.CacheOption=BitmapCacheOption.OnLoad;bitmap.DecodePixelWidth=96;bitmap.StreamSource=input;bitmap.EndInit();bitmap.Freeze();
+            if(!disposed && logos.ContainsKey(source))logos[source]=bitmap;
+        }
+        catch(Exception){ /* Missing app logos use our own fallback icon. */ }
+    }
     private readonly Dictionary<string, DateTimeOffset> seen = [];
     private UserNotificationListener? listener;
     private bool baseline;
@@ -172,7 +189,7 @@ public sealed class NotificationService : IDisposable
     private int dirty = 1;
     private DateTimeOffset lastPoll;
     private void OnChanged(UserNotificationListener sender, UserNotificationChangedEventArgs args) => Interlocked.Exchange(ref dirty, 1);
-    public void Dispose() { if (subscribed && eventAvailable && listener is not null) listener.NotificationChanged -= OnChanged; }
+    public void Dispose() { disposed=true;if (subscribed && eventAvailable && listener is not null) listener.NotificationChanged -= OnChanged;logos.Clear(); }
     public string Status { get; private set; } = "通知监听未启用";
     public Dictionary<string, string> Sources { get; } = [];
     public async Task<bool> RequestAsync()
@@ -190,6 +207,7 @@ public sealed class NotificationService : IDisposable
     public async Task<List<Notice>> ReadAsync(HashSet<string> muted)
     {
         List<Notice> notices = [];
+        if(disposed)return notices;
         try
         {
             listener ??= UserNotificationListener.Current;
@@ -217,7 +235,8 @@ public sealed class NotificationService : IDisposable
                     if (!baseline || !fresh || muted.Contains(source)) continue;
                     var text = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric)?.GetTextElements();
                     if (text is null) continue;
-                    notices.Add(new(source, Sources[source], text.FirstOrDefault()?.Text ?? "新通知", string.Join("\n", text.Skip(1).Select(t => t.Text))));
+                    notices.Add(new(source, Sources[source], text.FirstOrDefault()?.Text ?? "新通知", string.Join("\n", text.Skip(1).Select(t => t.Text)),n.Id,n.CreationTime));
+                    if(!logos.ContainsKey(source))_=LoadLogoAsync(n.AppInfo,source);
                 }
                 catch { /* An invalid app notification must not break the batch. */ }
             }

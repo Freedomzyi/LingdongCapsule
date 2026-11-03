@@ -33,3 +33,13 @@ var mismatch=LyricsDocument.Parse("[00:01.00]Original",wordTiming:"[1000,2000](1
 Check(!mismatch.HasWordTiming,"Different lyric version does not acquire incorrect word timing");
 s.MediaClockSwitch=false;s.UpdateMedia(new("Paused","Artist",false,true));Check(s.Mode==IslandMode.Media,"Disabling media-clock switch retains paused media");
 s.MediaClockSwitch=true;Check(s.Mode==IslandMode.Clock,"Re-enabling media-clock switch returns paused clock");
+
+s.Dismiss();s.Show(new("app","App","First","",1),now);s.Expand(now.AddSeconds(1));s.Show(new("APP","App","Latest","",2),now.AddSeconds(2));
+Check(s.GroupCount==2 && s.LastNoticeGrouped && s.Notification?.Title=="Latest" && !s.Expanded,"Distinct same-source notices merge and reset reader to latest content");
+s.Show(new("app","App","Updated","",2),now.AddSeconds(3));Check(s.GroupCount==1 && !s.LastNoticeGrouped,"Updating the same notification ID does not increment group count");
+s.Show(new("other","Other","Other","",3),now.AddSeconds(4));Check(s.GroupCount==1 && !s.LastNoticeGrouped,"Different sources do not merge");
+s.Show(new("other","Other","After expiry","",4),now.AddSeconds(11));Check(s.GroupCount==1 && !s.LastNoticeGrouped,"Expired notice does not merge into new notification");
+s.GroupNotifications=false;s.Show(new("other","Other","Ungrouped","",5),now.AddSeconds(12));Check(s.GroupCount==1 && !s.LastNoticeGrouped,"Grouping preference is respected");
+s.SetQuietUntil(now.AddMinutes(30),now.AddSeconds(13));Check(s.Notification==null && !s.Show(new("app","App","Muted","",6),now.AddMinutes(1)),"Quiet period dismisses overlay and rejects incoming notices");
+s.Tick(now.AddMinutes(31));Check(s.Notification==null && !s.IsQuiet(now.AddMinutes(31)),"Quiet expiry does not replay muted notices");
+Check(s.Show(new("app","App","New","",7),now.AddMinutes(31)) && s.GroupCount==1,"New notices resume after quiet expiry");

@@ -13,15 +13,18 @@ public sealed class SettingsWindow : Window
     private readonly Action save;
     private string sourceKey = "__initial__";
     private CheckBox? notificationsCheck;
+    private CheckBox? quietCheck;
     private Button? authorizeButton;
     private readonly Dictionary<string,StackPanel> pages=[];
     private readonly Dictionary<string,ScrollViewer> pageViews=[];
     private readonly Dictionary<string,Button> tabs=[];
     private readonly ContentControl pageHost=new();
+    private readonly NotificationSound soundPreview=new();
 
     public SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources)
     {
         this.settings = settings; this.save = save;
+        Closed+=(_,_)=>soundPreview.Dispose();
         Title = "灵动胶囊 · 设置"; Width = Math.Min(700,SystemParameters.WorkArea.Width-40); Height = Math.Min(720, SystemParameters.WorkArea.Height - 48);
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize; AllowsTransparency = true; Background = Brushes.Transparent;
         FontFamily = new("Microsoft YaHei UI"); FontSize = 13; WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -65,6 +68,46 @@ public sealed class SettingsWindow : Window
         notificationsCheck = AddCheck(switches, "系统通知", settings.NotificationsEnabled, v => settings.NotificationsEnabled = v, "只接收 Windows 通知中心可提供的通知，不修改系统横幅策略。");
         AddCheck(switches, "开机启动", StartupService.IsEnabled, startup, "登录当前 Windows 用户后自动启动，只驻留系统托盘；不需要管理员权限。");
         panel.Children.Add(Design.Card(switches));
+        Heading(panel,"通知展示");
+        var notificationOptions=new StackPanel();
+        AddSlider(notificationOptions,"通知高度",40,120,settings.NotificationHeight,v=>settings.NotificationHeight=v,"逻辑像素；图标或完整内容需要时可自动增高。",1);
+        AddSlider(notificationOptions,"*通知图标大小",18,settings.Width,settings.NotificationIconSize,v=>settings.NotificationIconSize=v,"显示时保留正文空间，不会挤占整个岛体。",1);
+        AddSlider(notificationOptions,"*通知图标间距",0,20,settings.NotificationIconGap,v=>settings.NotificationIconGap=v,"图标与文字之间的逻辑像素。",1);
+        AddSelection(notificationOptions,"通知内容模式",()=>new Dictionary<string,string>{{"0","缩略"},{"1","紧凑"},{"2","完整"}},settings.NotificationMode.ToString(),v=>settings.NotificationMode=int.Parse(v),"缩略显示标题与正文；紧凑增加侧边应用信息；完整增加应用名一行。");
+        AddCheck(notificationOptions,"连续同源通知合并",settings.GroupNotifications,v=>settings.GroupNotifications=v,"同一应用在当前通知展示期间继续来消息时显示累计数量，仅展示最新内容。");
+        AddCheck(notificationOptions,"点击展开通知",settings.ExpandNotifications,v=>settings.ExpandNotifications=v,"点击正文展开阅读；隐私预览开启时，仍需点击才能阅读正文。");
+        AddCheck(notificationOptions,"*上滑收起通知",settings.SwipeNotifications,v=>settings.SwipeNotifications=v,"按住通知向上拖动 12 个逻辑像素即可收起。");
+        quietCheck=AddCheck(notificationOptions,"*安静 30 分钟",settings.QuietUntil>DateTimeOffset.UtcNow,v=>settings.QuietUntil=v ? DateTimeOffset.UtcNow.AddMinutes(30) : default,"暂停岛内通知与提示音，到时自动恢复；不会补播期间通知，也不改 Windows 通知设置。");
+        panel.Children.Add(Design.Card(notificationOptions));
+        Heading(panel,"通知提示音");
+        var soundOptions=new StackPanel();
+        AddSlider(soundOptions,"独立音量",0,100,settings.NotificationSoundVolume,v=>settings.NotificationSoundVolume=v,"仅控制灵动胶囊提示音，不改系统主音量。",10);
+        AddSelection(soundOptions,"提示音",NotificationSound.Options,settings.NotificationSoundKey,v=>settings.NotificationSoundKey=v,"14 种原创轻提示音，或选择自己的音频；不分发未经授权的系统或聊天软件音效。");
+        var fileName=new TextBlock{Text=settings.NotificationSoundPath.Length>0 ? System.IO.Path.GetFileName(settings.NotificationSoundPath) : "尚未选择本地音频",FontSize=12,TextTrimming=TextTrimming.CharacterEllipsis,Margin=new Thickness(0,7,0,7)};Design.Bind(fileName,TextBlock.ForegroundProperty,"TextSecondary");soundOptions.Children.Add(fileName);
+        var browseSound=new Button{Content="选择本地音频…",Padding=new Thickness(12,8,12,8)};
+        browseSound.Click+=async(_,_)=>
+        {
+            var picker=new Microsoft.Win32.OpenFileDialog{Title="选择通知提示音",Filter="音频|*.wav;*.mp3;*.m4a;*.aac;*.wma;*.flac;*.aiff;*.aif",CheckFileExists=true,Multiselect=false};
+            if(picker.ShowDialog(this)!=true)return;
+            if(!NotificationSound.ValidFile(picker.FileName,out var error)){Design.PresentMessage("无法使用此音频",error);return;}
+            browseSound.IsEnabled=false;
+            try
+            {
+                if(!await NotificationSound.ValidateDurationAsync(picker.FileName)){Design.PresentMessage("无法使用此音频","请选择系统能解码、时长不超过 5 秒的音频。");return;}
+                var folder=System.IO.Path.Combine(Settings.Folder,"Sounds");System.IO.Directory.CreateDirectory(folder);
+                var destination=System.IO.Path.Combine(folder,"custom-"+Guid.NewGuid().ToString("N")+System.IO.Path.GetExtension(picker.FileName));
+                System.IO.File.Copy(picker.FileName,destination);settings.NotificationSoundPath=destination;fileName.Text=System.IO.Path.GetFileName(picker.FileName);save();
+                Design.PresentMessage("音频已保存","在提示音选项中选择“自选音频”即可使用。");
+            }
+            catch(Exception exception) when(exception is System.IO.IOException or UnauthorizedAccessException){Design.PresentMessage("音频未能保存","请检查文件是否仍然可读，以及保存目录权限。");}
+            finally{browseSound.IsEnabled=true;}
+        };
+        soundOptions.Children.Add(browseSound);
+        var previewSound=new Button{Content="试听",Margin=new Thickness(0,7,0,7),Padding=new Thickness(12,8,12,8)};
+        previewSound.Click+=async(_,_)=>{previewSound.IsEnabled=false;try{if(!await soundPreview.PlayAsync(settings,preview:true))Design.PresentMessage("试听未能播放",soundPreview.Error.Length>0 ? soundPreview.Error : "请检查音频选择与输出设备。");}finally{previewSound.IsEnabled=true;}};
+        soundOptions.Children.Add(previewSound);
+        AddCheck(soundOptions,"通知提示音",settings.NotificationSoundEnabled,v=>settings.NotificationSoundEnabled=v,"默认关闭；同源合并后只在第一条播放，安静时段不播放。Windows 原通知声音由系统独立管理。");
+        panel.Children.Add(Design.Card(soundOptions));
 
         panel=pages["显示设置"];
         Heading(panel,"显示位置与形态");
@@ -175,6 +218,7 @@ public sealed class SettingsWindow : Window
     public void UpdateStatus(string media, string notification, Dictionary<string, string> apps)
     {
         status.Text = media + "\n" + notification; if (notificationsCheck is not null) notificationsCheck.IsChecked = settings.NotificationsEnabled;
+        if(quietCheck!=null)quietCheck.IsChecked=settings.QuietUntil>DateTimeOffset.UtcNow;
         if (authorizeButton is not null) authorizeButton.Visibility = notification.Contains("正常") || notification.Contains("已授权") ? Visibility.Collapsed : Visibility.Visible;
         var key = string.Join("|", apps.OrderBy(x => x.Key).Select(x => x.Key + ":" + x.Value)); if (key == sourceKey) return; sourceKey = key; sources.Children.Clear();
         foreach (var app in apps.OrderBy(x => x.Value))

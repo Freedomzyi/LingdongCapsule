@@ -6,6 +6,8 @@
 
 字体使用系统已安装的 Microsoft YaHei UI，不随包分发字体文件。程序与托盘图标为本项目原创几何图形，SVG、PNG、ICO 及生成脚本一并提供。可选图标生成脚本使用 Pillow（仅资产制作，不是构建或运行依赖），Pillow 许可见 https://github.com/python-pillow/Pillow/blob/main/LICENSE 。无外部图标或付费素材。
 
+14 种内置轻提示音由本项目的 NotificationSound.Chime 独立合成 PCM WAV，随项目 MIT 许可；没有打包 NotchPeninsula、Apple 或聊天软件的提示音。运行时使用 Windows 提供的媒体解码器，自选音频由使用者选取并保存在自己的配置目录。
+
 “灵动胶囊”是本项目显示名称，也被其他厂商用于相关功能；不主张对该词独占，与 Apple、Microsoft、荣耀均无隶属或背书关系。
 
 NAudio.Core / NAudio.Wasapi 2.2.1：系统输出音频分析、默认设备及音量控制，MIT 许可。来源：https://github.com/naudio/NAudio 。通过 NuGet 引用原库，未复制 NotchPeninsula 的音频实现。

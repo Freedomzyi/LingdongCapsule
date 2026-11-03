@@ -10,6 +10,18 @@ public sealed class Settings
     public bool ShowInCapture { get; set; } = true;
     public bool PrivatePreview { get; set; } = true;
     public bool NotificationsEnabled { get; set; } = true;
+    public int NotificationMode{get;set;}
+    public double NotificationHeight{get;set;}=55;
+    public double NotificationIconSize{get;set;}=38;
+    public double NotificationIconGap{get;set;}=6;
+    public bool GroupNotifications{get;set;}=true;
+    public bool ExpandNotifications{get;set;}=true;
+    public bool SwipeNotifications{get;set;}=true;
+    public DateTimeOffset QuietUntil{get;set;}
+    public bool NotificationSoundEnabled{get;set;}
+    public string NotificationSoundKey{get;set;}="none";
+    public string NotificationSoundPath{get;set;}="";
+    public double NotificationSoundVolume{get;set;}=10;
     public bool StartWithWindows { get; set; }
     public bool OnboardingCompleted { get; set; }
     public bool LyricsEnabled { get; set; }=true;
@@ -36,8 +48,20 @@ public sealed class Settings
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LingdongCapsule");
     public static Settings Load()
     {
-        try { var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new(); s.Width = double.IsFinite(s.Width) ? Math.Clamp(s.Width, 220, 480) : 280; s.CompactHeight = double.IsFinite(s.CompactHeight) ? Math.Clamp(s.CompactHeight, 32, 60) : 35; s.MotionMs = Math.Clamp(s.MotionMs, 150, 900); s.MutedSources ??= []; return s; }
+        try { var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new(); s.Normalize();return s; }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return new(); }
+    }
+    internal void Normalize()
+    {
+        static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;
+        Width=Limit(Width,220,480,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
+        NotificationMode=Math.Clamp(NotificationMode,0,2);NotificationHeight=Limit(NotificationHeight,40,120,55);
+        NotificationIconSize=Limit(NotificationIconSize,18,Width,38);NotificationIconGap=Limit(NotificationIconGap,0,20,6);
+        NotificationSoundVolume=Limit(NotificationSoundVolume,0,100,10);NotificationSoundKey??="none";NotificationSoundPath??="";
+        if(!NotificationSound.Options().ContainsKey(NotificationSoundKey))NotificationSoundKey="none";
+        BottomRadius=Limit(BottomRadius,0,28,12);IslandShape=Math.Clamp(IslandShape,0,1);MonitorId??="";
+        MediaSourceKind??="other";ManualMediaSource??="";WeatherCity=(WeatherCity ?? "").Trim();if(WeatherCity.Length>80)WeatherCity=WeatherCity[..80];
+        LyricOffsetSeconds=Limit(LyricOffsetSeconds,-3,3,0);MutedSources=new(MutedSources ?? [],StringComparer.OrdinalIgnoreCase);
     }
     public void Save()
     {

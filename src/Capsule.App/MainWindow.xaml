@@ -44,11 +44,17 @@
      <Grid x:Name="VolumeSection" Visibility="Collapsed" Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons" Foreground="#A1A1AA" FontSize="13" VerticalAlignment="Center"/><Slider x:Name="VolumeBar" Grid.Column="1" Minimum="0" Maximum="1" SmallChange="0.05" LargeChange="0.1" AutomationProperties.Name="系统音量"/></Grid>
     </StackPanel>
    </StackPanel>
-   <StackPanel x:Name="NoticePanel" Visibility="Collapsed" VerticalAlignment="Center">
-    <TextBlock x:Name="NoticeApp" Foreground="#ACACB6" FontSize="11" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
-    <TextBlock x:Name="NoticeTitle" Foreground="White" FontSize="13" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
-    <ScrollViewer x:Name="NoticeBodyScroll" MaxHeight="110" VerticalScrollBarVisibility="Auto" Visibility="Collapsed" Margin="0,8,0,0"><TextBlock x:Name="NoticeBody" Foreground="#D6D6DD" FontSize="12" TextWrapping="Wrap"/></ScrollViewer>
-   </StackPanel>
+   <Grid x:Name="NoticePanel" Visibility="Collapsed" VerticalAlignment="Center">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Border x:Name="NoticeIconFrame" CornerRadius="4" Margin="0,0,6,0" Width="38" Height="38" VerticalAlignment="Center" ClipToBounds="True"><Image x:Name="NoticeIcon" Stretch="Uniform" Source="Assets/icon.png"/></Border>
+    <StackPanel x:Name="NoticeContent" Grid.Column="1" VerticalAlignment="Center">
+     <TextBlock x:Name="NoticeApp" Foreground="#ACACB6" FontSize="11" TextTrimming="CharacterEllipsis"/>
+     <TextBlock x:Name="NoticeTitle" Foreground="White" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+     <ScrollViewer x:Name="NoticeBodyScroll" MaxHeight="126" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"><TextBlock x:Name="NoticeBody" Foreground="#D6D6DD" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></ScrollViewer>
+    </StackPanel>
+    <StackPanel x:Name="NoticeRight" Grid.Column="2" VerticalAlignment="Center" Margin="7,0,0,0" MaxWidth="64"><TextBlock x:Name="NoticeNow" Text="现在" Foreground="#ACACB6" FontSize="10" TextAlignment="Right"/><TextBlock x:Name="NoticeRightApp" Foreground="#ACACB6" FontSize="10" TextAlignment="Right" TextTrimming="CharacterEllipsis"/></StackPanel>
+    <StackPanel x:Name="NoticePrivate" Grid.ColumnSpan="3" VerticalAlignment="Center" Visibility="Collapsed"><TextBlock x:Name="NoticePrivateApp" Foreground="White" FontSize="13" TextAlignment="Center" TextTrimming="CharacterEllipsis"/><TextBlock Text="新消息 · 点击查看" Foreground="#ACACB6" FontSize="11" TextAlignment="Center" Margin="0,4,0,0"/></StackPanel>
+   </Grid>
   </Grid>
  </Border>
  <local:CapsuleProgressView x:Name="CoverRing"/>
