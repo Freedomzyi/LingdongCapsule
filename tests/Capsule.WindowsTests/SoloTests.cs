@@ -38,7 +38,7 @@ internal static class SoloTests
     {
         using var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();var port=((IPEndPoint)listener.LocalEndpoint).Port;
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
-        var settings=new Settings{MediaSourceKind="justsolo",NotificationsEnabled=false,LyricsEnabled=true};
+        var settings=new Settings{MediaSourceKind="justsolo",NotificationsEnabled=false,LyricsEnabled=true,CompositeEnabled=true,MediaFirst=true};
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings,localSoloEndpoint:new Uri($"ws://127.0.0.1:{port}/"));
         try
         {
@@ -53,6 +53,22 @@ internal static class SoloTests
             var view=(LyricView)window.FindName("LiveLyrics");
             for(var attempt=0;attempt<30 && (!window.LiveState.Media.Available || view.Visibility!=System.Windows.Visibility.Visible);attempt++)await Task.Delay(100);
             if(!window.LiveState.Media.Playing || view.FrameProvider?.Invoke().Line?.Text!="Live test" || view.Visibility!=System.Windows.Visibility.Visible)throw new Exception("Local protocol lyrics did not reach actual island");
+            window.UpdateLayout();var clock=(System.Windows.FrameworkElement)window.FindName("Clock");var panel=(System.Windows.FrameworkElement)window.FindName("MediaPanel");
+            if(clock.Visibility!=System.Windows.Visibility.Visible || panel.Visibility!=System.Windows.Visibility.Visible || System.Windows.Controls.Grid.GetColumn(panel)!=0 || System.Windows.Controls.Grid.GetColumn(clock)!=1 || window.ActualWidth>settings.Width+.5)throw new Exception("Composite media/clock layout or ordering failed");
+            var render=typeof(Capsule.App.MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
+            foreach(var width in new[]{80d,195d,280d,300d})foreach(var first in new[]{false,true})
+            {
+                settings.Width=width;settings.MediaFirst=first;render.Invoke(window,null);await Task.Delay(650);window.UpdateLayout();
+                var slot=System.Windows.Controls.Primitives.LayoutInformation.GetLayoutSlot(clock);
+                if(System.Windows.Controls.Grid.GetColumn(panel)!=(first ? 0 : 1) || !double.IsFinite(clock.ActualWidth) || clock.MaxWidth!=Math.Max(0,width-24-110-8) || slot.Width>Math.Max(0,width-24-110)+1 || window.ActualWidth>width+.5)throw new Exception($"Composite width/order boundary failed: requested={width}, first={first}, slot={slot.Width}, max={clock.MaxWidth}, window={window.ActualWidth}");
+            }
+            settings.CompositeEnabled=false;render.Invoke(window,null);
+            if(clock.Visibility!=System.Windows.Visibility.Collapsed || panel.Visibility!=System.Windows.Visibility.Visible)throw new Exception("Disabling composite did not restore exclusive media");
+            settings.CompositeEnabled=true;settings.Width=280;settings.MediaFirst=true;render.Invoke(window,null);await Task.Delay(650);window.UpdateLayout();
+            var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth),(int)Math.Ceiling(window.ActualHeight),96,96,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(window);
+            var evidence=System.IO.Path.Combine("artifacts","verification","composite");System.IO.Directory.CreateDirectory(evidence);
+            var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using(var file=System.IO.File.Create(System.IO.Path.Combine(evidence,"media-clock.png")))encoder.Save(file);
+            Console.WriteLine("PASS Composite width 80/195/280/300, both orders, exclusive fallback and WPF render");
             await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure,"end integration",timeout.Token);
             for(var attempt=0;attempt<30 && window.LiveState.Media.Available;attempt++)await Task.Delay(100);
             if(window.LiveState.Media.Available || view.FrameProvider?.Invoke().Line!=null)throw new Exception("Disconnected island retained local media or lyrics");

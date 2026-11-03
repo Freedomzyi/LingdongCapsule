@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         Design.ApplyTheme(settings.ThemeMode);
         shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();
+        InitializeComposite();
         Closed+=(_,_)=>solo.Dispose();
         ApplyUserFont();
         InitializeVisibility();
@@ -157,6 +158,9 @@ public partial class MainWindow : Window
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
         OverviewHost.Visibility=showOverview ? Visibility.Visible : Visibility.Collapsed;
         Clock.Visibility = mode == IslandMode.Clock && !showMedia && !showOverview ? Visibility.Visible : Visibility.Collapsed;
+        var combined=settings.CompositeEnabled && showMedia && !IsMediaExpanded && !settings.StandbyActive && mode!=IslandMode.Notification;
+        if(combined)Clock.Visibility=Visibility.Visible;
+        RenderComposite(showMedia,combined);
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)Clock.Visibility=settings.StandbyScene==1 ? Visibility.Visible : Visibility.Collapsed;
         if(HardwarePanel.Visibility==Visibility.Visible && Clock.Visibility==Visibility.Visible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
         {

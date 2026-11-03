@@ -18,6 +18,8 @@ public sealed class Settings
     public int ClockLayout{get;set;}
     public bool HardwareEnabled{get;set;}
     public bool HardwareFirst{get;set;}
+    public bool CompositeEnabled{get;set;}
+    public bool MediaFirst{get;set;}
     public bool StandbyActive{get;set;}
     public int StandbyScene{get;set;}=1;
     public bool StandbyDoubleClick{get;set;}

@@ -138,13 +138,15 @@ public sealed class SettingsWindow : Window
         panel=pages["显示设置"];
         Heading(panel,"显示位置与形态");
         var clockOptions=new StackPanel();
+        AddCheck(clockOptions,"组合显示",settings.CompositeEnabled,value=>settings.CompositeEnabled=value,"折叠态同时显示已启用的时钟、硬件、插件和媒体；展开播放器时保留完整控制。较窄时其他组件会裁切。");
+        AddSelection(clockOptions,"媒体排列位置",()=>new Dictionary<string,string>{{"last","其他组件 → 媒体"},{"first","媒体 → 其他组件"}},settings.MediaFirst ? "first" : "last",value=>settings.MediaFirst=value=="first","组合显示下调整媒体与其他组件的排列。");
         AddSelection(clockOptions,"待机场景",()=>new Dictionary<string,string>{{"1","时间"},{"2","空白"},{"3","媒体控制"}},settings.StandbyScene.ToString(),value=>settings.StandbyScene=int.Parse(value),"待机时仅显示所选内容；通知仍可临时覆盖，媒体控制需要已有媒体会话。");
         AddCheck(clockOptions,"待机模式",settings.StandbyActive,value=>settings.StandbyActive=value,"临时使用单一场景，退出后恢复原有组件开关与顺序。");
         AddCheck(clockOptions,"双击切换待机",settings.StandbyDoubleClick,value=>settings.StandbyDoubleClick=value,"双击岛体内容区域切换待机；启用后单击会等待系统双击判定时间。");
         AddSelection(clockOptions,"空闲组件顺序",()=>new Dictionary<string,string>{{"clock","时钟 → 硬件"},{"hardware","硬件 → 时钟"}},settings.HardwareFirst ? "hardware" : "clock",value=>settings.HardwareFirst=value=="hardware","调整折叠态已启用的时钟与硬件组件排列；关闭的组件不占位置。");
         AddSelection(clockOptions,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟对应当前定制组件；时间与日期按 HH:mm 与 MM/dd 显示，并根据内容收窄。");
         AddCheck(clockOptions,"显示时间日期",settings.ClockEnabled,value=>settings.ClockEnabled=value,"关闭后不显示时钟文本；仍保留空闲面板点击入口，不影响播放和通知。");
-        AddCheck(clockOptions,"显示硬件占用",settings.HardwareEnabled,value=>settings.HardwareEnabled=value,"空闲折叠态每秒采样真实 CPU 与内存；无有效数据时显示横线，不显示虚构数值。媒体组合与排序仍在对齐中。");
+        AddCheck(clockOptions,"显示硬件占用",settings.HardwareEnabled,value=>settings.HardwareEnabled=value,"折叠态每秒采样真实 CPU 与内存；无有效数据时显示横线。开启组合显示后可与媒体同时显示。");
         panel.Children.Add(Design.Card(clockOptions));
         var positionOptions=new StackPanel();
         AddSelection(positionOptions,"目标显示器",MonitorPlacement.Options,settings.MonitorId,v=>settings.MonitorId=v,"显示器断开时回到主屏，不修改其他软件设置。");
