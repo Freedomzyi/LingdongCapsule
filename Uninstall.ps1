@@ -1,4 +1,5 @@
-﻿$ErrorActionPreference='Stop'
+﻿param([string]$TestRegistrationId='')
+$ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'Deployment.Common.ps1')
 $target=Assert-CapsulePath ((Resolve-Path -LiteralPath $PSScriptRoot).Path)
 $manifest=Join-Path $target 'installed-files.json'
@@ -8,12 +9,12 @@ Assert-CapsuleTree $target
 $paths=@(Read-CapsuleFiles $target)
 $checked=@($paths | ForEach-Object {Get-CapsuleChild $target $_})
 Get-Process LingdongCapsule -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe} | Stop-Process
-$run='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-$startup=(Get-ItemProperty -Path $run -Name LingdongCapsule -ErrorAction SilentlyContinue).LingdongCapsule
-if($startup -and $startup.Contains($exe)){Remove-ItemProperty -Path $run -Name LingdongCapsule}
-$link=Join-Path ([Environment]::GetFolderPath('Programs')) '灵动胶囊.lnk'
+$registration=Get-CapsuleRegistration $TestRegistrationId;$run=$registration.Run;$registrationName=$registration.Name
+$startup=(Get-ItemProperty -Path $run -Name $registrationName -ErrorAction SilentlyContinue).$registrationName
+if($startup -and (Test-CapsuleStartup $startup $exe)){Remove-ItemProperty -Path $run -Name $registrationName}
+$link=$registration.Link
 if(Test-Path -LiteralPath $link){$shell=New-Object -ComObject WScript.Shell;if($shell.CreateShortcut($link).TargetPath -eq $exe){Remove-Item -LiteralPath $link}}
-$uninstall='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LingdongCapsule'
+$uninstall=$registration.Key
 if((Get-ItemProperty -Path $uninstall -ErrorAction SilentlyContinue).InstallLocation -eq $target){Remove-Item -LiteralPath $uninstall}
 foreach($path in $checked){if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -Force}}
 Remove-Item -LiteralPath $manifest

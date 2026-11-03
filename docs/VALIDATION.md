@@ -261,3 +261,10 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 注入测试覆盖上述回退、缺失候选 ID、错误时长、来源优先级、Base64 与中途取消；真实 QQ 搜索/详情/歌词请求取得 63 行，未输出/保存歌词正文，未控制用户播放器。真实播放器同步验收仍待执行。
 - 超限测试发现 InvalidDataException 不能由 IOException 分支覆盖。已在歌词、插件目录、市场刷新和包清理明确隔离该异常；新增合法 JSON 但身份无效的清单、目录 schema 无效仍保留上次可用列表等回归，避免坏数据中断应用。
 - 十一组整合验证通过：artifacts/verification/20261103-120320-8759。随后增加非有限歌词时间、偏移和逐字时长拒绝的核心回归，以及歌词/Solo 定向回归。实现与剩余范围见 MEDIA.md。
+
+## 安装登记、迁移与失败回退专项
+
+- Windows PowerShell 5.1，独立临时测试身份与伪程序文件；真实写入自己的 HKCU 卸载项、Run 值及开始菜单快捷方式，不使用正常 LingdongCapsule 登记。十项断言通过：artifacts/registration-tests/865f823604364ad3bd09f0c87c14c7dd/results.json。
+- 故障在文件切换、快捷方式保存后注入，恢复旧程序、默认注册表值、DWord/ExpandString 类型与未展开内容、快捷方式原字节、自启原命令。修正未关闭注册表句柄和默认值恢复方式。
+- 同位置升级保留自启参数，迁移目录只替换已确认属于旧安装的首个程序路径；旧位置卸载保留当前登记。相似路径（exe.backup）不被误认领或删除。
+- 文件系统专项同时通过：artifacts/deployment-tests/c09c29504e2241bd9dd9b0139f1165d9。登记专项已纳入构建门禁；这些结果不代表真实权限拒绝、登录自启、首次引导、干净 Windows 或 Owner 日用验收完成。

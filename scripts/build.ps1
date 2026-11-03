@@ -11,6 +11,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'State tests failed' }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-deployment.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'Windows PowerShell deployment tests failed' }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-registration.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Windows PowerShell registration tests failed' }
     & $Dotnet build tests/Capsule.WindowsTests -c Release
     if ($LASTEXITCODE -ne 0) { throw 'Windows integration test build failed' }
     & $Dotnet publish src/Capsule.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false -o artifacts/app

@@ -1,4 +1,4 @@
-﻿param([string]$InstallDir=(Join-Path $env:LOCALAPPDATA 'Programs\LingdongCapsule'),[switch]$NoLaunch,[switch]$NoRegistration)
+﻿param([string]$InstallDir=(Join-Path $env:LOCALAPPDATA 'Programs\LingdongCapsule'),[switch]$NoLaunch,[switch]$NoRegistration,[string]$TestRegistrationId='')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'Deployment.Common.ps1')
 $source=(Resolve-Path -LiteralPath $PSScriptRoot).Path
@@ -12,14 +12,13 @@ $oldFiles=@();if(Test-Path -LiteralPath $target){Assert-CapsuleTree $target;if(T
 $stage=Assert-CapsulePath ($target+'.staging-'+[Guid]::NewGuid().ToString('N'))
 $backup=Assert-CapsulePath ($target+'.previous-'+[Guid]::NewGuid().ToString('N'))
 $committed=$false;$movedOld=$false;$registrationStarted=$false
-$run='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-$uninstall='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LingdongCapsule'
-$link=Join-Path ([Environment]::GetFolderPath('Programs')) '灵动胶囊.lnk'
-$oldRun=(Get-ItemProperty -Path $run -Name LingdongCapsule -ErrorAction SilentlyContinue).LingdongCapsule
+$registration=Get-CapsuleRegistration $TestRegistrationId
+$run=$registration.Run;$uninstall=$registration.Key;$link=$registration.Link;$registrationName=$registration.Name
+$oldRun=(Get-ItemProperty -Path $run -Name $registrationName -ErrorAction SilentlyContinue).$registrationName
 $oldLink=$null;$oldRegistry=$null
 if(-not $NoRegistration){
     if(Test-Path -LiteralPath $link){$oldLink=[IO.File]::ReadAllBytes($link)}
-    if(Test-Path -LiteralPath $uninstall){$key=Get-Item -LiteralPath $uninstall;$oldRegistry=@{};foreach($name in $key.GetValueNames()){$oldRegistry[$name]=@{Value=$key.GetValue($name);Kind=$key.GetValueKind($name)}}}
+    if(Test-Path -LiteralPath $uninstall){$key=Get-Item -LiteralPath $uninstall;try{$oldRegistry=@{};foreach($name in $key.GetValueNames()){$oldRegistry[$name]=@{Value=$key.GetValue($name,$null,[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames);Kind=$key.GetValueKind($name)}}}finally{$key.Dispose()}}
 }
 try {
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
@@ -35,22 +34,25 @@ try {
 if(-not $NoRegistration){
     $registrationStarted=$true
 $shell=New-Object -ComObject WScript.Shell
-$shortcut=$shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Programs')) '灵动胶囊.lnk'))
+$shortcut=$shell.CreateShortcut($link)
 $shortcut.TargetPath=$exe;$shortcut.WorkingDirectory=$target;$shortcut.IconLocation="$exe,0";$shortcut.Description='灵动胶囊 · Windows 桌面交互胶囊';$shortcut.Save()
-$uninstall='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LingdongCapsule'
 New-Item -Path $uninstall -Force | Out-Null
-(@{DisplayName='灵动胶囊';DisplayVersion='0.1.0';Publisher='LingdongCapsule contributors';DisplayIcon="$exe,0";InstallLocation=$target;UninstallString=('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $target 'Uninstall.ps1')+'"')}).GetEnumerator() | ForEach-Object {New-ItemProperty -Path $uninstall -Name $_.Key -Value $_.Value -PropertyType String -Force | Out-Null}
-$run='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-if((Get-ItemProperty -Path $run -Name LingdongCapsule -ErrorAction SilentlyContinue).LingdongCapsule){Set-ItemProperty -Path $run -Name LingdongCapsule -Value ('"'+$exe+'" --startup')}
+$uninstallCommand='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $target 'Uninstall.ps1')+'"'
+if($TestRegistrationId){$uninstallCommand+=' -TestRegistrationId '+$TestRegistrationId}
+(@{DisplayName='灵动胶囊';DisplayVersion='0.1.0';Publisher='LingdongCapsule contributors';DisplayIcon="$exe,0";InstallLocation=$target;UninstallString=$uninstallCommand}).GetEnumerator() | ForEach-Object {New-ItemProperty -Path $uninstall -Name $_.Key -Value $_.Value -PropertyType String -Force | Out-Null}
+if($oldRun -and -not(Test-CapsuleStartup $oldRun $exe) -and $oldRegistry -and $oldRegistry.ContainsKey('InstallLocation')){
+    $oldExe=Join-Path $oldRegistry['InstallLocation'].Value 'LingdongCapsule.exe'
+    if(Test-CapsuleStartup $oldRun $oldExe){$tail=[regex]::Match($oldRun,'^\s*(?:"[^"]+"|\S+)(.*)$').Groups[1].Value;Set-ItemProperty -Path $run -Name $registrationName -Value ('"'+$exe+'"'+$tail)}
+}
 }
 } catch {
     $failure=$_
     if($registrationStarted){
       try {
         if(Test-Path -LiteralPath $uninstall){Remove-Item -LiteralPath $uninstall -Recurse -Force}
-        if($oldRegistry -ne $null){New-Item -Path $uninstall -Force | Out-Null;foreach($name in $oldRegistry.Keys){New-ItemProperty -LiteralPath $uninstall -Name $name -Value $oldRegistry[$name].Value -PropertyType $oldRegistry[$name].Kind -Force | Out-Null}}
+        if($oldRegistry -ne $null){New-Item -Path $uninstall -Force | Out-Null;$restore=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registration.Relative,$true);try{foreach($name in $oldRegistry.Keys){$restore.SetValue($name,$oldRegistry[$name].Value,$oldRegistry[$name].Kind)}}finally{$restore.Dispose()}}
         if($oldLink -ne $null){[IO.File]::WriteAllBytes($link,$oldLink)}elseif(Test-Path -LiteralPath $link){Remove-Item -LiteralPath $link}
-        if($oldRun){Set-ItemProperty -Path $run -Name LingdongCapsule -Value $oldRun}
+        if($oldRun){Set-ItemProperty -Path $run -Name $registrationName -Value $oldRun}
       } catch {Write-Warning ('登记恢复未完成，旧版文件仍将恢复：'+$_.Exception.Message)}
     }
     if($committed){Remove-CapsuleStage $target $target}
@@ -59,4 +61,5 @@ if((Get-ItemProperty -Path $run -Name LingdongCapsule -ErrorAction SilentlyConti
 } finally {if(Test-Path -LiteralPath $stage){Remove-CapsuleStage $stage $stage}}
 if($movedOld){Write-Host "旧版完整保留在 $backup。"}
 Write-Host "已安装到 $target。"
-if(-not $NoLaunch){Start-Process -FilePath $exe -WindowStyle Hidden}
+# Interactive launch requested by the installer user, not a background helper.
+if(-not $NoLaunch){Start-Process -FilePath $exe}

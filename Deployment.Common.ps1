@@ -8,6 +8,19 @@
     }
     return $full
 }
+function Get-CapsuleRegistration([string]$TestRegistrationId) {
+    if($TestRegistrationId -and $TestRegistrationId -notmatch '^[a-f0-9]{32}$'){throw '测试登记身份无效。'}
+    $name=if($TestRegistrationId){'LingdongCapsule.Test.'+$TestRegistrationId}else{'LingdongCapsule'}
+    $relative='Software\Microsoft\Windows\CurrentVersion\Uninstall\'+$name
+    $linkName=if($TestRegistrationId){$name+'.lnk'}else{'灵动胶囊.lnk'}
+    return @{Name=$name;Relative=$relative;Key=('HKCU:\'+$relative);Run='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run';Link=(Join-Path ([Environment]::GetFolderPath('Programs')) $linkName)}
+}
+function Test-CapsuleStartup([string]$Command,[string]$Exe) {
+    $match=[regex]::Match($Command,'^\s*(?:"([^"]+)"|(\S+))(?:\s|$)')
+    if(-not $match.Success){return $false}
+    $first=if($match.Groups[1].Success){$match.Groups[1].Value}else{$match.Groups[2].Value}
+    return $first.Equals($Exe,[StringComparison]::OrdinalIgnoreCase)
+}
 function Get-CapsuleChild([string]$Root,[string]$Relative) {
     if([string]::IsNullOrWhiteSpace($Relative) -or [IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':') -or ($Relative -split '[\\/]') -contains '..'){throw '安装清单含非法相对路径。'}
     $full=[IO.Path]::GetFullPath((Join-Path $Root $Relative))
