@@ -75,6 +75,13 @@ internal static class WelcomeTests
         for(var index=0;index<3;index++){Descendants<Button>(settingsGuide).Single(item=>Equals(item.Content,"下一步")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));settingsGuide.UpdateLayout();}
         Descendants<Button>(settingsGuide).Single(item=>Equals(item.Content,"完成并打开设置")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Check(settingsCompletions==1 && opened==1 && !settingsGuide.IsVisible,"Settings navigation did not commit once and close the completed wizard");
+        var unknownState=new Settings{StartWithWindows=true};var startupWrites=0;
+        var unknownGuide=new WelcomeWindow(original,null,(choices,value)=>WelcomeOptions.Commit(unknownState,choices,value,()=>{},(_,persist)=>{startupWrites++;persist();}),()=>{}){ShowActivated=false};unknownGuide.Show();
+        for(var index=0;index<3;index++){Descendants<Button>(unknownGuide).Single(item=>Equals(item.Content,"下一步")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));unknownGuide.UpdateLayout();}
+        var unknownToggle=Descendants<CheckBox>(unknownGuide).Single(item=>Equals(item.Tag,"welcome-startup"));
+        Check(!unknownToggle.IsEnabled && unknownToggle.IsChecked==null,"Unknown startup state falsely appeared actionable");
+        Descendants<Button>(unknownGuide).Single(item=>Equals(item.Content,"开始使用")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Check(unknownState.OnboardingCompleted && unknownState.StartWithWindows && startupWrites==0 && !unknownGuide.IsVisible,"Guide completion changed unreadable startup state or prevented normal use");
         var pageSettings=new Settings();using var shortcuts=new GlobalShortcuts(pageSettings);
         var settingsPage=new SettingsWindow(pageSettings,()=>Task.FromResult("Owned test"),()=>{},()=>{},_=>throw new IOException("Owned startup persistence failure"),()=>{},()=>new Dictionary<string,string>(),shortcuts,_=>{},()=>[],_=>{},_=>{},()=>[],_=>{},(_,_)=>false,()=>[],(_,_)=>{}){ShowActivated=false};
         var dismissed=false;var modalCloser=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};

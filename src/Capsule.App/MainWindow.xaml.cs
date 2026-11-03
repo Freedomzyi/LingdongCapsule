@@ -293,11 +293,13 @@ public partial class MainWindow : Window
     {
         if(closing)return;
         if (welcomeWindow is not null) { if(welcomeWindow.WindowState==WindowState.Minimized)welcomeWindow.WindowState=WindowState.Normal;welcomeWindow.Show();welcomeWindow.Activate(); return; }
-        welcomeWindow = new WelcomeWindow(WelcomeOptions.Read(settings),StartupService.IsEnabled,(choices,startup)=>
+        bool? startupState=null;try{startupState=StartupService.IsEnabled;}catch(Exception){ /* The guide remains usable without changing unreadable startup state. */ }
+        welcomeWindow = new WelcomeWindow(WelcomeOptions.Read(settings),startupState,(choices,startup)=>
         {
             WelcomeOptions.Commit(settings,choices,startup,settings.Save,(enabled,save)=>
             {if(StartupService.IsEnabled==enabled)save();else StartupService.SetEnabledTransactional(enabled,save);});
             ApplySettings(false);
+            settingsWindow?.RefreshPreferences();
         },OpenSettings);
         welcomeWindow.Closed += (_, _) => welcomeWindow = null; welcomeWindow.Show();
     }

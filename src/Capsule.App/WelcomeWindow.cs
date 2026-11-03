@@ -11,7 +11,8 @@ namespace Capsule.App;
 internal sealed class WelcomeWindow : Window
 {
     private WelcomeOptions choices;
-    private bool startup,finishing;
+    private bool? startup;
+    private bool finishing;
     private int step;
     private readonly Action<WelcomeOptions?,bool?> complete;
     private readonly Action openSettings;
@@ -19,7 +20,7 @@ internal sealed class WelcomeWindow : Window
     private readonly TextBlock progress=new(),error=new(){TextWrapping=TextWrapping.Wrap,Foreground=Brushes.IndianRed,FontSize=12};
     private readonly Button back=new(){Content="上一步",Padding=new(16,10,16,10)},next=new(){Padding=new(20,10,20,10),Foreground=Brushes.White,Background=new SolidColorBrush(Color.FromRgb(0,122,255)),IsDefault=true};
 
-    internal WelcomeWindow(WelcomeOptions initial,bool startupEnabled,Action<WelcomeOptions?,bool?> complete,Action openSettings)
+    internal WelcomeWindow(WelcomeOptions initial,bool? startupEnabled,Action<WelcomeOptions?,bool?> complete,Action openSettings)
     {
         choices=initial;startup=startupEnabled;this.complete=complete;this.openSettings=openSettings;
         Title="欢迎使用灵动胶囊";Width=Math.Min(620,SystemParameters.WorkArea.Width-40);Height=Math.Min(510,SystemParameters.WorkArea.Height-48);
@@ -89,7 +90,8 @@ internal sealed class WelcomeWindow : Window
         else
         {
             Heading(panel,"准备好开始使用");
-            var startupSwitch=new CheckBox{Tag="welcome-startup",Content="登录 Windows 后自动启动",IsChecked=startup,Margin=new(0,10,0,18)};startupSwitch.Click+=(_,_)=>startup=startupSwitch.IsChecked==true;panel.Children.Add(startupSwitch);
+            var startupSwitch=new CheckBox{Tag="welcome-startup",Content="登录 Windows 后自动启动",IsChecked=startup,IsEnabled=startup.HasValue,Margin=new(0,10,0,18)};startupSwitch.Click+=(_,_)=>{if(startupSwitch.IsEnabled)startup=startupSwitch.IsChecked==true;};panel.Children.Add(startupSwitch);
+            if(startup==null)Note(panel,"当前自启状态无法读取；完成引导会保留系统原设置，可稍后在设置中检查。");
             Note(panel,"程序日常仅在托盘常驻，不占任务栏。手动再次运行可以唤回设置；托盘右键可隐藏、唤出或退出。");
             Note(panel,"系统通知需要在设置中授权；声音、头像读取和外部接入分别由你控制。仅有提示声而未生成系统通知的消息不会自动出现。");
             var settingsButton=new Button{Content="完成并打开设置",HorizontalAlignment=HorizontalAlignment.Left,Padding=new(14,9,14,9),Margin=new(0,10,0,0)};

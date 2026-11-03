@@ -13,6 +13,7 @@ try {
         @{Name='instance';Project='tests/Capsule.WindowsTests';Args=@('--instance-test')},
         @{Name='timeline';Project='tests/Capsule.WindowsTests';Args=@('--timeline-test')},
         @{Name='welcome';Project='tests/Capsule.WindowsTests';Args=@('--welcome-test')},
+        @{Name='settings-sync';Project='tests/Capsule.WindowsTests';Args=@('--settings-sync-test')},
         @{Name='scale';Project='tests/Capsule.WindowsTests';Args=@('--scale-test')},
         @{Name='lyrics';Project='tests/Capsule.WindowsTests';Args=@('--lyrics-test')},
         @{Name='media';Project='tests/Capsule.WindowsTests';Args=@('--media-test')},

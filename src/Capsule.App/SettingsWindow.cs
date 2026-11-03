@@ -14,6 +14,7 @@ public sealed class SettingsWindow : Window
     private readonly Settings settings;
     private readonly Action save;
     private string sourceKey = "__initial__";
+    private string statusContent="",preferenceError="";
     private CheckBox? notificationsCheck;
     private CheckBox? quietCheck;
     private CheckBox? mspCheck;
@@ -22,12 +23,14 @@ public sealed class SettingsWindow : Window
     private readonly Dictionary<string,StackPanel> pages=[];
     private readonly Dictionary<string,ScrollViewer> pageViews=[];
     private readonly Dictionary<string,Button> tabs=[];
+    private readonly List<Action> refreshPreferences=[];
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage,Func<DisplayComponent[]> displayComponents,Action<string,int> moveDisplayComponent)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage,Func<DisplayComponent[]> displayComponents,Action<string,int> moveDisplayComponent,Func<bool>? startupState=null)
     {
         this.settings = settings; this.save = save;
+        startupState??=()=>StartupService.IsEnabled;
         Closed+=(_,_)=>soundPreview.Dispose();
         Title = "灵动胶囊 · 设置"; Width = Math.Min(700,SystemParameters.WorkArea.Width-40); Height = Math.Min(720, SystemParameters.WorkArea.Height - 48);
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize; AllowsTransparency = true; Background = Brushes.Transparent;
@@ -42,7 +45,8 @@ public sealed class SettingsWindow : Window
         var close = new Button { Content = "×", Width = 30, Height = 30, FontSize = 20, VerticalAlignment = VerticalAlignment.Top, ToolTip = "关闭设置" }; close.Click += (_, _) => Close(); Grid.SetColumn(close, 1); header.Children.Add(close);
         header.MouseLeftButtonDown += (_, e) => { if (e.OriginalSource is not Button && e.LeftButton == MouseButtonState.Pressed) DragMove(); }; layout.Children.Add(header);
         var content=new Grid();content.ColumnDefinitions.Add(new(){Width=new GridLength(154)});content.ColumnDefinitions.Add(new());Grid.SetRow(content,1);layout.Children.Add(content);
-        var navigation=new StackPanel {Margin=new Thickness(12,12,6,12)};content.Children.Add(navigation);
+        var navigation=new StackPanel {Margin=new Thickness(12,12,6,12)};
+        content.Children.Add(new ScrollViewer{Content=navigation,Tag="settings-navigation",VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled});
         Grid.SetColumn(pageHost,1);content.Children.Add(pageHost);
         foreach(var name in new[]{"个性化中心","通用设置","显示设置","媒体设置","交互设置","我的插件","关于软件"})
         {
@@ -105,9 +109,9 @@ public sealed class SettingsWindow : Window
 
         Heading(panel, "外观与动效");
         AddSelection(panel,"字体",()=>{var options=new Dictionary<string,string>{{"","系统默认（恢复默认）"}};foreach(var font in Fonts.SystemFontFamilies.OrderBy(font=>font.Source))options.TryAdd(font.Source,font.Source);return options;},settings.FontName,value=>{settings.FontName=value;Design.ApplyFont(value);FontFamily=Design.UserFont;},"选择本机字体；不打包或分发字体文件，找不到字形时由系统回退。");
-        AddSelection(panel,"界面主题",()=>new Dictionary<string,string>{{"0","深色"},{"1","浅色"},{"2","跟随系统"}},settings.ThemeMode.ToString(),value=>{settings.ThemeMode=int.Parse(value);Design.ApplyTheme(settings.ThemeMode);foreach(var tab in tabs)if(tab.Value.Background!=Brushes.Transparent)tab.Value.SetResourceReference(Control.BackgroundProperty,"ButtonFill");},"设置、引导和弹窗即时切换；岛体材质主题仍在单独对齐。");
+        AddSelection(panel,"界面主题",()=>new Dictionary<string,string>{{"0","深色"},{"1","浅色"},{"2","跟随系统"}},settings.ThemeMode.ToString(),value=>{settings.ThemeMode=int.Parse(value);Design.ApplyTheme(settings.ThemeMode);foreach(var tab in tabs)if(tab.Value.Background!=Brushes.Transparent)tab.Value.SetResourceReference(Control.BackgroundProperty,"ButtonFill");},"设置、引导和弹窗即时切换。",()=>settings.ThemeMode.ToString());
         var appearance = new StackPanel();
-        AddSelection(appearance,"背景材质",()=>new Dictionary<string,string>{{"0","实体"},{"1","亚克力"},{"2","液态玻璃"}},settings.MaterialKind.ToString(),value=>settings.MaterialKind=int.Parse(value),"亚克力和玻璃读取岛体后方的桌面像素，仅在内存合成，不录制或上传；显示环境不支持时回退实体背景。");
+        AddSelection(appearance,"背景材质",()=>new Dictionary<string,string>{{"0","实体"},{"1","亚克力"},{"2","液态玻璃"}},settings.MaterialKind.ToString(),value=>settings.MaterialKind=int.Parse(value),"亚克力和玻璃读取岛体后方的桌面像素，仅在内存合成，不录制或上传；显示环境不支持时回退实体背景。",()=>settings.MaterialKind.ToString());
         AddSelection(appearance,"玻璃质量",()=>new Dictionary<string,string>{{"0","节能"},{"1","均衡"},{"2","高质量"}},settings.GlassQuality.ToString(),value=>settings.GlassQuality=int.Parse(value),"按一半、四分之三或完整像素尺寸合成；质量越高越耗资源。");
         AddSlider(appearance,"背景不透明度",0,100,settings.BackgroundOpacity,value=>settings.BackgroundOpacity=value,"百分比；仅调整岛体背景，不降低文字和按钮的不透明度。",1);
         AddSlider(appearance, "*全局上限／播放宽度", 80, 300, settings.Width, v => {settings.Width=v;SyncIconLimit();}, "逻辑像素；播放固定宽度，时钟、通知和详情均不超过此上限。较窄时内容会裁切；还原值沿用参照版 195。",5,195);
@@ -141,7 +145,20 @@ public sealed class SettingsWindow : Window
         AddCheck(switches, "通知隐私预览", settings.PrivatePreview, v => settings.PrivatePreview = v, "展开前仅显示应用名与新消息提示，通知正文不写入磁盘。");
         notificationsCheck = AddCheck(switches, "系统通知", settings.NotificationsEnabled, v => settings.NotificationsEnabled = v, "只接收 Windows 通知中心可提供的通知，不修改系统横幅策略。");
         AddCheck(switches,"*系统通知头像",settings.SystemNotificationImagesEnabled,v=>settings.SystemNotificationImagesEnabled=v,"默认关闭。需已授权系统通知；只读 Windows 通知存储中与当前通知 ID、应用、时间和正文匹配的图片，可读取指定本地图片或请求 HTTPS 图片。不开聊天数据库、不扫描历史、不保存正文；失败回退应用图标。");
-        AddCheck(switches, "开机启动", StartupService.IsEnabled, startup, "登录当前 Windows 用户后自动启动，只驻留系统托盘；不需要管理员权限。",saveAfter:false);
+        const string startupHelp="登录当前 Windows 用户后自动启动，只驻留系统托盘；不需要管理员权限。";
+        CheckBox? startupCheck=null;var startupReadable=true;
+        bool ReadStartup()
+        {
+            try{var enabled=startupState();startupReadable=true;if(startupCheck!=null){startupCheck.IsEnabled=true;startupCheck.ToolTip=startupHelp;}return enabled;}
+            catch(Exception error)
+            {
+                startupReadable=false;preferenceError="自启状态暂时无法读取，显示上次选择："+error.Message;RenderStatus();
+                if(startupCheck!=null){startupCheck.IsEnabled=false;startupCheck.ToolTip=preferenceError;}
+                return startupCheck?.IsChecked ?? settings.StartWithWindows;
+            }
+        }
+        startupCheck=AddCheck(switches,"开机启动",ReadStartup(),startup,startupHelp,saveAfter:false,readCurrent:ReadStartup);startupCheck.IsEnabled=startupReadable;
+        if(!startupReadable)startupCheck.ToolTip=preferenceError;
         panel.Children.Add(Design.Card(switches));
         var publishing=new StackPanel();AddCheck(publishing,"MSP 事件广播",settings.MspPublishEvents,value=>settings.MspPublishEvents=value,"默认关闭，需同时开启 MSP 接入。向已连接本机节点发送媒体变化和通知事件；隐私预览开启时不发送通知标题与正文。接收的 MSP 通知不会回广播。");panel.Children.Add(Design.Card(publishing));
         var mspOptions=new StackPanel();mspCheck=AddCheck(mspOptions,"MSP 实验性接入",settings.MspEnabled,value=>settings.MspEnabled=value,"默认关闭。开启后向本机共享目录宣告 lingdongcapsule 节点，允许发现它的本机 MSP 节点调用通知、媒体状态与控制；关闭后停止节点。主动广播另由事件广播开关控制。");panel.Children.Add(Design.Card(mspOptions));
@@ -191,7 +208,7 @@ public sealed class SettingsWindow : Window
         var clockOptions=new StackPanel();
         AddCheck(clockOptions,"组合显示",settings.CompositeEnabled,value=>settings.CompositeEnabled=value,"折叠态同时显示已启用的时钟、硬件、插件和媒体；展开播放器时保留完整控制。较窄时其他组件会裁切。");
         AddSelection(clockOptions,"待机场景",()=>new Dictionary<string,string>{{"1","时间"},{"2","空白"},{"3","媒体控制"}},settings.StandbyScene.ToString(),value=>settings.StandbyScene=int.Parse(value),"待机时仅显示所选内容；通知仍可临时覆盖，媒体控制需要已有媒体会话。");
-        AddCheck(clockOptions,"待机模式",settings.StandbyActive,value=>settings.StandbyActive=value,"临时使用单一场景，退出后恢复原有组件开关与顺序。");
+        AddCheck(clockOptions,"待机模式",settings.StandbyActive,value=>settings.StandbyActive=value,"临时使用单一场景，退出后恢复原有组件开关与顺序。",readCurrent:()=>settings.StandbyActive);
         AddCheck(clockOptions,"双击切换待机",settings.StandbyDoubleClick,value=>settings.StandbyDoubleClick=value,"双击岛体内容区域切换待机；启用后单击会等待系统双击判定时间。");
         AddCheck(clockOptions,"显示硬件占用",settings.HardwareEnabled,value=>settings.HardwareEnabled=value,"折叠态每秒采样真实 CPU 与内存；无有效数据时显示横线。开启组合显示后可与媒体同时显示。");
         panel.Children.Add(Design.Card(clockOptions));
@@ -209,8 +226,8 @@ public sealed class SettingsWindow : Window
         }
         refreshDisplayOrder=RefreshDisplayOrder;RefreshDisplayOrder();panel.Children.Add(Design.Card(orderRows));
         var positionOptions=new StackPanel();
-        AddSelection(positionOptions,"目标显示器",MonitorPlacement.Options,settings.MonitorId,v=>settings.MonitorId=v,"显示器断开时回到主屏，不修改其他软件设置。");
-        AddSelection(positionOptions,"岛体形态",()=>new Dictionary<string,string>{{"1","灵动胶囊"},{"0","刘海"}},settings.IslandShape.ToString(),v=>settings.IslandShape=int.Parse(v),"刘海贴合屏幕上沿；胶囊保留顶部间距。");
+        AddSelection(positionOptions,"目标显示器",MonitorPlacement.Options,settings.MonitorId,v=>settings.MonitorId=v,"显示器断开时回到主屏，不修改其他软件设置。",()=>settings.MonitorId);
+        AddSelection(positionOptions,"岛体形态",()=>new Dictionary<string,string>{{"1","灵动胶囊"},{"0","刘海"}},settings.IslandShape.ToString(),v=>settings.IslandShape=int.Parse(v),"刘海贴合屏幕上沿；胶囊保留顶部间距。",()=>settings.IslandShape.ToString());
         AddSlider(positionOptions,"刘海底部圆角",0,28,settings.BottomRadius,v=>settings.BottomRadius=v,"逻辑像素，仅刘海形态生效。",1,12);
         panel.Children.Add(Design.Card(positionOptions));
         panel=pages["媒体设置"];
@@ -293,6 +310,7 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(Design.Card(about));
         var footer = new TextBlock { Text = "0.1.0 开发版  ·  MIT License", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new(0, 6, 0, 0) }; Design.Bind(footer, TextBlock.ForegroundProperty, "TextSecondary"); panel.Children.Add(footer);
         Loaded += (_, _) => BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
+        Activated+=(_,_)=>RefreshPreferences();
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(); e.Handled = true; } };
     }
     public void SelectPage(string name)
@@ -306,11 +324,20 @@ public sealed class SettingsWindow : Window
         }
         pageHost.BeginAnimation(OpacityProperty,new DoubleAnimation(0.65,1,TimeSpan.FromMilliseconds(150)));
     }
-    private void AddSelection(StackPanel parent,string title,Func<IReadOnlyDictionary<string,string>> readOptions,string selected,Action<string> changed,string help)
+    internal void RefreshPreferences()
+    {
+        preferenceError="";
+        foreach(var refresh in refreshPreferences)
+            try{refresh();}catch(Exception error){preferenceError="设置状态暂时无法刷新："+error.Message;}
+        RenderStatus();
+    }
+    private void RenderStatus()=>status.Text=statusContent+(preferenceError.Length>0 ? "\n"+preferenceError : "");
+    private void AddSelection(StackPanel parent,string title,Func<IReadOnlyDictionary<string,string>> readOptions,string selected,Action<string> changed,string help,Func<string>? readCurrent=null)
     {
         var grid=new Grid {Margin=new Thickness(0,8,0,8)};grid.ColumnDefinitions.Add(new());grid.ColumnDefinitions.Add(new(){Width=GridLength.Auto});grid.Children.Add(Label(title,help));
         var options=readOptions();
         var text=new TextBlock {Text=(options.TryGetValue(selected,out var label) ? label : selected)+" ▾",MaxWidth=176,TextTrimming=TextTrimming.CharacterEllipsis};
+        if(readCurrent!=null)refreshPreferences.Add(()=>{selected=readCurrent();var current=readOptions();text.Text=(current.TryGetValue(selected,out var caption) ? caption : selected)+" ▾";});
         var button=new Button {Content=text,Padding=new Thickness(10,7,10,7),MaxWidth=200};System.Windows.Automation.AutomationProperties.SetName(button,title);
         button.Click+=(_,_)=>
         {
@@ -374,9 +401,10 @@ public sealed class SettingsWindow : Window
         minus.Click+=(_,_)=>Change(Math.Round(settings.VisualScale-.05,2));plus.Click+=(_,_)=>Change(Math.Round(settings.VisualScale+.05,2));reset.Click+=(_,_)=>Change(1);
         controls.Children.Add(minus);controls.Children.Add(value);controls.Children.Add(plus);controls.Children.Add(reset);Paint();panel.Children.Add(row);
     }
-    private CheckBox AddCheck(StackPanel panel, string text, bool value, Action<bool> changed, string help,bool saveAfter=true)
+    private CheckBox AddCheck(StackPanel panel, string text, bool value, Action<bool> changed, string help,bool saveAfter=true,Func<bool>? readCurrent=null)
     {
         var check = new CheckBox { Content = Label(text, help), IsChecked = value, Margin = new(0, 4, 0, 4), ToolTip = help }; System.Windows.Automation.AutomationProperties.SetName(check, text);
+        if(readCurrent!=null)refreshPreferences.Add(()=>{value=readCurrent();check.IsChecked=value;});
         check.Click += (_, _) =>
         {
             try{changed(check.IsChecked==true);if(saveAfter)save();value=check.IsChecked==true;}
@@ -385,7 +413,7 @@ public sealed class SettingsWindow : Window
     }
     public void UpdateStatus(string media, string notification, Dictionary<string, string> apps)
     {
-        status.Text = media + "\n" + notification; if (notificationsCheck is not null) notificationsCheck.IsChecked = settings.NotificationsEnabled;
+        statusContent = media + "\n" + notification;RenderStatus(); if (notificationsCheck is not null) notificationsCheck.IsChecked = settings.NotificationsEnabled;
         if(quietCheck!=null)quietCheck.IsChecked=settings.QuietUntil>DateTimeOffset.UtcNow;
         if(mspCheck!=null)mspCheck.IsChecked=settings.MspEnabled;
         if (authorizeButton is not null) authorizeButton.Visibility = notification.Contains("正常") || notification.Contains("已授权") ? Visibility.Collapsed : Visibility.Visible;
