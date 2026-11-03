@@ -1,5 +1,10 @@
 using Capsule.Core;
 var now = DateTimeOffset.UtcNow;
+var solo=new SoloState();
+if(!solo.Apply("{\"type\":\"init\",\"lyrics\":[{\"time\":1000,\"text\":\"Test\",\"translation\":\"译文\"}]}",0) || solo.Lyrics.Lines.Count!=1)throw new Exception("Solo lyric protocol failed");
+solo.Apply("{\"type\":\"progress\",\"position\":1000}",100);solo.Apply("{\"type\":\"playback\",\"status\":\"playing\"}",100);solo.Apply("{\"type\":\"playback\",\"status\":\"paused\"}",600);
+if(solo.Position(5000)!=1500 || solo.Apply("{broken",0))throw new Exception("Solo pause or malformed-message handling failed");
+Console.WriteLine("PASS Solo lyrics, progress extrapolation, pause and malformed-message isolation");
 var s = new IslandState();
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); Console.WriteLine("PASS " + message); }
 Check(s.Mode == IslandMode.Clock, "Initial clock");

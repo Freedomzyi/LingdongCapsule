@@ -19,6 +19,7 @@ public sealed class LyricsDocument
     public bool HasWordTiming => Lines.Any(line => line.Words.Count > 0);
 
     private LyricsDocument(IReadOnlyList<LyricLine> lines, string source) { Lines = lines; Source = source; }
+    public static LyricsDocument FromTimedLines(IEnumerable<LyricLine> lines,string source)=>new(lines.Where(line=>double.IsFinite(line.StartMs) && line.StartMs>=0).OrderBy(line=>line.StartMs).ToArray(),source);
 
     public static LyricsDocument Parse(string lrc, string translation = "", string wordTiming = "", string source = "")
     {
