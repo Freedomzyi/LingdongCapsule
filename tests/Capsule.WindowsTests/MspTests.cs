@@ -30,5 +30,31 @@ internal static class MspTests
             Console.WriteLine("PASS Independent MSP peers exchange ping, notification, media status and allowlisted control");
         }
         finally{client.Stop();}
+        await TestIslandAsync(Path.Combine(directory,"island"));
+    }
+    private static async Task TestIslandAsync(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
+        var settings=new Settings{MspEnabled=true,MediaEnabled=false,NotificationsEnabled=true};
+        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings,localMspDirectory:directory);
+        var peer=new MspNode("island-test-peer",nodesDir:directory);
+        try
+        {
+            window.Show();peer.Start();bool reached=false;
+            for(var attempt=0;attempt<30;attempt++)
+            {
+                try{var ping=JsonSerializer.Serialize((await peer.CallAsync("lingdongcapsule","ping",new{})).Unwrap());if(ping.Contains("lingdongcapsule")){reached=true;break;}}catch(Exception){ }
+                await Task.Delay(200);
+            }
+            if(!reached)throw new Exception("Actual island MSP node was not discovered");
+            await peer.CallAsync("lingdongcapsule","notify",new{title="Island MSP fixture",body="Local test only"});
+            if(window.LiveState.Notification?.Title!="Island MSP fixture")throw new Exception("Peer notification did not reach actual island state");
+            settings.QuietUntil=DateTimeOffset.UtcNow.AddMinutes(30);
+            var muted=JsonSerializer.Serialize((await peer.CallAsync("lingdongcapsule","notify",new{title="Should be muted",body=""})).Unwrap());
+            if(window.LiveState.Notification!=null || !muted.Contains("false"))throw new Exception("MSP notification bypassed quiet preference");
+            Console.WriteLine("PASS Actual island receives MSP notification and rejects it during quiet period");
+        }
+        finally{peer.Stop();window.Close();}
     }
 }

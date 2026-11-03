@@ -34,9 +34,10 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer panelCollapse=new();
     internal OverviewView LiveOverview=>overview;
     [DllImport("user32.dll")] private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
-    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null)
+    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null,string? localMspDirectory=null)
     {
         settings=initialSettings ?? Settings.Load();
+        mspDirectory=localMspDirectory ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".msp","nodes");
         solo=new SoloConnection(localSoloEndpoint);
         Design.ApplyTheme(settings.ThemeMode);
         shortcuts=new GlobalShortcuts(settings);

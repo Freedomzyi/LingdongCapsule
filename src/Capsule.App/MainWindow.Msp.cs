@@ -6,6 +6,7 @@ namespace Capsule.App;
 public partial class MainWindow
 {
     private MspBridge msp=null!;
+    private string mspDirectory="";
     private void InitializeMsp()
     {
         msp=new MspBridge(
@@ -21,7 +22,6 @@ public partial class MainWindow
     private void ApplyMsp()
     {
         if(!settings.MspEnabled){if(msp.Enabled)msp.Dispose();return;}
-        var directory=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".msp","nodes");
-        if(!msp.Start(directory))settings.MspEnabled=false;
+        if(!msp.Start(mspDirectory))settings.MspEnabled=false;
     }
 }
