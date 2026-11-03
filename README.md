@@ -39,6 +39,10 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 
 生成 `artifacts/LingdongCapsule-win-x64.zip` 和 `artifacts/SHA256SUMS.txt`；同时构建独立插件包及校验和到 `artifacts/plugins`，并随主包提供。仅构建插件可运行 `./scripts/build-plugins.ps1`。插件源码和接口见 [插件说明](docs/PLUGINS.md)。源码调试：
 
+候选包使用 `./scripts/build.ps1 -RequireClean`，包内 BUILD-INFO.json 记录提交、源码是否有未提交改动、SDK、程序和许可清单哈希。每次从全新暂存目录打包，插件只收录本次校验清单中的包；生成目录属于可再生构建输出。依赖许可保存在 licenses，来源及适用范围见 [许可来源](licenses/SOURCES.md)。
+
+`./scripts/test-published.ps1 -RequireClean` 解压并启动自己的安装入口，核对包内运行时与退出，不执行安装。`-MainStartup` 另外检查主程序和首次引导，只允许在没有本程序数据的新用户环境使用；CI 使用独立 runner 执行。两者都不替代干净 Windows 的完整安装维护验收。
+
 ```powershell
 dotnet run --project src/Capsule.App
 dotnet run --project tests/Capsule.Tests

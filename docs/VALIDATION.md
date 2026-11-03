@@ -303,3 +303,12 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 补齐共享字段状态刷新、激活刷新和导航滚动；实际 WPF 验证主题/材质/形态/显示器/待机/自启一致，刷新无重复保存、保留页面滚动，末项可滚入窗口并打开关于。受限窗口截图已检查，不将这类视口测试说成真实修改 Windows DPI。
 - 二十组顺序整合通过：artifacts/verification/20261103-222654-9630。随后补首次自启读取故障及恢复守卫：设置中保留已知选择并禁用不可确认的开关，初次引导保留未知状态、完成时不写启动项。最终定向设置同步及引导回归通过，分别为 artifacts/settings-sync-tests/f4a35c8d61374e4c97a82da5030a8fe7 和 artifacts/onboarding-tests/a296280abaf843a2afd25850a7fdf983。
 - 读取故障为注入回调，不是实际修改系统 ACL；没有写日用启动登记。f687213 的 GitHub 构建 run 41730091826 已核验成功，仍非最终发布验收。
+
+## 新目录打包、来源与依赖许可
+
+- 修复直接复用 artifacts/app 导致旧文件可能混入压缩包的问题；全新目录打包后将程序目录、ZIP、校验和作为同一事务提交。故障注入在程序切换后拒绝归档提交，旧输出字节全部恢复；锁定归档、缺少运行时、错哈希、链接输入、旧插件包及许可字节变动均被拒绝。PS5.1 十七项专项通过：artifacts/bundle-tests/0a98ca8c0baa492fa3e5f7520a2e5114。
+- RequireClean 已验证会在源码有未提交改动时拒绝构建，并保留原 ZIP。普通开发构建记录 sourceDirty=true；CI 已改为强制干净源码。程序、许可清单与外部归档分别有哈希。
+- 真实发行输出检查发现 SDK 并未自动复制许可，已补实际 .NET runtime/WPF 包的原始文本、Windows .NET Library 条款、Windows SDK 条款及 targeting 包原始 RTF。NAudio 与 MSP 保留来源与原始 NuGet 元数据；MSP 包只提供 MIT 声明，没有独立版权行，不编造版权年份。七类组件、十四份许可/来源文件进入发行包。
+- 许可清单曾因 PowerShell 数组拼接被拆成两个路径，发布门禁拒绝错误清单，旧输出未被替换；修复后用新暂存目录重试，失败目录保留诊断。来源与范围在 licenses/SOURCES.md。
+- Windows PowerShell 5.1 对真实 ZIP 解压验证通过：artifacts/published-tests/15a16fd629544f9d81ec345e16b490ad。核对 517 个条目、程序/许可清单哈希和脚本 BOM；子进程共享运行时根指向不存在的专用目录，实际 coreclr 从解压包加载，自己的安装入口初始化并正常退出，未执行安装。该包来自开发工作树，sourceDirty=true；随后将主程序与引导验证加入 CI，仅允许无本程序数据的新用户环境。本机既有数据拒绝保护已验证。
+- 上述解压与运行时来源证明仍不是干净 Windows 全部安装验收。正式候选须由固定干净提交重新构建、核验 CI 与下载包，再完成全部交付门槛。

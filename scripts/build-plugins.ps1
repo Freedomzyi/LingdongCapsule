@@ -5,6 +5,7 @@ if($Dotnet -eq 'dotnet' -and (Test-Path -LiteralPath (Join-Path $root '.tools/do
 Push-Location $root
 try {
     $folder=Join-Path $root 'artifacts/plugins'
+    foreach($path in @((Join-Path $root 'artifacts'),$folder)){if((Test-Path -LiteralPath $path) -and (Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Plugin output cannot be a link.'}}
     New-Item -ItemType Directory -Path $folder -Force | Out-Null
     $hashes=[Collections.Generic.List[string]]::new()
     foreach($name in @('Capsule.CenterClock')) {

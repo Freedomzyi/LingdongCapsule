@@ -308,7 +308,7 @@ public sealed class SettingsWindow : Window
         };
         about.Children.Add(update);about.Children.Add(updateStatus);about.Children.Add(download);
         panel.Children.Add(Design.Card(about));
-        var footer = new TextBlock { Text = "0.1.0 开发版  ·  MIT License", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new(0, 6, 0, 0) }; Design.Bind(footer, TextBlock.ForegroundProperty, "TextSecondary"); panel.Children.Add(footer);
+        var footer = new TextBlock { Text = "0.1.0 开发版  ·  源码 MIT", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new(0, 6, 0, 0) }; Design.Bind(footer, TextBlock.ForegroundProperty, "TextSecondary"); panel.Children.Add(footer);
         Loaded += (_, _) => BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
         Activated+=(_,_)=>RefreshPreferences();
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(); e.Handled = true; } };

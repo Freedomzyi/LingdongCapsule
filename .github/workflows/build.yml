@@ -16,7 +16,13 @@ jobs:
           global-json-file: global.json
       - name: Test and publish self-contained Windows x64
         shell: pwsh
-        run: ./scripts/build.ps1
+        run: ./scripts/build.ps1 -RequireClean
+      - name: Verify extracted package installer and local runtime
+        shell: powershell
+        run: ./scripts/test-published.ps1 -RequireClean
+      - name: Verify main application and onboarding in fresh runner profile
+        shell: powershell
+        run: ./scripts/test-published.ps1 -RequireClean -MainStartup
       - uses: actions/upload-artifact@v4
         with:
           name: LingdongCapsule-win-x64

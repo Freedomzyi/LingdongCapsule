@@ -1,0 +1,13 @@
+Component: ModelSensingProtocol .NET SDK 0.1.0-alpha.1
+Package authors (as published): ModelSensingProtocol
+Declared license expression: MIT
+Package: https://www.nuget.org/packages/ModelSensingProtocol/0.1.0-alpha.1
+Declared license text: https://licenses.nuget.org/MIT
+Declared source: https://github.com/ModelSensingProtocol/msp-dotnet
+Declared source commit: c1055f5edab6da32f6b2539c10b6c3adcc24a211
+
+The package does not contain a separate LICENSE file or an author-specific
+copyright notice. Its original nuspec is retained in package-metadata.
+SPDX-MIT.txt retains the standard MIT text linked by the package metadata;
+its placeholders are part of the SPDX template and are not an invented
+copyright attribution for this component.
