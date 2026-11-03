@@ -62,6 +62,7 @@ internal sealed class PluginMarket(HttpClient http)
         for(var hop=0;hop<6;hop++)
         {
             using var request=new HttpRequestMessage(HttpMethod.Get,uri);request.Headers.UserAgent.ParseAdd("LingdongCapsule/0.1.0");
+            request.Headers.CacheControl=new(){NoCache=true};
             using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,token);
             if((int)response.StatusCode is 301 or 302 or 303 or 307 or 308)
             {

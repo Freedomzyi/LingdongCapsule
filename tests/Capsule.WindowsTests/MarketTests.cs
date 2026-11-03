@@ -8,11 +8,27 @@ using System.Windows;
 
 internal static class MarketTests
 {
-    internal static async Task RunLiveAsync()
+    internal static async Task RunLiveAsync(bool download=false)
     {
         using var http=new HttpClient(new HttpClientHandler{AllowAutoRedirect=false,UseCookies=false}){Timeout=TimeSpan.FromSeconds(25)};
         var packages=await new PluginMarket(http).ReadAsync(default);
         Console.WriteLine($"PASS Live official catalog read: {packages.Length} published packages; this is not live package download acceptance");
+        if(!download)return;
+        var package=packages.Single(item=>item.Id=="capsule.centerclock");var folder=Path.Combine(Environment.CurrentDirectory,"artifacts","market-live",Guid.NewGuid().ToString("N"));
+        var file=await new PluginMarket(http).DownloadAsync(package,folder,typeof(Capsule.App.MainWindow).Assembly.GetName().Version!,default);
+        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplyTheme(0);
+        var island=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:new Settings{MediaEnabled=false,NotificationsEnabled=false,ClockEnabled=false},localPluginDirectory:Path.Combine(folder,"installed"));
+        try
+        {
+            island.Show();var before=DateTime.Now;island.LoadPlugin(file,save:false);
+            for(var attempt=0;attempt<30 && ((System.Windows.Controls.TextBlock)island.LivePluginView.Children[0]).Text.Length==0;attempt++)await Task.Delay(100);
+            var value=((System.Windows.Controls.TextBlock)island.LivePluginView.Children[0]).Text;
+            if(value!=before.ToString("HH:mm") && value!=DateTime.Now.ToString("HH:mm"))throw new Exception("Live published plugin did not render current clock");
+            Console.WriteLine($"PASS Live GitHub asset SHA/identity/version verification and actual island installation: {package.Id} {package.Version}");
+        }
+        finally{island.Close();File.Delete(file);}
+        var release=await ReleaseChecker.CheckAsync(http,typeof(Capsule.App.MainWindow).Assembly.GetName().Version!);
+        Console.WriteLine("App release status: "+release.Message);
     }
     private sealed class Handler(Func<Uri,HttpResponseMessage> reply) : HttpMessageHandler
     {

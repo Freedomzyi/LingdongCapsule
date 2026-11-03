@@ -1,1 +1,17 @@
-{"schema":1,"packages":[]}
+{
+  "schema": 1,
+  "packages": [
+    {
+      "id": "capsule.centerclock",
+      "name": "居中时钟（API 预览）",
+      "version": "0.1.0",
+      "description": "开发者示例：显示 24 小时时间，跟随宿主主题与字体。插件 API 预览，主程序仍在开发。",
+      "downloadUrl": "https://github.com/Freedomzyi/LingdongCapsule/releases/download/plugins-preview-0.1.0/capsule.centerclock-0.1.0.zip",
+      "sha256": "2745D75FB7B331E2B84DA36DC0300F436FA1FDEAD0957731C2816476F97DAD94",
+      "minimumHostVersion": "0.1.0",
+      "author": "Freedomzyi",
+      "license": "MIT",
+      "category": "时间"
+    }
+  ]
+}
