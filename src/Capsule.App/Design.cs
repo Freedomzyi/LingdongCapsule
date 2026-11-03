@@ -9,9 +9,12 @@ internal static class Design
 {
     public static bool IsDark{get;private set;}=true;
     public static FontFamily UserFont{get;private set;}=new("Microsoft YaHei UI");
-    public static void ApplyFont(string family)
+    public static string FontStatus{get;private set;}="";
+    public static void ApplyFont(string family,string file="")
     {
-        UserFont=new(string.IsNullOrWhiteSpace(family) ? "Microsoft YaHei UI" : family);
+        FontStatus="";
+        try{UserFont=string.IsNullOrWhiteSpace(file) ? new(string.IsNullOrWhiteSpace(family) ? "Microsoft YaHei UI" : family) : LocalFont.Load(file);}
+        catch(Exception error) when(LocalFont.IsLoadError(error)){UserFont=new("Microsoft YaHei UI");FontStatus="字体暂不可用，已回退系统默认；保留原选择。"+error.Message;}
         System.Windows.Application.Current.Resources["UserFont"]=UserFont;
     }
     public static void ApplySystemTheme()=>ApplyTheme(2);

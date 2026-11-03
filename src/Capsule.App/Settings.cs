@@ -17,6 +17,7 @@ public sealed partial class Settings
     public bool MspEnabled{get;set;}
     public bool MspPublishEvents{get;set;}
     public string FontName{get;set;}="";
+    public string FontFilePath{get;set;}="";
     public bool ClockEnabled{get;set;}=true;
     public int ClockLayout{get;set;}
     public bool HardwareEnabled{get;set;}
@@ -96,6 +97,7 @@ public sealed partial class Settings
         foreach(var key in PluginPreferences.Keys.ToArray())PluginPreferences[key]??=[];
         ThemeMode=Math.Clamp(ThemeMode,0,2);
         FontName??="";
+        FontFilePath??="";
         ClockLayout=Math.Clamp(ClockLayout,0,1);
         StandbyScene=Math.Clamp(StandbyScene,1,3);
         static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;

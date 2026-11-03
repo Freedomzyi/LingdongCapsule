@@ -6,7 +6,7 @@ using System.Windows.Media.Animation;
 using Capsule.Core;
 namespace Capsule.App;
 
-public sealed class SettingsWindow : Window
+public sealed partial class SettingsWindow : Window
 {
     private bool updatingControls;
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, LineHeight = 19 };
@@ -27,7 +27,7 @@ public sealed class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage,Func<DisplayComponent[]> displayComponents,Action<string,int> moveDisplayComponent,Func<bool>? startupState=null)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage,Func<DisplayComponent[]> displayComponents,Action<string,int> moveDisplayComponent,Func<bool>? startupState=null,Action? fontPreferenceWriter=null,Func<string?>? fontPicker=null)
     {
         this.settings = settings; this.save = save;
         startupState??=()=>StartupService.IsEnabled;
@@ -108,7 +108,7 @@ public sealed class SettingsWindow : Window
         var panel=pages["个性化中心"];
 
         Heading(panel, "外观与动效");
-        AddSelection(panel,"字体",()=>{var options=new Dictionary<string,string>{{"","系统默认（恢复默认）"}};foreach(var font in Fonts.SystemFontFamilies.OrderBy(font=>font.Source))options.TryAdd(font.Source,font.Source);return options;},settings.FontName,value=>{settings.FontName=value;Design.ApplyFont(value);FontFamily=Design.UserFont;},"选择本机字体；不打包或分发字体文件，找不到字形时由系统回退。");
+        AddFontSettings(panel,fontPreferenceWriter ?? save,fontPicker);
         AddSelection(panel,"界面主题",()=>new Dictionary<string,string>{{"0","深色"},{"1","浅色"},{"2","跟随系统"}},settings.ThemeMode.ToString(),value=>{settings.ThemeMode=int.Parse(value);Design.ApplyTheme(settings.ThemeMode);foreach(var tab in tabs)if(tab.Value.Background!=Brushes.Transparent)tab.Value.SetResourceReference(Control.BackgroundProperty,"ButtonFill");},"设置、引导和弹窗即时切换。",()=>settings.ThemeMode.ToString());
         var appearance = new StackPanel();
         Action refreshMaterialControls=()=>{};

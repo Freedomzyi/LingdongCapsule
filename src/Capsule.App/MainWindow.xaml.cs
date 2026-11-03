@@ -256,7 +256,7 @@ public partial class MainWindow : Window
             if (settingsWindow.WindowState == WindowState.Minimized) settingsWindow.WindowState = WindowState.Normal;
             settingsWindow.Show(); settingsWindow.Activate(); return;
         }
-        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin,InstallMarketPackage,DisplayComponents,MoveDisplayComponent);
+        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin,InstallMarketPackage,DisplayComponents,MoveDisplayComponent,fontPreferenceWriter:()=>{settings.Save();ApplyUserFont();});
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
     }
@@ -276,7 +276,7 @@ public partial class MainWindow : Window
         shortcuts.Apply();
         ApplyCapture();UpdateLyrics(state.Media);UpdateCovers(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
     }
-    private void ApplyUserFont(){Design.ApplyFont(settings.FontName);FontFamily=Design.UserFont;LiveLyrics.SetFont(Design.UserFont);}
+    private void ApplyUserFont(){Design.ApplyFont(settings.FontName,settings.FontFilePath);FontFamily=Design.UserFont;LiveLyrics.SetFont(Design.UserFont);}
     private void ConfigureStartup(bool enabled)
     {
         var previous=settings.StartWithWindows;settings.StartWithWindows=enabled;

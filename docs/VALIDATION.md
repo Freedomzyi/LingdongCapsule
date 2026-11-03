@@ -350,3 +350,11 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 
 - 对照参照 ConsoleWindow.Settings.cs 的 CustomFontPath/选择字体/重置操作，确认参照支持直接选择 .ttf/.otf/.ttc 并记忆文件路径。当前产品只有已安装字体家族列表，不能据此声称完整字体功能已对齐。
 - 待补本地字体文件选择、加载反馈、持久化恢复与重置；沿用自有 WPF 架构，不安装系统字体、不将用户字体加入 Git/发行包。恢复默认保留唯一语义，避免两个互相冲突的字体设置。
+
+## 本地字体文件差距已补齐实现与工程专项
+
+- 以自有 WPF FontFamily/GlyphTypeface 独立实现本地 TTF/OTF/TTC 加载，校验所选文件的实际字形来源，缓存仅保留一个当前文件；设置增加 FontFilePath，字体选择卡片统一管理文件、已安装家族与恢复默认。文件不复制到安装目录、不安装系统字体、不进入源码/发行包。
+- 保存失败恢复原内存选择和显示；取消不写；路径失效时保留偏好并回退默认，在字体卡片反馈。主窗口保存路径不吞掉字体保存异常，保存成功才更新岛体/歌词，不重跑其他设置副作用。
+- 本机真实 TTF/TTC、含中文/空格/#/% 的临时路径、错误/缺失/远程输入、实际设置选择、重载、保存拒绝、取消、唯一恢复默认、重建实际岛体继承均通过。最终证据 artifacts/font-tests/2b0e87580ebd4563b133b06c46933d38；设置截图 artifacts/font-tests/e14da8a569404d8c8207135b2a713469/local-font-settings.png 已检查。
+- 额外实际 OTF 通过：Adobe 官方 https://raw.githubusercontent.com/adobe-fonts/source-sans/release/OTF/SourceSans3-Regular.otf ，SHA256 08DF266400933D3178D081A45F94A08814C3E55B4B7DD2E0FF69CB1329F13AB6；原 LICENSE.md 与字体仅留 artifacts/font-fixtures，不再分发。完整字体测试命令 --font-test --otf-file artifacts/font-fixtures/SourceSans3-Regular.otf。
+- 引导/设置同步定向回归通过：artifacts/font-settings-sync.log，settings-sync-tests/9b9783b413364ad59d3cb4231c65be18。字体专项已加入顺序整合脚本；物理文件选择器、Owner 选定字体的体验及完整 DPI 仍待验收。实现说明 docs/FONTS.md。
