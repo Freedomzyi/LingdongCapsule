@@ -5,8 +5,12 @@ Push-Location $root
 try {
     & $Dotnet run --project tests/Capsule.Tests -c Release
     if ($LASTEXITCODE -ne 0) { throw 'State tests failed' }
-    & $Dotnet publish src/Capsule.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o artifacts/app
+    & $Dotnet publish src/Capsule.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false -o artifacts/app
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
+    foreach($name in 'Capsule.Core.pdb','LingdongCapsule.pdb') {
+        $symbol=Join-Path $root ('artifacts/app/'+$name)
+        if(Test-Path -LiteralPath $symbol){Remove-Item -LiteralPath $symbol}
+    }
     Copy-Item README.md,LICENSE,THIRD-PARTY-NOTICES.md,Install.ps1,Uninstall.ps1,安装.cmd -Destination artifacts/app
     foreach($script in 'Install.ps1','Uninstall.ps1') {
         $path=Join-Path $root ('artifacts/app/'+$script)

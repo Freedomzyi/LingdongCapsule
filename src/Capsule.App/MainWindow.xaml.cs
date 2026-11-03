@@ -91,8 +91,7 @@ public partial class MainWindow : Window
         CoverArt.Source=media.Cover; CoverFrame.Visibility=media.Cover is null ? Visibility.Collapsed : Visibility.Visible;
         Artist.Visibility=controlsOpen ? Visibility.Visible : Visibility.Collapsed;
         var coverSize=controlsOpen ? 32 : Math.Clamp(settings.CompactHeight-10,22,40);
-        CoverFrame.Width=CoverFrame.Height=coverSize;
-        CoverArt.Clip=new System.Windows.Media.RectangleGeometry(new Rect(0,0,coverSize,coverSize),6,6);
+        if(CoverFrame.Width!=coverSize){CoverFrame.Width=CoverFrame.Height=coverSize;CoverArt.Clip=new System.Windows.Media.RectangleGeometry(new Rect(0,0,coverSize,coverSize),6,6);}
         Controls.Visibility = controlsOpen ? Visibility.Visible : Visibility.Collapsed;
         if (state.Notification is { } n)
         {

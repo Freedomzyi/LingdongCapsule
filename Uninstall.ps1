@@ -3,7 +3,7 @@ $target=(Resolve-Path -LiteralPath $PSScriptRoot).Path.TrimEnd('\')
 $manifest=Join-Path $target 'installed-files.json'
 if(-not(Test-Path -LiteralPath $manifest) -or -not(Test-Path -LiteralPath (Join-Path $target 'LingdongCapsule.exe'))){throw '没有找到本程序的安装清单，停止卸载。便携版可退出后手动移除解压目录。'}
 $exe=Join-Path $target 'LingdongCapsule.exe'
-$paths=@(Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json)
+$paths=ConvertFrom-Json -InputObject (Get-Content -LiteralPath $manifest -Raw)
 $checked=@($paths | ForEach-Object {$path=[IO.Path]::GetFullPath((Join-Path $target $_));if(-not $path.StartsWith($target+'\',[StringComparison]::OrdinalIgnoreCase)){throw '安装清单含越界路径，停止卸载。'};$path})
 Get-Process LingdongCapsule -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe} | Stop-Process
 $run='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'

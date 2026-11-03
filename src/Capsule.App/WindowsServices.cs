@@ -12,11 +12,16 @@ public sealed class MediaService : IDisposable
     private GlobalSystemMediaTransportControlsSession? session;
     private string coverKey = "";
     private volatile bool metadataDirty=true;
+    private volatile bool playbackDirty=true,sessionDirty=true;
+    private MediaSnapshot lastSnapshot=new("","",false,false);
+    private DateTimeOffset lastRead;
     private GlobalSystemMediaTransportControlsSessionMediaProperties? cachedProperties;
     private DateTimeOffset propertiesReadAt;
     public BitmapImage? Cover { get; private set; }
     public string SourceId => session?.SourceAppUserModelId ?? "";
-    private void OnPlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) { }
+    private void OnPlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) {playbackDirty=true;}
+    private void OnSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender,CurrentSessionChangedEventArgs args){sessionDirty=true;}
+    private void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender,SessionsChangedEventArgs args){sessionDirty=true;}
     private void OnPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) { metadataDirty=true; }
     private void Attach(GlobalSystemMediaTransportControlsSession? next)
     {
@@ -26,15 +31,21 @@ public sealed class MediaService : IDisposable
         metadataDirty=true;cachedProperties=null;
         if (session is not null) { session.PlaybackInfoChanged+=OnPlaybackChanged; session.MediaPropertiesChanged+=OnPropertiesChanged; }
     }
-    public void Dispose() { Attach(null); manager=null; }
+    public void Dispose() { Attach(null);if(manager is not null){manager.CurrentSessionChanged-=OnSessionChanged;manager.SessionsChanged-=OnSessionsChanged;}manager=null; }
     public string Status { get; private set; } = "媒体尚未连接";
     public async Task<MediaSnapshot> ReadAsync()
     {
         try
         {
-            manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            if(manager is not null && !sessionDirty && !playbackDirty && !metadataDirty && DateTimeOffset.UtcNow-lastRead<TimeSpan.FromSeconds(5))return lastSnapshot;
+            lastRead=DateTimeOffset.UtcNow;sessionDirty=false;playbackDirty=false;
+            if(manager is null)
+            {
+                manager=await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                manager.CurrentSessionChanged+=OnSessionChanged;manager.SessionsChanged+=OnSessionsChanged;
+            }
             Attach(manager.GetCurrentSession());
-            if (session is null) { Status = "未发现系统媒体会话"; Cover=null; coverKey=""; return new("", "", false, false); }
+            if (session is null) { metadataDirty=false;Status = "未发现系统媒体会话"; Cover=null; coverKey="";return lastSnapshot=new("", "", false, false); }
             var target = session;
             if(metadataDirty || cachedProperties is null || DateTimeOffset.UtcNow-propertiesReadAt>TimeSpan.FromSeconds(10))
             {
@@ -63,7 +74,7 @@ public sealed class MediaService : IDisposable
                 catch { /* Missing or malformed cover art does not invalidate a media session. */ }
             }
             Status = "系统媒体已连接";
-            return new(string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title, props.Artist, playing, true);
+            return lastSnapshot=new(string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title, props.Artist, playing, true);
         }
         catch (Exception e) { Status = "媒体暂不可用（" + e.GetType().Name + "）"; Dispose(); Cover=null; coverKey=""; return new("", "", false, false); }
     }
@@ -130,7 +141,7 @@ public sealed class NotificationService : IDisposable
                 try{listener.NotificationChanged+=OnChanged;eventAvailable=true;}catch{eventAvailable=false;}
             }
             var changed=Interlocked.Exchange(ref dirty,0)!=0;
-            if(baseline && !changed && DateTimeOffset.UtcNow-lastPoll<TimeSpan.FromSeconds(eventAvailable ? 15 : 2))return notices;
+            if(baseline && !changed && DateTimeOffset.UtcNow-lastPoll<TimeSpan.FromSeconds(2))return notices;
             lastPoll=DateTimeOffset.UtcNow;
             var items = await listener.GetNotificationsAsync(NotificationKinds.Toast).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             var live = new HashSet<string>();
@@ -140,7 +151,7 @@ public sealed class NotificationService : IDisposable
                 {
                     var source = n.AppInfo.AppUserModelId;
                     var key = source + ":" + n.Id;
-                    live.Add(key); Sources[source] = n.AppInfo.DisplayInfo.DisplayName;
+                    live.Add(key);if(!Sources.ContainsKey(source))Sources[source]=n.AppInfo.DisplayInfo.DisplayName;
                     var fresh = !seen.TryGetValue(key, out var previous) || previous != n.CreationTime;
                     seen[key] = n.CreationTime;
                     if (!baseline || !fresh || muted.Contains(source)) continue;

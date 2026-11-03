@@ -47,6 +47,23 @@ try
 }
 catch (Exception ex) { Console.WriteLine($"Notification unavailable: {ex.GetType().Name}; HRESULT=0x{ex.HResult:X8}"); }
 
+if(args.Contains("--startup-cycle"))
+{
+    const string run=@"Software\Microsoft\Windows\CurrentVersion\Run";
+    using var key=Registry.CurrentUser.CreateSubKey(run);
+    var previous=key.GetValue("LingdongCapsule");
+    try
+    {
+        StartupService.SetEnabled(true);
+        var command=key.GetValue("LingdongCapsule") as string;
+        if(!StartupService.IsEnabled || command is null || !command.Contains(Environment.ProcessPath!) || !command.EndsWith(" --startup"))throw new Exception("Startup command incorrect");
+        StartupService.SetEnabled(false);
+        if(StartupService.IsEnabled)throw new Exception("Startup entry was not removed");
+        Console.WriteLine("PASS Own per-user startup entry enabled and disabled; previous value restored in finally");
+    }
+    finally {if(previous is null)key.DeleteValue("LingdongCapsule",false);else key.SetValue("LingdongCapsule",previous);}
+}
+
 if (args.Contains("--toast") || args.Contains("--window-scenario"))
 {
     Capsule.App.MainWindow? window=null;
