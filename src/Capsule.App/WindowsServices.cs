@@ -165,6 +165,30 @@ public sealed class MediaService : IDisposable
 
 public sealed class NotificationService : IDisposable
 {
+    private readonly string? sourceCache;
+    public NotificationService(bool persistSources=true,string? cacheFile=null)
+    {
+        sourceCache=persistSources ? cacheFile ?? Path.Combine(Settings.Folder,"notification-sources.json") : null;
+        if(sourceCache==null)return;
+        try
+        {
+            var file=new FileInfo(sourceCache);if(!file.Exists || file.Length>512*1024)return;
+            var names=System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,string>>(File.ReadAllText(sourceCache));
+            if(names!=null)foreach(var entry in names.Take(256))if(!string.IsNullOrWhiteSpace(entry.Key) && entry.Key.Length<=512 && entry.Value!=null && entry.Value.Length<=512)Sources[entry.Key]=entry.Value;
+        }
+        catch(Exception error) when(error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException){ }
+    }
+    internal void PersistSourceNames()
+    {
+        if(sourceCache==null)return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(sourceCache))!);
+            File.WriteAllText(sourceCache+".tmp",System.Text.Json.JsonSerializer.Serialize(Sources.TakeLast(256).ToDictionary(entry=>entry.Key,entry=>entry.Value)));
+            File.Move(sourceCache+".tmp",sourceCache,true);
+        }
+        catch(Exception error) when(error is IOException or UnauthorizedAccessException){ }
+    }
     private readonly Dictionary<string,BitmapSource?> logos=new(StringComparer.OrdinalIgnoreCase);
     private bool disposed;
     public BitmapSource? Logo(string source)=>logos.GetValueOrDefault(source);
@@ -222,14 +246,14 @@ public sealed class NotificationService : IDisposable
             if (baseline && !changed && DateTimeOffset.UtcNow - lastPoll < TimeSpan.FromSeconds(2)) return notices;
             lastPoll = DateTimeOffset.UtcNow;
             var items = await listener.GetNotificationsAsync(NotificationKinds.Toast).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            var live = new HashSet<string>();
+            var live = new HashSet<string>();var sourceNamesChanged=false;
             foreach (var n in items.OrderBy(n => n.CreationTime))
             {
                 try
                 {
                     var source = n.AppInfo.AppUserModelId;
                     var key = source + ":" + n.Id;
-                    live.Add(key); if (!Sources.ContainsKey(source)) Sources[source] = n.AppInfo.DisplayInfo.DisplayName;
+                    live.Add(key); if (!Sources.ContainsKey(source)){Sources[source] = n.AppInfo.DisplayInfo.DisplayName;sourceNamesChanged=true;}
                     var fresh = !seen.TryGetValue(key, out var previous) || previous != n.CreationTime;
                     seen[key] = n.CreationTime;
                     if (!baseline || !fresh || muted.Contains(source)) continue;
@@ -241,6 +265,7 @@ public sealed class NotificationService : IDisposable
                 catch { /* An invalid app notification must not break the batch. */ }
             }
             foreach (var key in seen.Keys.Where(k => !live.Contains(k)).ToArray()) seen.Remove(key);
+            if(sourceNamesChanged)PersistSourceNames();
             baseline = true; Status = "通知监听正常";
         }
         catch (Exception e) { Status = "通知读取失败（" + e.GetType().Name + "）"; }

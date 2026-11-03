@@ -160,7 +160,7 @@ internal static class Program
             try
             {
                 TestShortcut.Create(shortcut, id);
-                var service = new NotificationService();
+                var service = new NotificationService(persistSources:false);
                 var initial = await service.ReadAsync([]);
                 if (initial.Count != 0) throw new Exception("Startup must not replay historical notifications");
                 var xml = new XmlDocument();
