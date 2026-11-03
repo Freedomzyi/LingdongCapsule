@@ -12,6 +12,7 @@ try {
         @{Name='core';Project='tests/Capsule.Tests';Args=@()},
         @{Name='lyrics';Project='tests/Capsule.WindowsTests';Args=@('--lyrics-test')},
         @{Name='media';Project='tests/Capsule.WindowsTests';Args=@('--media-test')},
+        @{Name='covers';Project='tests/Capsule.WindowsTests';Args=@('--cover-test')},
         @{Name='materials';Project='tests/Capsule.WindowsTests';Args=@('--material-test')},
         @{Name='plugins';Project='tests/Capsule.WindowsTests';Args=@('--plugin-test')},
         @{Name='builtins';Project='tests/Capsule.WindowsTests';Args=@('--builtin-test')},

@@ -34,8 +34,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer panelCollapse=new();
     internal OverviewView LiveOverview=>overview;
     [DllImport("user32.dll")] private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
-    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null,string? localMspDirectory=null,string? localPluginDirectory=null,Action? pluginSettingsWriter=null)
+    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null,string? localMspDirectory=null,string? localPluginDirectory=null,Action? pluginSettingsWriter=null,System.Net.Http.HttpClient? coverMetadata=null,System.Net.Http.HttpClient? coverPictures=null)
     {
+        coverClient=new(coverMetadata,coverPictures);
         settings=initialSettings ?? Settings.Load();
         pluginDirectory=localPluginDirectory ?? System.IO.Path.Combine(Settings.Folder,"Plugins");
         writePluginSettings=pluginSettingsWriter ?? settings.Save;
@@ -66,6 +67,7 @@ public partial class MainWindow : Window
         panelCollapse.Tick+=(_,_)=>{if(overview.DialogOpen || seeking)return;panelCollapse.Stop();if(!IsMouseOver){overviewOpen=false;controlsOpen=false;Render();}};
         LiveLyrics.FrameProvider=CurrentLyricFrame;
         InitializeMediaControls();
+        InitializeCovers();
         media.Changed+=OnNativeMediaChanged;Closed+=(_,_)=>media.Changed-=OnNativeMediaChanged;
         InitializeNotifications();
         SizeChanged+=(_,_)=>CenterOnMonitor();
@@ -131,6 +133,7 @@ public partial class MainWindow : Window
             state.UpdateMedia(latest);
             if(settings.MspPublishEvents)msp.PublishMedia(latest);
             UpdateLyrics(latest);
+            UpdateCovers(latest);
             if (lastNotificationsEnabled != settings.NotificationsEnabled) { notifications.ResetBaseline(); lastNotificationsEnabled = settings.NotificationsEnabled; if (!lastNotificationsEnabled) state.Dismiss(); }
             if (settings.NotificationsEnabled) foreach (var n in await notifications.ReadAsync(settings.MutedSources)) AcceptNotification(n,DateTimeOffset.Now);
             if (closing) return;
@@ -174,7 +177,7 @@ public partial class MainWindow : Window
         MediaPanel.Visibility = showMedia ? Visibility.Visible : Visibility.Collapsed;
         NoticePanel.Visibility = mode == IslandMode.Notification ? Visibility.Visible : Visibility.Collapsed;
         Track.Text = state.Media.Title; Artist.Text = state.Media.Artist;
-        CoverArt.Source = media.Cover; CoverFrame.Visibility = media.Cover is null ? Visibility.Collapsed : Visibility.Visible;
+        var artwork=EffectiveCover;CoverArt.Source=artwork;CoverFrame.Visibility=artwork is null ? Visibility.Collapsed : Visibility.Visible;
         Artist.Visibility = IsMediaExpanded && state.Media.Artist.Length>0 ? Visibility.Visible : Visibility.Collapsed;
         var coverSize = IsMediaExpanded ? 38 : Math.Clamp(settings.CompactHeight - 10, 22, 40);
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
@@ -256,7 +259,7 @@ public partial class MainWindow : Window
         if(!settings.MediaEnabled)state.UpdateMedia(new("","",false,false));
         if(!settings.NotificationsEnabled)state.Dismiss();
         shortcuts.Apply();
-        ApplyCapture();UpdateLyrics(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
+        ApplyCapture();UpdateLyrics(state.Media);UpdateCovers(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
     }
     private void ApplyUserFont(){Design.ApplyFont(settings.FontName);FontFamily=Design.UserFont;LiveLyrics.SetFont(Design.UserFont);}
     private void ConfigureStartup(bool enabled) { StartupService.SetEnabled(enabled); settings.StartWithWindows = enabled; settings.Save(); }

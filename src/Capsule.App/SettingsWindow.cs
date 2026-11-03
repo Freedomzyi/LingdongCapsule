@@ -214,6 +214,7 @@ public sealed class SettingsWindow : Window
         Heading(panel,"媒体识别");
         var mediaOptions=new StackPanel();
         AddCheck(mediaOptions,"媒体控制",settings.MediaEnabled,v=>settings.MediaEnabled=v,"接入系统媒体会话；关闭后停止媒体与歌词接入。");
+        AddCheck(mediaOptions,"*联网补全封面",settings.OnlineCoversEnabled,v=>settings.OnlineCoversEnabled=v,"按当前标题、艺人和可用时长查询 QQ/网易云封面。关闭后只用系统缩略图和应用图标；与歌词开关独立，不下载音乐文件。");
         AddSelection(mediaOptions,"播放器类型",()=>new Dictionary<string,string>{{"other","其他软件 / 自动"},{"browser","浏览器媒体"},{"netease","网易云音乐"},{"qqmusic","QQ 音乐"},{"kugou","酷狗音乐"},{"spotify","Spotify"},{"apple","Apple Music"},{"echo","Echo Music"},{"lxmusic","LX Music"},{"justsolo","Just Solo（本机接入）"}},settings.MediaSourceKind,v=>settings.MediaSourceKind=v,"自动匹配时按软件类型筛选；手动指定软件后优先使用指定会话。");
         AddSelection(mediaOptions,"指定媒体软件",()=>{var options=new Dictionary<string,string>{{"","自动匹配"}};foreach(var item in mediaSources())options[item.Key]=item.Value;return options;},settings.ManualMediaSource,v=>settings.ManualMediaSource=v,"手动选择已出现的系统媒体会话，将优先于播放器类型。");
         AddCheck(mediaOptions,"实时频谱",settings.ShowSpectrum,v=>settings.ShowSpectrum=v,"分析本机系统输出，显示五组频段；不录音、不上传声音。");

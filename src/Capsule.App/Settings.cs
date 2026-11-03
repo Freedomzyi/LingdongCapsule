@@ -64,6 +64,7 @@ public sealed partial class Settings
     public bool ExpandedMediaControls {get;set;}=true;
     public bool ReturnToPlayer {get;set;}=true;
     public bool CoverProgress {get;set;}=true;
+    public bool OnlineCoversEnabled {get;set;}=true;
     public bool ShowSpectrum {get;set;}=true;
     public bool MediaClockSwitch {get;set;}=true;
     public string MediaSourceKind {get;set;}="other";
