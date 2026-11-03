@@ -16,6 +16,7 @@ public partial class MainWindow
     private ImageBrush? materialBrush;
     private bool materialBusy;
     private int materialGeneration,materialMode;
+    private double materialScale=1;
     private long materialRetryAt;
     internal string MaterialStatus{get;private set;}="实体背景";
     internal bool MaterialRunning=>materialTimer.IsEnabled;
@@ -29,9 +30,9 @@ public partial class MainWindow
     private void UpdateMaterial()
     {
         LiveLyrics.FrameRate=Spectrum.FrameRate=CoverRing.FrameRate=settings.Glass.FramesPerSecond;
-        if(materialMode!=settings.MaterialKind)
+        if(materialMode!=settings.MaterialKind || materialScale!=ActiveVisualScale)
         {
-            materialMode=settings.MaterialKind;materialGeneration++;materialBrush=null;materialRetryAt=0;
+            materialMode=settings.MaterialKind;materialScale=ActiveVisualScale;materialGeneration++;materialBrush=null;materialRetryAt=0;
             materialBackdrop?.Dispose();materialBackdrop=null;
             appliedBackgroundAlpha=null;ApplyIslandTheme();
         }
@@ -53,7 +54,7 @@ public partial class MainWindow
         {
             var handle=new WindowInteropHelper(this).Handle;
             if(handle==IntPtr.Zero || !GetWindowRect(handle,out var rect))return;
-            var dpi=VisualTreeHelper.GetDpi(this).DpiScaleX;
+            var dpi=VisualTreeHelper.GetDpi(this).DpiScaleX*islandScale.ScaleX;
             var width=rect.Right-rect.Left;var height=rect.Bottom-rect.Top;var margin=(int)Math.Ceiling(32*dpi);
             materialBackdrop??=new MagnifiedBackdrop(handle);
             var source=materialBackdrop.Capture(rect.Left-margin,rect.Top-margin,width+margin*2,height+margin*2);

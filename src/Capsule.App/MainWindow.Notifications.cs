@@ -53,13 +53,13 @@ public partial class MainWindow
         Shell.PreviewMouseLeftButtonDown+=(_,args)=>
         {
             if(state.Notification==null)return;
-            noticePress=args.GetPosition(this);pressedNotice=state.Notification;noticeSwiped=false;
+            noticePress=args.GetPosition(IslandRoot);pressedNotice=state.Notification;noticeSwiped=false;
             if(settings.SwipeNotifications)Mouse.Capture(Shell,CaptureMode.SubTree);
         };
         Shell.PreviewMouseMove+=(_,args)=>
         {
             if(!settings.SwipeNotifications || noticePress is not {} origin || args.LeftButton!=MouseButtonState.Pressed || !ReferenceEquals(pressedNotice,state.Notification))return;
-            if(TrySwipeNotification(pressedNotice,origin.Y-args.GetPosition(this).Y)){noticeSwiped=true;args.Handled=true;}
+            if(TrySwipeNotification(pressedNotice,origin.Y-args.GetPosition(IslandRoot).Y)){noticeSwiped=true;args.Handled=true;}
         };
         Shell.PreviewMouseLeftButtonUp+=(_,args)=>
         {

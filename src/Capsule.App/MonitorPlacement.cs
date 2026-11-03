@@ -32,4 +32,9 @@ internal static class MonitorPlacement
     {
         var screen=Target(selected);return screen==null ? double.PositiveInfinity : MonitorGeometry.WidthLimit(screen.WorkingArea.Width,window==IntPtr.Zero ? 96 : GetDpiForWindow(window));
     }
+    internal static double VisualScale(IntPtr window,string selected,double preferred)
+    {
+        var screen=Target(selected);
+        return screen==null ? 1 : MonitorGeometry.VisualScale(preferred,screen.WorkingArea.Width,screen.WorkingArea.Height,window==IntPtr.Zero ? 96 : GetDpiForWindow(window));
+    }
 }

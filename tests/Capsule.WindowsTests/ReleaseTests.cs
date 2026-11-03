@@ -13,6 +13,8 @@ internal static class ReleaseTests
         SettingsStoreTests.Run();
         var narrow=new Settings{Width=20};narrow.Normalize();if(narrow.Width!=80)throw new Exception("Global width lower boundary is incorrect");
         var wide=new Settings{Width=500};wide.Normalize();if(wide.Width!=300)throw new Exception("Global width upper boundary is incorrect");
+        var gap=new Settings{NotificationIconGap=0};gap.Normalize();if(gap.NotificationIconGap!=2)throw new Exception("Icon gap lower boundary differs from product rules");
+        gap.NotificationIconGap=100;gap.Normalize();if(gap.NotificationIconGap!=16)throw new Exception("Icon gap upper boundary differs from product rules");
         var cache=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"capsule-source-test-"+Guid.NewGuid().ToString("N")+".json");
         try
         {

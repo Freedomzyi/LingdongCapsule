@@ -17,6 +17,7 @@ public sealed class SettingsWindow : Window
     private CheckBox? notificationsCheck;
     private CheckBox? quietCheck;
     private CheckBox? mspCheck;
+    private Slider? notificationIconSizeSlider;
     private Button? authorizeButton;
     private readonly Dictionary<string,StackPanel> pages=[];
     private readonly Dictionary<string,ScrollViewer> pageViews=[];
@@ -63,7 +64,7 @@ public sealed class SettingsWindow : Window
         pluginPage.Children.Add(Design.Card(builtinClock));
         var builtinOverview=new StackPanel();
         AddCheck(builtinOverview,"*空闲信息面板",settings.OverviewEnabled,value=>settings.OverviewEnabled=value,"独立实现的内置信息组件。空闲时点击或从托盘展开天气、网速、硬件和内存排行；停用保留城市和天气选项。").Tag="builtin:idleoverview";
-        AddCheck(builtinOverview,"明日天气",settings.ShowTomorrow,value=>settings.ShowTomorrow=value,"空闲面板显示第二天预报，不影响今日天气；停用组件不会重置此选择。");
+        AddCheck(builtinOverview,"*显示明日天气",settings.ShowTomorrow,value=>settings.ShowTomorrow=value,"空闲面板显示第二天预报，不影响今日天气；停用组件不会重置此选择。");
         pluginPage.Children.Add(Design.Card(builtinOverview));
         var displayOptions=new Button{Content="排列与显示选项",Padding=new Thickness(12,9,12,9),Margin=new Thickness(0,0,0,12)};displayOptions.Click+=(_,_)=>SelectPage("显示设置");pluginPage.Children.Add(displayOptions);
         Heading(pluginPage,"外部组件");
@@ -109,9 +110,10 @@ public sealed class SettingsWindow : Window
         AddSelection(appearance,"背景材质",()=>new Dictionary<string,string>{{"0","实体"},{"1","亚克力"},{"2","液态玻璃"}},settings.MaterialKind.ToString(),value=>settings.MaterialKind=int.Parse(value),"亚克力和玻璃读取岛体后方的桌面像素，仅在内存合成，不录制或上传；显示环境不支持时回退实体背景。");
         AddSelection(appearance,"玻璃质量",()=>new Dictionary<string,string>{{"0","节能"},{"1","均衡"},{"2","高质量"}},settings.GlassQuality.ToString(),value=>settings.GlassQuality=int.Parse(value),"按一半、四分之三或完整像素尺寸合成；质量越高越耗资源。");
         AddSlider(appearance,"背景不透明度",0,100,settings.BackgroundOpacity,value=>settings.BackgroundOpacity=value,"百分比；仅调整岛体背景，不降低文字和按钮的不透明度。",1);
-        AddSlider(appearance, "*全局上限／播放宽度", 80, 300, settings.Width, v => settings.Width = v, "逻辑像素；播放固定宽度，时钟、通知和详情均不超过此上限。较窄时内容会裁切。",5);
-        AddSlider(appearance, "折叠高度", 32, 60, settings.CompactHeight, v => settings.CompactHeight = v, "逻辑像素；默认 35，控制时钟与紧凑媒体高度，不压缩展开内容。", 1);
-        AddSlider(appearance, "收放时长", 150, 900, settings.MotionMs, v => settings.MotionMs = (int)v, "毫秒；统一控制展开和收起，数值越大越舒缓。");
+        AddSlider(appearance, "*全局上限／播放宽度", 80, 300, settings.Width, v => {settings.Width=v;SyncIconLimit();}, "逻辑像素；播放固定宽度，时钟、通知和详情均不超过此上限。较窄时内容会裁切；还原值沿用参照版 195。",5,195);
+        AddSlider(appearance, "折叠高度", 32, 60, settings.CompactHeight, v => settings.CompactHeight = v, "逻辑像素；默认 35，控制时钟与紧凑媒体高度，不压缩展开内容。", 1,35);
+        AddVisualScale(appearance);
+        AddSlider(appearance, "*收放时长", 150, 900, settings.MotionMs, v => settings.MotionMs = (int)v, "毫秒；统一控制展开和收起，数值越大越舒缓。",50,450);
         panel.Children.Add(Design.Card(appearance));
         var glassOptions=new StackPanel();
         AddSlider(glassOptions,"背景模糊",0,4,settings.Glass.Blur,v=>settings.Glass=settings.Glass with{Blur=(int)v},"五档：0 / 2 / 4 / 6 / 10 逻辑像素；仅液态玻璃。",1);
@@ -129,28 +131,28 @@ public sealed class SettingsWindow : Window
         var resetGlass=new Button{Content="恢复默认玻璃参数",Margin=new Thickness(0,8,0,0)};resetGlass.Click+=(_,_)=>{updatingControls=true;try{var sliders=glassOptions.Children.OfType<Slider>().ToArray();for(var index=0;index<sliders.Length;index++)sliders[index].Value=index==11 ? 0 : 2;settings.Glass=new();}finally{updatingControls=false;}save();};glassOptions.Children.Add(resetGlass);
         panel.Children.Add(Design.Card(glassOptions));
         var displayBehavior=new StackPanel();
-        AddCheck(displayBehavior,"媒体与时钟自动切换",settings.MediaClockSwitch,v=>settings.MediaClockSwitch=v,"播放时显示媒体，暂停后收回时钟；有会话时点击时钟仍可展开控制。");
-        AddCheck(displayBehavior,"播放进度线",settings.CoverProgress,v=>settings.CoverProgress=v,"沿胶囊外沿显示当前歌曲的播放进度。");
+        AddCheck(displayBehavior,"*媒体与时钟自动切换",settings.MediaClockSwitch,v=>settings.MediaClockSwitch=v,"播放时显示媒体，暂停后收回时钟；有会话时点击时钟仍可展开控制。");
+        AddCheck(displayBehavior,"*歌曲进度线",settings.CoverProgress,v=>settings.CoverProgress=v,"沿胶囊外沿显示当前歌曲的播放进度。");
         panel.Children.Add(Design.Card(displayBehavior));
         panel=pages["通用设置"];
         var switches = new StackPanel();
         AddCheck(switches,"窗口置顶",settings.Topmost,v=>settings.Topmost=v,"在普通应用窗口上方显示胶囊。");
-        AddCheck(switches, "截图中显示胶囊", settings.ShowInCapture, v => settings.ShowInCapture = v, "关闭后请求 Windows 从兼容截图和录屏中排除主岛体；设置窗口不在此范围。");
+        AddCheck(switches, "*截图显示胶囊", settings.ShowInCapture, v => settings.ShowInCapture = v, "关闭后请求 Windows 从兼容截图和录屏中排除主岛体；设置窗口不在此范围。");
         AddCheck(switches, "通知隐私预览", settings.PrivatePreview, v => settings.PrivatePreview = v, "展开前仅显示应用名与新消息提示，通知正文不写入磁盘。");
         notificationsCheck = AddCheck(switches, "系统通知", settings.NotificationsEnabled, v => settings.NotificationsEnabled = v, "只接收 Windows 通知中心可提供的通知，不修改系统横幅策略。");
         AddCheck(switches,"*系统通知头像",settings.SystemNotificationImagesEnabled,v=>settings.SystemNotificationImagesEnabled=v,"默认关闭。需已授权系统通知；只读 Windows 通知存储中与当前通知 ID、应用、时间和正文匹配的图片，可读取指定本地图片或请求 HTTPS 图片。不开聊天数据库、不扫描历史、不保存正文；失败回退应用图标。");
-        AddCheck(switches, "开机启动", StartupService.IsEnabled, startup, "登录当前 Windows 用户后自动启动，只驻留系统托盘；不需要管理员权限。");
+        AddCheck(switches, "开机启动", StartupService.IsEnabled, startup, "登录当前 Windows 用户后自动启动，只驻留系统托盘；不需要管理员权限。",saveAfter:false);
         panel.Children.Add(Design.Card(switches));
         var publishing=new StackPanel();AddCheck(publishing,"MSP 事件广播",settings.MspPublishEvents,value=>settings.MspPublishEvents=value,"默认关闭，需同时开启 MSP 接入。向已连接本机节点发送媒体变化和通知事件；隐私预览开启时不发送通知标题与正文。接收的 MSP 通知不会回广播。");panel.Children.Add(Design.Card(publishing));
         var mspOptions=new StackPanel();mspCheck=AddCheck(mspOptions,"MSP 实验性接入",settings.MspEnabled,value=>settings.MspEnabled=value,"默认关闭。开启后向本机共享目录宣告 lingdongcapsule 节点，允许发现它的本机 MSP 节点调用通知、媒体状态与控制；关闭后停止节点。主动广播另由事件广播开关控制。");panel.Children.Add(Design.Card(mspOptions));
         Heading(panel,"通知展示");
         var notificationOptions=new StackPanel();
-        AddSlider(notificationOptions,"通知高度",40,120,settings.NotificationHeight,v=>settings.NotificationHeight=v,"逻辑像素；图标或完整内容需要时可自动增高。",1);
-        AddSlider(notificationOptions,"*通知图标大小",18,settings.Width,settings.NotificationIconSize,v=>settings.NotificationIconSize=v,"显示时保留正文空间，不会挤占整个岛体。",1);
-        AddSlider(notificationOptions,"*通知图标间距",0,20,settings.NotificationIconGap,v=>settings.NotificationIconGap=v,"图标与文字之间的逻辑像素。",1);
+        AddSlider(notificationOptions,"通知高度",40,120,settings.NotificationHeight,v=>settings.NotificationHeight=v,"逻辑像素；图标或完整内容需要时可自动增高。",1,55);
+        notificationIconSizeSlider=AddSlider(notificationOptions,"*通知图标大小",18,settings.Width,settings.NotificationIconSize,v=>settings.NotificationIconSize=v,"显示时保留正文空间，不会挤占整个岛体。",1,38);
+        AddSlider(notificationOptions,"*通知图标间距",2,16,settings.NotificationIconGap,v=>settings.NotificationIconGap=v,"图标与文字之间的逻辑像素。",1,6);
         AddSelection(notificationOptions,"通知内容模式",()=>new Dictionary<string,string>{{"0","缩略"},{"1","紧凑"},{"2","完整"}},settings.NotificationMode.ToString(),v=>settings.NotificationMode=int.Parse(v),"缩略显示标题与正文；紧凑增加侧边应用信息；完整增加应用名一行。");
-        AddCheck(notificationOptions,"连续同源通知合并",settings.GroupNotifications,v=>settings.GroupNotifications=v,"同一应用在当前通知展示期间继续来消息时显示累计数量，仅展示最新内容。");
-        AddCheck(notificationOptions,"点击展开通知",settings.ExpandNotifications,v=>settings.ExpandNotifications=v,"点击正文展开阅读；隐私预览开启时，仍需点击才能阅读正文。");
+        AddCheck(notificationOptions,"*连续通知合并",settings.GroupNotifications,v=>settings.GroupNotifications=v,"同一应用在当前通知展示期间继续来消息时显示累计数量，仅展示最新内容。");
+        AddCheck(notificationOptions,"*通知点按展开",settings.ExpandNotifications,v=>settings.ExpandNotifications=v,"点击正文展开阅读；隐私预览开启时，仍需点击才能阅读正文。");
         AddCheck(notificationOptions,"*上滑收起通知",settings.SwipeNotifications,v=>settings.SwipeNotifications=v,"按住通知向上拖动 12 个逻辑像素即可收起。");
         quietCheck=AddCheck(notificationOptions,"*安静 30 分钟",settings.QuietUntil>DateTimeOffset.UtcNow,v=>settings.QuietUntil=v ? DateTimeOffset.UtcNow.AddMinutes(30) : default,"暂停岛内通知与提示音，到时自动恢复；不会补播期间通知，也不改 Windows 通知设置。");
         panel.Children.Add(Design.Card(notificationOptions));
@@ -209,7 +211,7 @@ public sealed class SettingsWindow : Window
         var positionOptions=new StackPanel();
         AddSelection(positionOptions,"目标显示器",MonitorPlacement.Options,settings.MonitorId,v=>settings.MonitorId=v,"显示器断开时回到主屏，不修改其他软件设置。");
         AddSelection(positionOptions,"岛体形态",()=>new Dictionary<string,string>{{"1","灵动胶囊"},{"0","刘海"}},settings.IslandShape.ToString(),v=>settings.IslandShape=int.Parse(v),"刘海贴合屏幕上沿；胶囊保留顶部间距。");
-        AddSlider(positionOptions,"刘海底部圆角",0,28,settings.BottomRadius,v=>settings.BottomRadius=v,"逻辑像素，仅刘海形态生效。",1);
+        AddSlider(positionOptions,"刘海底部圆角",0,28,settings.BottomRadius,v=>settings.BottomRadius=v,"逻辑像素，仅刘海形态生效。",1,12);
         panel.Children.Add(Design.Card(positionOptions));
         panel=pages["媒体设置"];
         Heading(panel,"媒体识别");
@@ -226,7 +228,7 @@ public sealed class SettingsWindow : Window
         AddCheck(lyricOptions,"显示歌词",settings.LyricsEnabled,v=>settings.LyricsEnabled=v,"根据当前歌曲信息联网匹配同步歌词；关闭后不联网取词，无匹配时显示标题。");
         AddCheck(lyricOptions,"显示译文",settings.TranslationEnabled,v=>settings.TranslationEnabled=v,"歌词源有译文时显示第二行。");
         AddCheck(lyricOptions,"逐字高亮",settings.KaraokeEnabled,v=>settings.KaraokeEnabled=v,"优先使用真实逐字时序，没有时使用整行进度渐亮。");
-        AddCheck(lyricOptions,"长歌词横向滚动",settings.ScrollLyrics,v=>settings.ScrollLyrics=v,"短句居中，超出歌词区域的长句按进度平滑横移。");
+        AddCheck(lyricOptions,"*长歌词横向滚动",settings.ScrollLyrics,v=>settings.ScrollLyrics=v,"短句居中，超出歌词区域的长句按进度平滑横移。");
         panel.Children.Add(Design.Card(lyricOptions));
         panel=pages["交互设置"];
         Heading(panel,"媒体交互");
@@ -332,20 +334,52 @@ public sealed class SettingsWindow : Window
         var row = new StackPanel { Orientation = Orientation.Horizontal }; row.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
         var info = new TextBlock { Text = "ⓘ", FontSize = 12, Margin = new(6, 0, 0, 0), ToolTip = help, VerticalAlignment = VerticalAlignment.Center }; Design.Bind(info, TextBlock.ForegroundProperty, "TextSecondary"); row.Children.Add(info); return row;
     }
-    private void AddSlider(StackPanel panel, string title, double min, double max, double value, Action<double> changed, string help, double step = 10)
+    private void SyncIconLimit()
+    {
+        settings.NotificationIconSize=Math.Clamp(settings.NotificationIconSize,18,settings.Width);
+        if(notificationIconSizeSlider==null)return;
+        var previous=updatingControls;updatingControls=true;
+        try{notificationIconSizeSlider.Maximum=settings.Width;notificationIconSizeSlider.Value=settings.NotificationIconSize;}
+        finally{updatingControls=previous;}
+    }
+    private Slider AddSlider(StackPanel panel, string title, double min, double max, double value, Action<double> changed, string help, double step = 10,double? resetValue=null)
     {
         var row = new Grid { Margin = new(0, 9, 0, 0) }; row.ColumnDefinitions.Add(new()); row.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); row.Children.Add(Label(title, help));
         var format=step<1 ? "0.0" : "0";
         var number = new TextBlock { Text = value.ToString(format), FontSize = 13, FontWeight = FontWeights.Medium, Foreground = new SolidColorBrush(Color.FromRgb(0, 122, 255)) }; Grid.SetColumn(number, 1); row.Children.Add(number); panel.Children.Add(row);
         var slider = new Slider { Minimum = min, Maximum = max, Value = value, TickFrequency = step, IsSnapToTickEnabled = true, Margin = new(0, 4, 0, 7), ToolTip = help };
         slider.ValueChanged += (_, _) => { number.Text = slider.Value.ToString(format);if(updatingControls)return;changed(slider.Value);save(); }; panel.Children.Add(slider);
+        if(resetValue is {} restore)
+        {
+            var reset=new Button{Content="↺",Width=25,Height=24,Margin=new(0,0,7,0),ToolTip="还原为 "+restore.ToString(format)};
+            System.Windows.Automation.AutomationProperties.SetName(reset,"还原"+title);reset.Click+=(_,_)=>slider.Value=Math.Clamp(restore,min,max);
+            var values=new StackPanel{Orientation=Orientation.Horizontal};row.Children.Remove(number);values.Children.Add(reset);values.Children.Add(number);Grid.SetColumn(values,1);row.Children.Add(values);
+        }
+        return slider;
     }
-    private CheckBox AddCheck(StackPanel panel, string text, bool value, Action<bool> changed, string help)
+    private void AddVisualScale(StackPanel panel)
+    {
+        var row=new Grid{Margin=new(0,12,0,8)};row.ColumnDefinitions.Add(new());row.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
+        row.Children.Add(Label("视觉比例","默认 1 倍，最低 0.5 倍，每次 0.05；整体缩放岛体文字、组件和交互，不改 Windows DPI。显示区域不足时临时限制倍率和宽度，保留保存值；设置窗口不随之缩放。"));
+        var controls=new StackPanel{Orientation=Orientation.Horizontal};Grid.SetColumn(controls,1);row.Children.Add(controls);
+        var minus=new Button{Content="−",Width=30,Height=30};var plus=new Button{Content="＋",Width=30,Height=30};var reset=new Button{Content="还原",Padding=new(9,6,9,6),Margin=new(7,0,0,0),ToolTip="恢复 1.00 倍"};
+        var value=new TextBlock{MinWidth=60,MaxWidth=90,TextAlignment=TextAlignment.Center,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis,Foreground=new SolidColorBrush(Color.FromRgb(0,122,255))};
+        System.Windows.Automation.AutomationProperties.SetName(minus,"减小视觉比例");System.Windows.Automation.AutomationProperties.SetName(plus,"增大视觉比例");System.Windows.Automation.AutomationProperties.SetName(reset,"还原视觉比例");
+        void Paint(){value.Text=settings.VisualScale<1000 ? settings.VisualScale.ToString("0.00")+"×" : settings.VisualScale.ToString("G3")+"×";minus.IsEnabled=settings.VisualScale>.5;}
+        void Change(double requested)
+        {
+            var previous=settings.VisualScale;settings.VisualScale=double.IsFinite(requested) ? Math.Max(.5,requested) : 1;
+            try{save();}catch(Exception error){settings.VisualScale=previous;Design.PresentMessage("比例未能保存",error.Message);}Paint();
+        }
+        minus.Click+=(_,_)=>Change(Math.Round(settings.VisualScale-.05,2));plus.Click+=(_,_)=>Change(Math.Round(settings.VisualScale+.05,2));reset.Click+=(_,_)=>Change(1);
+        controls.Children.Add(minus);controls.Children.Add(value);controls.Children.Add(plus);controls.Children.Add(reset);Paint();panel.Children.Add(row);
+    }
+    private CheckBox AddCheck(StackPanel panel, string text, bool value, Action<bool> changed, string help,bool saveAfter=true)
     {
         var check = new CheckBox { Content = Label(text, help), IsChecked = value, Margin = new(0, 4, 0, 4), ToolTip = help }; System.Windows.Automation.AutomationProperties.SetName(check, text);
         check.Click += (_, _) =>
         {
-            try{changed(check.IsChecked==true);save();value=check.IsChecked==true;}
+            try{changed(check.IsChecked==true);if(saveAfter)save();value=check.IsChecked==true;}
             catch(Exception error){check.IsChecked=value;Design.PresentMessage("未能更新设置",error.Message);}
         }; panel.Children.Add(check); return check;
     }

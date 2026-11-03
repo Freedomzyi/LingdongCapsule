@@ -75,8 +75,8 @@ public partial class MainWindow
         var packed=coordinates.ToInt64();var local=PointFromScreen(new Point((short)(packed&0xffff),(short)((packed>>16)&0xffff)));
         if(WakeButton.Visibility==Visibility.Visible)
         {
-            var origin=WakeButton.TranslatePoint(new Point(),this);
-            if(new Rect(origin,new Size(WakeButton.ActualWidth,WakeButton.ActualHeight)).Contains(local))return false;
+            var hit=WakeButton.TransformToAncestor(this).TransformBounds(new Rect(new Point(),new Size(WakeButton.ActualWidth,WakeButton.ActualHeight)));
+            if(hit.Contains(local))return false;
         }
         return true;
     }

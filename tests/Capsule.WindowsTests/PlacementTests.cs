@@ -28,17 +28,18 @@ internal static class PlacementTests
             for(var attempt=0;attempt<50 && !window.LiveState.Media.Available;attempt++)await Task.Delay(100);
             if(!window.LiveState.Media.Available)throw new Exception("Owned media did not reach placement fixture");
             foreach(var monitor in System.Windows.Forms.Screen.AllScreens)
-            foreach(var shape in new[]{0,1})foreach(var width in new[]{80d,195d,300d})foreach(var height in new[]{32d,35d,60d})
+            foreach(var scale in new[]{.5,1,1.5,2})foreach(var shape in new[]{0,1})foreach(var width in new[]{80d,195d,300d})foreach(var height in new[]{32d,35d,60d})
             {
-                settings.MonitorId=monitor.DeviceName;settings.IslandShape=shape;settings.Width=width;settings.CompactHeight=height;
-                render.Invoke(window,null);MonitorPlacement.Center(handle,settings.MonitorId,shape==0 ? 0 : 8);await Task.Delay(550);window.UpdateLayout();
+                settings.MonitorId=monitor.DeviceName;settings.IslandShape=shape;settings.Width=width;settings.CompactHeight=height;settings.VisualScale=scale;
+                render.Invoke(window,null);MonitorPlacement.Center(handle,settings.MonitorId,shape==0 ? 0 : 8*window.ActiveVisualScale);await Task.Delay(550);window.UpdateLayout();
                 if(!GetWindowRect(handle,out var rect))throw new Exception("Cannot read owned window geometry");
                 var dpi=GetDpiForWindow(handle);var work=monitor.WorkingArea;var actualWidth=rect.Right-rect.Left;var actualHeight=rect.Bottom-rect.Top;
                 var expectedLeft=work.Left+Math.Max(0,work.Width-actualWidth)/2;
-                var expectedTop=work.Top+(int)Math.Round((shape==0 ? 0 : 8)*dpi/96d);
-                var expectedWidth=Math.Min(width,MonitorPlacement.WidthLimit(handle,monitor.DeviceName))*dpi/96;
-                if(Math.Abs(rect.Left-expectedLeft)>2 || Math.Abs(rect.Top-expectedTop)>2 || rect.Left<work.Left || rect.Right>work.Right || Math.Abs(actualWidth-expectedWidth)>2 || Math.Abs(actualHeight-height*dpi/96)>2 || settings.Width!=width || settings.MonitorId!=monitor.DeviceName)throw new Exception("Owned island escaped target monitor or lost preferred geometry");
-                observations.Add(new{monitor=monitor.DeviceName,dpi,shape,requestedWidth=width,requestedHeight=height,left=rect.Left,top=rect.Top,width=actualWidth,height=actualHeight,workLeft=work.Left,workTop=work.Top,workWidth=work.Width,workHeight=work.Height});
+                var effective=window.ActiveVisualScale;var expectedTop=work.Top+(int)Math.Round((shape==0 ? 0 : 8*effective)*dpi/96d);
+                var expectedWidth=Math.Min(width,MonitorPlacement.WidthLimit(handle,monitor.DeviceName)/effective)*effective*dpi/96;
+                var shell=(FrameworkElement)window.FindName("Shell");var bounds=shell.TransformToAncestor(window).TransformBounds(new System.Windows.Rect(0,0,shell.ActualWidth,shell.ActualHeight));
+                if(Math.Abs(rect.Left-expectedLeft)>2 || Math.Abs(rect.Top-expectedTop)>2 || rect.Left<work.Left || rect.Right>work.Right || Math.Abs(actualWidth-expectedWidth)>2 || Math.Abs(actualHeight-height*effective*dpi/96)>2 || Math.Abs(bounds.Width-shell.ActualWidth*effective)>1 || Math.Abs(bounds.Height-shell.ActualHeight*effective)>1 || settings.VisualScale!=scale || settings.Width!=width || settings.MonitorId!=monitor.DeviceName)throw new Exception("Owned island escaped target monitor, did not scale content or lost preferred geometry");
+                observations.Add(new{monitor=monitor.DeviceName,dpi,shape,requestedScale=scale,effectiveScale=effective,requestedWidth=width,requestedHeight=height,left=rect.Left,top=rect.Top,width=actualWidth,height=actualHeight,workLeft=work.Left,workTop=work.Top,workWidth=work.Width,workHeight=work.Height});
             }
             settings.MonitorId="owned.nonexistent.monitor";render.Invoke(window,null);MonitorPlacement.Center(handle,settings.MonitorId,8);await Task.Delay(550);
             if(settings.MonitorId!="owned.nonexistent.monitor")throw new Exception("Missing-monitor fallback overwrote user selection");

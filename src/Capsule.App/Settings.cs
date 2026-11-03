@@ -37,6 +37,7 @@ public sealed partial class Settings
     public bool Passthrough{get;set;}
     public double Width { get; set; } = 280;
     public double CompactHeight { get; set; } = 35;
+    public double VisualScale{get;set;}=1;
     public int MotionMs { get; set; } = 450;
     public bool ShowInCapture { get; set; } = true;
     public bool PrivatePreview { get; set; } = true;
@@ -99,10 +100,11 @@ public sealed partial class Settings
         StandbyScene=Math.Clamp(StandbyScene,1,3);
         static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;
         Width=Limit(Width,80,300,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
+        VisualScale=double.IsFinite(VisualScale) ? Math.Max(.5,VisualScale) : 1;
         BackgroundOpacity=Limit(BackgroundOpacity,0,100,96);
         MaterialKind=Math.Clamp(MaterialKind,0,2);GlassQuality=Math.Clamp(GlassQuality,0,2);Glass=(Glass ?? new()).Normalized();
         NotificationMode=Math.Clamp(NotificationMode,0,2);NotificationHeight=Limit(NotificationHeight,40,120,55);
-        NotificationIconSize=Limit(NotificationIconSize,18,Width,38);NotificationIconGap=Limit(NotificationIconGap,0,20,6);
+        NotificationIconSize=Limit(NotificationIconSize,18,Width,38);NotificationIconGap=Limit(NotificationIconGap,2,16,6);
         NotificationSoundVolume=Limit(NotificationSoundVolume,0,100,10);NotificationSoundKey??="none";NotificationSoundPath??="";
         if(!NotificationSound.Options().ContainsKey(NotificationSoundKey))NotificationSoundKey="none";
         BottomRadius=Limit(BottomRadius,0,28,12);IslandShape=Math.Clamp(IslandShape,0,1);MonitorId??="";

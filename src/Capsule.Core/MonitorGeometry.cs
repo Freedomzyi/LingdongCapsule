@@ -4,6 +4,15 @@ public readonly record struct PixelBounds(int Left,int Top,int Width,int Height)
 public readonly record struct PixelPoint(int X,int Y);
 public static class MonitorGeometry
 {
+    public static double VisualScale(double preferred,int widthPixels,int heightPixels,uint dpi)
+    {
+        if(dpi==0)dpi=96;
+        preferred=double.IsFinite(preferred) ? Math.Max(.5,preferred) : 1;
+        // Keep the minimum logical width and the largest expanded panel reachable.
+        var width=WidthLimit(widthPixels,dpi)/80;
+        var height=Math.Max(1,Math.Max(0,heightPixels)*96d/dpi-8)/286;
+        return Math.Min(preferred,Math.Min(width,height));
+    }
     public static double WidthLimit(int pixels,uint dpi,double sideMargin=8)
     {
         if(dpi==0)dpi=96;

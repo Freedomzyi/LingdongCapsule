@@ -22,6 +22,8 @@ foreach(var item in new[]{(Dpi:96u,X:-1110,Y:-192),(Dpi:120u,X:-1148,Y:-190),(Dp
 }
 Check(MonitorGeometry.WidthLimit(320,192)==144 && MonitorGeometry.WidthLimit(320,0)==304,"Narrow monitor uses its own logical width and zero DPI falls back to 96");
 Check(MonitorGeometry.Center(new(-800,-400,800,600),1000,900,192,80)==new PixelPoint(-800,-400),"Oversized window anchors inside work-area origin without negative inset");
+Check(MonitorGeometry.VisualScale(1,320,1920,192)==1 && MonitorGeometry.VisualScale(.25,3072,1920,192)==.5 && MonitorGeometry.VisualScale(double.NaN,3072,1920,192)==1,"Visual ratio is distinct from monitor DPI and narrow-width clipping");
+Check(MonitorGeometry.VisualScale(double.MaxValue,3072,1920,192)<=952d/286 && MonitorGeometry.VisualScale(1,3072,1920,0)==1,"Huge preferred visual ratio fits expanded content and zero DPI falls back");
 var supplementBase=LyricsDocument.Parse("[00:01.00]First line\n[00:03.00]Second line",source:"Base");
 var supplementOther=LyricsDocument.Parse("[00:01.10]First line\n[00:03.10]Second line","[00:01.10]第一句\n[00:03.10]第二句","[1100,1500](1100,1500,0)First line\n[3100,1500](3100,1500,0)Second line","Extra");
 var supplemented=supplementBase.Supplement(supplementOther);

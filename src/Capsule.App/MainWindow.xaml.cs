@@ -23,6 +23,8 @@ public partial class MainWindow : Window
     private WelcomeWindow? welcomeWindow;
     private bool busy, closing, controlsOpen, lastNotificationsEnabled;
     private double desiredWidth = 104, desiredHeight = 35;
+    internal double ActiveVisualScale{get;private set;}=1;
+    private readonly System.Windows.Media.ScaleTransform islandScale=new(1,1);
     private SettingsWindow? settingsWindow;
     private readonly OverviewView overview;
     private readonly OverviewService compactHardware=new();
@@ -46,6 +48,7 @@ public partial class MainWindow : Window
         Design.ApplyTheme(settings.ThemeMode);
         shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();
+        IslandRoot.LayoutTransform=islandScale;
         InitializeComposite();
         InitializeMaterial();
         Closed+=(_,_)=>solo.Dispose();
@@ -111,7 +114,7 @@ public partial class MainWindow : Window
         BeginAnimation(LeftProperty, null);
         CenterOnMonitor();
     }
-    private void CenterOnMonitor()=>MonitorPlacement.Center(new WindowInteropHelper(this).Handle,settings.MonitorId,Environment.GetCommandLineArgs().Any(arg=>arg is "--inspect" or "--render-media") ? 80 : settings.IslandShape==0 ? 0 : 8);
+    private void CenterOnMonitor()=>MonitorPlacement.Center(new WindowInteropHelper(this).Handle,settings.MonitorId,Environment.GetCommandLineArgs().Any(arg=>arg is "--inspect" or "--render-media") ? 80 : settings.IslandShape==0 ? 0 : 8*ActiveVisualScale);
     private async Task RefreshAsync()
     {
         if (busy || closing) return;
@@ -168,8 +171,9 @@ public partial class MainWindow : Window
         if(combined)Clock.Visibility=Visibility.Visible;
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)Clock.Visibility=settings.StandbyScene==1 ? Visibility.Visible : Visibility.Collapsed;
         var viewportLimit=MonitorPlacement.WidthLimit(new WindowInteropHelper(this).Handle,settings.MonitorId);
+        SetVisualScale(MonitorPlacement.VisualScale(new WindowInteropHelper(this).Handle,settings.MonitorId,settings.VisualScale));
         if(IsLoaded && Width>viewportLimit){BeginAnimation(WidthProperty,null);Width=viewportLimit;desiredWidth=Math.Min(desiredWidth,viewportLimit);}
-        var widthLimit=Math.Min(settings.Width,viewportLimit);
+        var widthLimit=Math.Min(settings.Width,viewportLimit/ActiveVisualScale);
         RenderComposite(showMedia,combined,widthLimit);
         if(HardwarePanel.Visibility==Visibility.Visible && modulesVisible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
         {
@@ -195,7 +199,7 @@ public partial class MainWindow : Window
         Shell.Padding = mode == IslandMode.Notification || IsMediaExpanded || showOverview ? new Thickness(14, 7, 14, 7) : LiveLyrics.Visibility==Visibility.Visible ? new Thickness(12,1,12,1) : new Thickness(12, 4, 12, 4);
         Shell.CornerRadius = settings.IslandShape==0 ? new CornerRadius(0,0,settings.BottomRadius,settings.BottomRadius) : new CornerRadius(height > 100 ? 22 : height / 2);
         Topmost=settings.Topmost;
-        Animate(width, height);
+        Animate(width*ActiveVisualScale, height*ActiveVisualScale);
         UpdateIslandVisibility();
         RenderMediaControls();
         ApplyIslandTheme();

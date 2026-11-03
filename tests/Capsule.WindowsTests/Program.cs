@@ -20,6 +20,7 @@ internal static class Program
     }
     private static async Task RunAsync(string[] args)
     {
+        if(args.Contains("--scale-test")){await ScaleTests.RunAsync();return;}
         if(args.Contains("--welcome-test")){await WelcomeTests.RunAsync();return;}
         if(args.Contains("--timeline-test")){await TimelineTests.RunAsync();return;}
         if(args.Contains("--instance-test") || args.Contains("--instance-peer")){await InstanceTests.RunAsync(args);return;}

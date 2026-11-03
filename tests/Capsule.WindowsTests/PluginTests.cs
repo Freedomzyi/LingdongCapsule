@@ -182,7 +182,7 @@ internal static class PluginTests
             for(var attempt=0;attempt<30 && window.LivePluginWidgets.Count!=0;attempt++)await Task.Delay(100);
             if(window.LivePluginWidgets.Count!=0 || window.LiveModuleOrder.Contains("plugin:fixture.clock") || windowSettings.PluginFiles.Count!=0 || !windowSettings.PluginFailures.ContainsKey("fixture.clock"))throw new Exception("Faulted plugin was not removed from restart list and visible slots");
             window.LoadPlugin(samplePackage,save:false);
-            for(var attempt=0;attempt<30 && ((TextBlock)window.LivePluginWidgets[0]).Text.Length==0;attempt++)await Task.Delay(100);
+            for(var attempt=0;attempt<30 && ((TextBlock)window.LivePluginWidgets[0]).Text!=DateTime.Now.ToString("HH:mm");attempt++)await Task.Delay(100);
             if(((TextBlock)window.LivePluginWidgets[0]).Text!=DateTime.Now.ToString("HH:mm"))throw new Exception("Built sample clock did not render in actual island");
             Console.WriteLine("PASS Built distributable sample plugin time/themes and actual island loading");
             Console.WriteLine("PASS Actual island hosts and updates an independently loaded plugin widget");

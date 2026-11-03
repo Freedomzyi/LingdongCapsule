@@ -48,6 +48,9 @@ internal static class MaterialTests
                 settings.MaterialKind=1;render.Invoke(window,null);
                 for(var attempt=0;attempt<40 && !window.MaterialHasFrame;attempt++)await Task.Delay(100);
                 if(!window.MaterialHasFrame || !window.MaterialStatus.Contains("亚克力"))throw new Exception("Actual acrylic background failed");
+                settings.VisualScale=2;render.Invoke(window,null);await Task.Delay(650);
+                for(var attempt=0;attempt<40 && (!window.MaterialHasFrame || Math.Abs(window.MaterialFrame!.PixelWidth-window.ActualWidth*VisualTreeHelper.GetDpi(window).DpiScaleX*.75)>3);attempt++)await Task.Delay(100);
+                if(!window.MaterialHasFrame || Math.Abs(window.MaterialFrame!.PixelWidth-window.ActualWidth*VisualTreeHelper.GetDpi(window).DpiScaleX*.75)>3)throw new Exception("Scaled material did not refresh at actual physical window size");
                 window.SetIslandHidden(true);await Task.Delay(700);
                 if(window.MaterialRunning || window.MaterialHasFrame)throw new Exception("Hidden island retained capture or stale async frame");
                 window.SetIslandHidden(false);
