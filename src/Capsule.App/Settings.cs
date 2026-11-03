@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 namespace Capsule.App;
+
 public sealed class Settings
 {
     public double Width { get; set; } = 280;
@@ -15,7 +16,7 @@ public sealed class Settings
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LingdongCapsule");
     public static Settings Load()
     {
-        try { var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new(); s.Width = double.IsFinite(s.Width) ? Math.Clamp(s.Width, 220, 480) : 280; s.CompactHeight=double.IsFinite(s.CompactHeight) ? Math.Clamp(s.CompactHeight,32,60) : 35; s.MotionMs = Math.Clamp(s.MotionMs, 150, 900); s.MutedSources ??= []; return s; }
+        try { var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new(); s.Width = double.IsFinite(s.Width) ? Math.Clamp(s.Width, 220, 480) : 280; s.CompactHeight = double.IsFinite(s.CompactHeight) ? Math.Clamp(s.CompactHeight, 32, 60) : 35; s.MotionMs = Math.Clamp(s.MotionMs, 150, 900); s.MutedSources ??= []; return s; }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return new(); }
     }
     public void Save()

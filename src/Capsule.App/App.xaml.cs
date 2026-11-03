@@ -2,6 +2,7 @@ using System.Threading;
 using System.Windows;
 using System.IO;
 namespace Capsule.App;
+
 public partial class App : System.Windows.Application
 {
     private Mutex? mutex;
@@ -11,7 +12,7 @@ public partial class App : System.Windows.Application
         if (!first) { Shutdown(); return; }
         base.OnStartup(e);
         Design.ApplySystemTheme();
-        DispatcherUnhandledException += (_, a) => { a.Handled=true; Design.PresentMessage("灵动胶囊发生错误",a.Exception.Message); Shutdown(1); };
+        DispatcherUnhandledException += (_, a) => { a.Handled = true; Design.PresentMessage("灵动胶囊发生错误", a.Exception.Message); Shutdown(1); };
         MainWindow = new MainWindow(); MainWindow.Show();
     }
     protected override void OnExit(ExitEventArgs e) { mutex?.Dispose(); base.OnExit(e); }

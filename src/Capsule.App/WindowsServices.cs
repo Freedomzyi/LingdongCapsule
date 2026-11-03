@@ -11,54 +11,54 @@ public sealed class MediaService : IDisposable
     private GlobalSystemMediaTransportControlsSessionManager? manager;
     private GlobalSystemMediaTransportControlsSession? session;
     private string coverKey = "";
-    private volatile bool metadataDirty=true;
-    private volatile bool playbackDirty=true,sessionDirty=true;
-    private MediaSnapshot lastSnapshot=new("","",false,false);
+    private volatile bool metadataDirty = true;
+    private volatile bool playbackDirty = true, sessionDirty = true;
+    private MediaSnapshot lastSnapshot = new("", "", false, false);
     private DateTimeOffset lastRead;
     private GlobalSystemMediaTransportControlsSessionMediaProperties? cachedProperties;
     private DateTimeOffset propertiesReadAt;
     public BitmapImage? Cover { get; private set; }
     public string SourceId => session?.SourceAppUserModelId ?? "";
-    private void OnPlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) {playbackDirty=true;}
-    private void OnSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender,CurrentSessionChangedEventArgs args){sessionDirty=true;}
-    private void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender,SessionsChangedEventArgs args){sessionDirty=true;}
-    private void OnPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) { metadataDirty=true; }
+    private void OnPlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) { playbackDirty = true; }
+    private void OnSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args) { sessionDirty = true; }
+    private void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender, SessionsChangedEventArgs args) { sessionDirty = true; }
+    private void OnPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) { metadataDirty = true; }
     private void Attach(GlobalSystemMediaTransportControlsSession? next)
     {
-        if (ReferenceEquals(session,next)) return;
-        if (session is not null) { session.PlaybackInfoChanged-=OnPlaybackChanged; session.MediaPropertiesChanged-=OnPropertiesChanged; }
-        session=next;
-        metadataDirty=true;cachedProperties=null;
-        if (session is not null) { session.PlaybackInfoChanged+=OnPlaybackChanged; session.MediaPropertiesChanged+=OnPropertiesChanged; }
+        if (ReferenceEquals(session, next)) return;
+        if (session is not null) { session.PlaybackInfoChanged -= OnPlaybackChanged; session.MediaPropertiesChanged -= OnPropertiesChanged; }
+        session = next;
+        metadataDirty = true; cachedProperties = null;
+        if (session is not null) { session.PlaybackInfoChanged += OnPlaybackChanged; session.MediaPropertiesChanged += OnPropertiesChanged; }
     }
-    public void Dispose() { Attach(null);if(manager is not null){manager.CurrentSessionChanged-=OnSessionChanged;manager.SessionsChanged-=OnSessionsChanged;}manager=null; }
+    public void Dispose() { Attach(null); if (manager is not null) { manager.CurrentSessionChanged -= OnSessionChanged; manager.SessionsChanged -= OnSessionsChanged; } manager = null; }
     public string Status { get; private set; } = "媒体尚未连接";
     public async Task<MediaSnapshot> ReadAsync()
     {
         try
         {
-            if(manager is not null && !sessionDirty && !playbackDirty && !metadataDirty && DateTimeOffset.UtcNow-lastRead<TimeSpan.FromSeconds(5))return lastSnapshot;
-            lastRead=DateTimeOffset.UtcNow;sessionDirty=false;playbackDirty=false;
-            if(manager is null)
+            if (manager is not null && !sessionDirty && !playbackDirty && !metadataDirty && DateTimeOffset.UtcNow - lastRead < TimeSpan.FromSeconds(5)) return lastSnapshot;
+            lastRead = DateTimeOffset.UtcNow; sessionDirty = false; playbackDirty = false;
+            if (manager is null)
             {
-                manager=await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-                manager.CurrentSessionChanged+=OnSessionChanged;manager.SessionsChanged+=OnSessionsChanged;
+                manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                manager.CurrentSessionChanged += OnSessionChanged; manager.SessionsChanged += OnSessionsChanged;
             }
             Attach(manager.GetCurrentSession());
-            if (session is null) { metadataDirty=false;Status = "未发现系统媒体会话"; Cover=null; coverKey="";return lastSnapshot=new("", "", false, false); }
+            if (session is null) { metadataDirty = false; Status = "未发现系统媒体会话"; Cover = null; coverKey = ""; return lastSnapshot = new("", "", false, false); }
             var target = session;
-            if(metadataDirty || cachedProperties is null || DateTimeOffset.UtcNow-propertiesReadAt>TimeSpan.FromSeconds(10))
+            if (metadataDirty || cachedProperties is null || DateTimeOffset.UtcNow - propertiesReadAt > TimeSpan.FromSeconds(10))
             {
-                metadataDirty=false;
-                cachedProperties=await target.TryGetMediaPropertiesAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-                propertiesReadAt=DateTimeOffset.UtcNow;
+                metadataDirty = false;
+                cachedProperties = await target.TryGetMediaPropertiesAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                propertiesReadAt = DateTimeOffset.UtcNow;
             }
-            var props=cachedProperties;
+            var props = cachedProperties;
             var playing = target.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
             var key = target.SourceAppUserModelId + "|" + props.Title + "|" + props.Artist;
             if (key != coverKey)
             {
-                coverKey=key; Cover=null;
+                coverKey = key; Cover = null;
                 try
                 {
                     if (props.Thumbnail is not null)
@@ -67,16 +67,16 @@ public sealed class MediaService : IDisposable
                         if (data.Size <= 8 * 1024 * 1024)
                         {
                             using var stream = data.AsStreamForRead();
-                            var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption=BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth=96; bitmap.StreamSource=stream; bitmap.EndInit(); bitmap.Freeze(); Cover=bitmap;
+                            var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = 96; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze(); Cover = bitmap;
                         }
                     }
                 }
                 catch { /* Missing or malformed cover art does not invalidate a media session. */ }
             }
             Status = "系统媒体已连接";
-            return lastSnapshot=new(string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title, props.Artist, playing, true);
+            return lastSnapshot = new(string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title, props.Artist, playing, true);
         }
-        catch (Exception e) { Status = "媒体暂不可用（" + e.GetType().Name + "）"; Dispose(); Cover=null; coverKey=""; return new("", "", false, false); }
+        catch (Exception e) { Status = "媒体暂不可用（" + e.GetType().Name + "）"; Dispose(); Cover = null; coverKey = ""; return new("", "", false, false); }
     }
     public async Task<bool> ControlAsync(string action)
     {
@@ -89,13 +89,13 @@ public sealed class MediaService : IDisposable
             var shouldPlay = current.GetPlaybackInfo().PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
             // Some players reject a command while switching tracks. Retry the same explicit
             // intent, never toggle again (which could undo an already completed operation).
-            for (var attempt=0;attempt<3;attempt++)
+            for (var attempt = 0; attempt < 3; attempt++)
             {
-                var operation=shouldPlay ? current.TryPlayAsync() : current.TryPauseAsync();
+                var operation = shouldPlay ? current.TryPlayAsync() : current.TryPauseAsync();
                 await operation.AsTask().WaitAsync(TimeSpan.FromSeconds(5));
                 await Task.Delay(400);
-                var nowPlaying=current.GetPlaybackInfo().PlaybackStatus==GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-                if (nowPlaying==shouldPlay) return true;
+                var nowPlaying = current.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                if (nowPlaying == shouldPlay) return true;
             }
             return false;
         }
@@ -108,11 +108,11 @@ public sealed class NotificationService : IDisposable
     private readonly Dictionary<string, DateTimeOffset> seen = [];
     private UserNotificationListener? listener;
     private bool baseline;
-    private bool subscribed,eventAvailable,hadAccess;
-    private int dirty=1;
+    private bool subscribed, eventAvailable, hadAccess;
+    private int dirty = 1;
     private DateTimeOffset lastPoll;
-    private void OnChanged(UserNotificationListener sender,UserNotificationChangedEventArgs args)=>Interlocked.Exchange(ref dirty,1);
-    public void Dispose(){if(subscribed && eventAvailable && listener is not null)listener.NotificationChanged-=OnChanged;}
+    private void OnChanged(UserNotificationListener sender, UserNotificationChangedEventArgs args) => Interlocked.Exchange(ref dirty, 1);
+    public void Dispose() { if (subscribed && eventAvailable && listener is not null) listener.NotificationChanged -= OnChanged; }
     public string Status { get; private set; } = "通知监听未启用";
     public Dictionary<string, string> Sources { get; } = [];
     public async Task<bool> RequestAsync()
@@ -133,16 +133,16 @@ public sealed class NotificationService : IDisposable
         try
         {
             listener ??= UserNotificationListener.Current;
-            if (listener.GetAccessStatus() != UserNotificationListenerAccessStatus.Allowed) { hadAccess=false;Status = "通知未获授权"; return notices; }
-            if(!hadAccess){ResetBaseline();hadAccess=true;}
-            if(!subscribed)
+            if (listener.GetAccessStatus() != UserNotificationListenerAccessStatus.Allowed) { hadAccess = false; Status = "通知未获授权"; return notices; }
+            if (!hadAccess) { ResetBaseline(); hadAccess = true; }
+            if (!subscribed)
             {
-                subscribed=true;
-                try{listener.NotificationChanged+=OnChanged;eventAvailable=true;}catch{eventAvailable=false;}
+                subscribed = true;
+                try { listener.NotificationChanged += OnChanged; eventAvailable = true; } catch { eventAvailable = false; }
             }
-            var changed=Interlocked.Exchange(ref dirty,0)!=0;
-            if(baseline && !changed && DateTimeOffset.UtcNow-lastPoll<TimeSpan.FromSeconds(2))return notices;
-            lastPoll=DateTimeOffset.UtcNow;
+            var changed = Interlocked.Exchange(ref dirty, 0) != 0;
+            if (baseline && !changed && DateTimeOffset.UtcNow - lastPoll < TimeSpan.FromSeconds(2)) return notices;
+            lastPoll = DateTimeOffset.UtcNow;
             var items = await listener.GetNotificationsAsync(NotificationKinds.Toast).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             var live = new HashSet<string>();
             foreach (var n in items.OrderBy(n => n.CreationTime))
@@ -151,7 +151,7 @@ public sealed class NotificationService : IDisposable
                 {
                     var source = n.AppInfo.AppUserModelId;
                     var key = source + ":" + n.Id;
-                    live.Add(key);if(!Sources.ContainsKey(source))Sources[source]=n.AppInfo.DisplayInfo.DisplayName;
+                    live.Add(key); if (!Sources.ContainsKey(source)) Sources[source] = n.AppInfo.DisplayInfo.DisplayName;
                     var fresh = !seen.TryGetValue(key, out var previous) || previous != n.CreationTime;
                     seen[key] = n.CreationTime;
                     if (!baseline || !fresh || muted.Contains(source)) continue;
@@ -167,5 +167,5 @@ public sealed class NotificationService : IDisposable
         catch (Exception e) { Status = "通知读取失败（" + e.GetType().Name + "）"; }
         return notices;
     }
-    public void ResetBaseline() { baseline = false; seen.Clear();Interlocked.Exchange(ref dirty,1); }
+    public void ResetBaseline() { baseline = false; seen.Clear(); Interlocked.Exchange(ref dirty, 1); }
 }
