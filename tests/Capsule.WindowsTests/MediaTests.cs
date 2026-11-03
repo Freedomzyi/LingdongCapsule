@@ -62,5 +62,23 @@ internal static class MediaTests
             if(!restored)throw new Exception("Playing evidence did not recover ignored owned session");
         }
         Console.WriteLine("PASS Native music/video, disable/dispose reset, injected read fault recovery, late-result rejection and tracked stale/recovery with owned SMTC plus injected window evidence");
+        var windows=new Capsule.Core.MediaWindowSnapshot(false,"Owned corrected content");
+        var thumbnail=Path.Combine(Environment.CurrentDirectory,"artifacts","media-tests","owned-corrected-"+Guid.NewGuid().ToString("N")+".png");
+        var pixel=System.Windows.Media.Imaging.BitmapSource.Create(1,1,96,96,System.Windows.Media.PixelFormats.Bgra32,null,new byte[]{0,0,150,255},4);var png=new System.Windows.Media.Imaging.PngBitmapEncoder();png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(pixel));using(var output=File.Create(thumbnail))png.Save(output);await publisher.SetThumbnailAsync(thumbnail);
+        var hasThumbnail=false;for(var attempt=0;attempt<30;attempt++){if((await own.TryGetMediaPropertiesAsync()).Thumbnail!=null){hasThumbnail=true;break;}await Task.Delay(100);}
+        if(!hasThumbnail)throw new Exception("Owned thumbnail fixture did not reach SMTC");
+        using(var corrected=new MediaService(()=>Task.FromResult(manager),null,null,(_,_)=>windows))
+        {
+            corrected.Configure(true,"other",own.SourceAppUserModelId);var current=await corrected.ReadAsync();
+            for(var attempt=0;attempt<30 && current.Title!="Owned corrected content";attempt++){await Task.Delay(50);current=await corrected.ReadAsync();}
+            if(current.Title!="Owned corrected content")throw new Exception("Unambiguous window title did not correct owned SMTC metadata");
+            await Task.Delay(200);if(corrected.Cover!=null || await corrected.SeekAsync(.5,"Owned corrected content"))throw new Exception("Window correction exposed the old metadata's thumbnail or seek target");
+            publisher.SetPlaying(false);
+            for(var attempt=0;attempt<30;attempt++){await Task.Delay(50);current=await corrected.ReadAsync();if(!current.Playing)break;}
+            await Task.Delay(300);current=await corrected.ReadAsync();if(!current.Available || current.Title!="Owned corrected content")throw new Exception("Corrected paused session was discarded as stale");
+            windows=new(true,"Another title");corrected.Invalidate();if((await corrected.ReadAsync()).Title!=publisher.Title)throw new Exception("Corroborated SMTC title was overwritten");
+            windows=new(null,null);corrected.Invalidate();await corrected.ReadAsync();await Task.Delay(300);if(!(await corrected.ReadAsync()).Available)throw new Exception("Unknown window evidence discarded an owned session");
+        }
+        Console.WriteLine("PASS Window-corrected owned native title, paused-session protection, corroborated-title preference and unknown-evidence retention");
     }
 }

@@ -2,6 +2,19 @@ using System.Text.RegularExpressions;
 
 namespace Capsule.Core;
 
+public readonly record struct MediaWindowSnapshot(bool? Matching,string? UniqueContentTitle);
+
+public static class MediaTitlePolicy
+{
+    public static string Select(string source,string original,MediaWindowSnapshot windows)
+    {
+        var title=windows.UniqueContentTitle?.Trim();
+        if(!StaleMediaSessions.Tracked(source) || windows.Matching!=false || title==null || title.Length>2048 || Regex.Replace(title,@"[^\p{L}\p{N}]","").Length<2)return original;
+        if(title.Contains("bilibili",StringComparison.OrdinalIgnoreCase) || title.Contains("哔哩哔哩",StringComparison.Ordinal))return original;
+        return title;
+    }
+}
+
 public static class MediaSessionPolicy
 {
     public static bool Matches(string source,string kind,string selected="")

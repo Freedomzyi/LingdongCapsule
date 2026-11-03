@@ -10,7 +10,7 @@ public sealed class MediaService : IDisposable
 {
     private readonly Func<Task<GlobalSystemMediaTransportControlsSessionManager>> requestManager;
     private readonly Func<GlobalSystemMediaTransportControlsSession,Task<GlobalSystemMediaTransportControlsSessionMediaProperties>> readProperties;
-    private readonly Func<string,string,bool?> windowEvidence;
+    private readonly Func<string,string,MediaWindowSnapshot> windowInspection;
     private readonly StaleMediaSessions validity=new();
     private GlobalSystemMediaTransportControlsSessionManager? manager;
     private GlobalSystemMediaTransportControlsSession? session;
@@ -30,10 +30,10 @@ public sealed class MediaService : IDisposable
     internal int PollMilliseconds{get;private set;}=1000;
     internal event Action? Changed;
     public MediaService():this(null,null,null){ }
-    internal MediaService(Func<Task<GlobalSystemMediaTransportControlsSessionManager>>? request,Func<GlobalSystemMediaTransportControlsSession,Task<GlobalSystemMediaTransportControlsSessionMediaProperties>>? properties,Func<string,string,bool?>? evidence)
+    internal MediaService(Func<Task<GlobalSystemMediaTransportControlsSessionManager>>? request,Func<GlobalSystemMediaTransportControlsSession,Task<GlobalSystemMediaTransportControlsSessionMediaProperties>>? properties,Func<string,string,bool?>? evidence,Func<string,string,MediaWindowSnapshot>? inspection=null)
     {
         requestManager=request ?? (()=>GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask());
-        readProperties=properties ?? (target=>target.TryGetMediaPropertiesAsync().AsTask());windowEvidence=evidence ?? MediaWindowEvidence.Matches;
+        readProperties=properties ?? (target=>target.TryGetMediaPropertiesAsync().AsTask());windowInspection=inspection ?? (evidence!=null ? (source,title)=>new(evidence(source,title),null) : MediaWindowEvidence.Inspect);
     }
     public TimeSpan Position
     {
@@ -107,7 +107,7 @@ public sealed class MediaService : IDisposable
         try
         {
             var now=Environment.TickCount64;
-            if(manager!=null && !trackedPaused && !sessionDirty && !playbackDirty && !metadataDirty && now-lastRead<5000 && !(snapshot.Available && Cover==null && now-coverAt>=1000))return snapshot;
+            if(manager!=null && !StaleMediaSessions.Tracked(snapshot.SourceId) && !trackedPaused && !sessionDirty && !playbackDirty && !metadataDirty && now-lastRead<5000 && !(snapshot.Available && Cover==null && now-coverAt>=1000))return snapshot;
             lastRead=now;sessionDirty=playbackDirty=false;
             if(manager==null)
             {
@@ -129,8 +129,12 @@ public sealed class MediaService : IDisposable
                     if(epoch!=metadataEpoch){metadataDirty=true;return snapshot;}
                     var playback=candidate.GetPlaybackInfo();var playing=playback.PlaybackStatus==GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;var title=string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title;
                     var id=candidate.SourceAppUserModelId;trackedPaused=StaleMediaSessions.Tracked(id) && !playing;
-                    var stale=validity.IsStale(id,title,playing,trackedPaused ? windowEvidence(id,title) : null,now);
-                    PollMilliseconds=trackedPaused && !stale ? 250 : 1000;
+                    var windows=StaleMediaSessions.Tracked(id) ? windowInspection(id,title) : new(null,null);
+                    var corrected=MediaTitlePolicy.Select(id,title,windows);var corroborated=windows.Matching;
+                    var titleCorrected=corrected!=title;
+                    if(titleCorrected){title=corrected;corroborated=true;}
+                    var stale=validity.IsStale(id,title,playing,corroborated,now);
+                    PollMilliseconds=trackedPaused && !stale && corroborated==false ? 250 : 1000;
                     if(stale){ignored=true;continue;}
                     var artist=props.Artist ?? "";
                     var video=playback.PlaybackType==MediaPlaybackType.Video || props.PlaybackType==MediaPlaybackType.Video;
@@ -147,7 +151,8 @@ public sealed class MediaService : IDisposable
                     var key=id+"|"+title+"|"+artist+"|"+props.AlbumTitle+"|"+length.Ticks;
                     if(key!=coverKey){coverRequest.Cancel();coverRequest.Dispose();coverRequest=CancellationTokenSource.CreateLinkedTokenSource(token);coverKey=key;Cover=null;coverAt=0;}
                     snapshot=new(title,artist,playing,true,props.AlbumTitle,length,id,video);Status="系统媒体已连接";
-                    if((Cover==null && now-coverAt>=1000 || now-coverAt>=5000) && Interlocked.CompareExchange(ref coverWorking,1,0)==0){coverAt=now;_=LoadCoverAsync(props,key,lease,epoch,coverRequest.Token);}
+                    if(titleCorrected)Cover=null;
+                    if(!titleCorrected && (Cover==null && now-coverAt>=1000 || now-coverAt>=5000) && Interlocked.CompareExchange(ref coverWorking,1,0)==0){coverAt=now;_=LoadCoverAsync(props,key,lease,epoch,coverRequest.Token);}
                     return snapshot;
                 }
                 catch(OperationCanceledException) when(token.IsCancellationRequested){return snapshot;}
