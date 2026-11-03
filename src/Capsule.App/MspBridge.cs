@@ -22,13 +22,13 @@ internal sealed class MspBridge : IDisposable
             candidate.Tool("ping",()=>new{node="lingdongcapsule",active=true},"胶囊节点健康检查");
             candidate.Tool("notify",(Func<string,string,Task<object>>)(async(title,body)=>
             {
-                if(title.Length>4096 || body.Length>16384)return new{ok=false,error="通知长度超限"};
+                title??="";body??="";if(title.Length>4096 || body.Length>16384)return new{ok=false,error="通知长度超限"};
                 return new{ok=await notify(new("msp","MSP",title,body))};
             }),"在胶囊显示通知；遵守来源、隐私与安静设置");
             candidate.Tool("media_status",(Func<Task<object>>)(async()=>{var media=await readMedia();return new{active=media.Available,playing=media.Playing,title=media.Title,artist=media.Artist};}),"读取当前媒体状态");
             candidate.Tool("media_control",(Func<string,Task<object>>)(async action=>
             {
-                var normalized=action.Trim().ToLowerInvariant();if(normalized=="prev")normalized="previous";
+                var normalized=action?.Trim().ToLowerInvariant() ?? "";if(normalized=="prev")normalized="previous";
                 if(normalized is not ("toggle" or "play" or "pause" or "previous" or "next"))return new{ok=false,error="不支持的媒体动作"};
                 return new{ok=await control(normalized)};
             }),"控制播放、暂停、切歌");

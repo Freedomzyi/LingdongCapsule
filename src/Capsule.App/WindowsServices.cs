@@ -125,13 +125,14 @@ public sealed class MediaService : IDisposable
     }
     public async Task<bool> ControlAsync(string action)
     {
+        if(action is not ("previous" or "next" or "toggle" or "play" or "pause"))return false;
         try
         {
             var current = session;
             if (current is null) return false;
             if (action == "previous") return await current.TrySkipPreviousAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             if (action == "next") return await current.TrySkipNextAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            var shouldPlay = current.GetPlaybackInfo().PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            var shouldPlay = action=="play" || action!="pause" && current.GetPlaybackInfo().PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
             // Some players reject a command while switching tracks. Retry the same explicit
             // intent, never toggle again (which could undo an already completed operation).
             for (var attempt = 0; attempt < 3; attempt++)
