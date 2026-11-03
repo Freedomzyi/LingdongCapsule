@@ -7,6 +7,7 @@ namespace Capsule.App;
 public partial class MainWindow
 {
     private PluginRuntime plugins=null!;
+    internal System.Windows.Controls.StackPanel LivePluginView=>plugins.View;
     private readonly Dictionary<string,string> pluginPaths=new(StringComparer.OrdinalIgnoreCase);
     private uint pluginNoticeId;
     private void InitializePlugins(bool persist)
@@ -14,7 +15,7 @@ public partial class MainWindow
         plugins=new(settings,()=>new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing),
             (id,name,title,body)=>Dispatcher.InvokeAsync(()=>!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)).Task,
             ()=>{if(persist)settings.Save();});
-        plugins.View.Margin=new Thickness(12,0,0,0);Clock.Children.Add(plugins.View);
+        plugins.View.Margin=new Thickness(12,0,0,0);plugins.View.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty,"IslandInk");Clock.Children.Add(plugins.View);
         Loaded+=(_,_)=>{foreach(var file in settings.PluginFiles.ToArray())try{LoadPlugin(file,false);}catch(Exception error){Design.PresentMessage("插件未能启用",Path.GetFileName(file)+"\n"+error.Message);}};
         Closed+=(_,_)=>plugins.Dispose();
     }
