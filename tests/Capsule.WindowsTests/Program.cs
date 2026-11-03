@@ -21,6 +21,7 @@ internal static class Program
     private static async Task RunAsync(string[] args)
     {
         if(args.Contains("--release-test")){await ReleaseTests.RunAsync();return;}
+        if(args.Contains("--solo-test")){await SoloTests.RunAsync();return;}
         if(args.Contains("--overview-test")){await OverviewTests.RunAsync(args);return;}
         if(args.Contains("--notification-test")){await NotificationTests.RunAsync(args);return;}
         if(args.Contains("--shortcut-test")){await ShortcutTests.RunAsync();return;}
