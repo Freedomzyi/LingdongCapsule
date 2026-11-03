@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         Design.ApplyTheme(settings.ThemeMode);
         shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();
+        Closed+=(_,_)=>solo.Dispose();
         ApplyUserFont();
         InitializeVisibility();
         islandClickDelay.Interval=TimeSpan.FromMilliseconds(Forms.SystemInformation.DoubleClickTime);
@@ -103,7 +104,14 @@ public partial class MainWindow : Window
         try
         {
             media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
+            solo.Configure(settings.MediaEnabled && SoloSelected);
             var latest = await media.ReadAsync();
+            if(SoloSelected)
+            {
+                var local=solo.Snapshot();
+                if(local.Connected)latest=latest.Available ? latest with{Playing=local.Playing} : new MediaSnapshot("Just Solo","",local.Playing,true,SourceId:"justsolo");
+                else latest=new("","",false,false);
+            }
             if (!latest.Available || (state.Media.Playing && !latest.Playing)) controlsOpen = false;
             state.UpdateMedia(latest);
             UpdateLyrics(latest);
@@ -219,6 +227,7 @@ public partial class MainWindow : Window
     private void SaveAndApplySettings()
     {
         ApplyUserFont();
+        solo.Configure(settings.MediaEnabled && SoloSelected);
         Design.ApplyTheme(settings.ThemeMode);
         try{settings.Save();}catch(Exception exception){Design.PresentMessage("设置未能保存",exception.Message);}
         media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);

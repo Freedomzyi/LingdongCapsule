@@ -16,7 +16,13 @@ public partial class MainWindow
     private void InitializeMediaControls()
     {
         CoverRing.ReadProgress=()=>media.Duration>TimeSpan.Zero ? media.Position.TotalSeconds/media.Duration.TotalSeconds : 0;
-        Spectrum.ReadBands=()=>audio.Bands;
+        Spectrum.ReadBands=()=>
+        {
+            if(!SoloSelected)return audio.Bands;
+            var source=solo.Snapshot().Bands;var output=new double[5];
+            for(var band=0;band<5;band++){var start=band*source.Length/5;var end=(band+1)*source.Length/5;for(var index=start;index<end;index++)output[band]=Math.Max(output[band],source[index]);}
+            return output;
+        };
         mediaTimer.Tick+=(_,_)=>UpdateTimeline();
         SeekBar.PreviewMouseLeftButtonDown+=(_,_)=>{seeking=true;seekTitle=state.Media.Title;};
         SeekBar.PreviewMouseLeftButtonUp+=async(_,_)=>await CommitSeekAsync();
@@ -27,7 +33,8 @@ public partial class MainWindow
         Shell.MouseWheel+=(_,e)=>
         {
             if(state.Notification is not null || overviewOpen || !state.Media.Available)return;
-            audio.SetVolume(audio.Volume+e.Delta/120d*0.05);UpdateTimeline();e.Handled=true;
+            if(SoloSelected){var local=solo.Snapshot();if(local.Volume is {} volume)_=solo.SetVolumeAsync(volume+e.Delta/120d*0.05);}
+            else audio.SetVolume(audio.Volume+e.Delta/120d*0.05);UpdateTimeline();e.Handled=true;
         };
     }
     private async Task CommitSeekAsync()
@@ -48,7 +55,7 @@ public partial class MainWindow
         Spectrum.Visibility=settings.ShowSpectrum && state.Media.Playing ? Visibility.Visible : Visibility.Collapsed;
         var visibleMedia=MediaPanel.Visibility==Visibility.Visible && !visibilityResult.PassThrough;
         Spectrum.Active=settings.ShowSpectrum && state.Media.Playing && visibleMedia;
-        audio.Tick(settings.ShowSpectrum && state.Media.Playing && settings.MediaEnabled && visibleMedia);
+        audio.Tick(!SoloSelected && settings.ShowSpectrum && state.Media.Playing && settings.MediaEnabled && visibleMedia);
         CoverRing.Radius=Shell.CornerRadius.TopLeft;
         CoverRing.Active=settings.CoverProgress && visibleMedia && state.Mode==Capsule.Core.IslandMode.Media && state.Media.Playing && media.Duration>TimeSpan.Zero;
         mediaTimer.IsEnabled=expanded && visibleMedia;

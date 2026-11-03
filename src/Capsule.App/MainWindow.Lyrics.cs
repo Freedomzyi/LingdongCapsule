@@ -6,16 +6,23 @@ namespace Capsule.App;
 public partial class MainWindow
 {
     private readonly LyricsClient lyricsClient=new();
+    private readonly SoloConnection solo=new();
+    private bool SoloSelected=>settings.MediaSourceKind=="justsolo" && settings.ManualMediaSource.Length==0;
     private readonly Dictionary<string,LyricsDocument> lyricsCache=[];
     private LyricsDocument lyrics=LyricsDocument.Empty;
     private CancellationTokenSource? lyricRequest;
     private string lyricKey="";
     internal LyricsDocument CurrentLyrics=>lyrics;
 
-    private LyricFrame CurrentLyricFrame()=>settings.LyricsEnabled ? lyrics.At(media.Position,settings.LyricOffsetSeconds+0.13) : default;
+    private LyricFrame CurrentLyricFrame()
+    {
+        if(!settings.LyricsEnabled)return default;
+        if(SoloSelected){var current=solo.Snapshot();return current.Connected ? current.Lyrics.At(TimeSpan.FromMilliseconds(current.Position),settings.LyricOffsetSeconds+0.13) : default;}
+        return lyrics.At(media.Position,settings.LyricOffsetSeconds+0.13);
+    }
     private void UpdateLyrics(MediaSnapshot track)
     {
-        var key=settings.MediaEnabled && settings.LyricsEnabled && track.Available && track.Artist.Length>0 ? $"{track.SourceId}|{track.Title}|{track.Artist}|{track.Duration.TotalSeconds:0}" : "";
+        var key=!SoloSelected && settings.MediaEnabled && settings.LyricsEnabled && track.Available && track.Artist.Length>0 ? $"{track.SourceId}|{track.Title}|{track.Artist}|{track.Duration.TotalSeconds:0}" : "";
         if(key==lyricKey)return;
         lyricKey=key;lyricRequest?.Cancel();lyricRequest?.Dispose();lyricRequest=null;lyrics=LyricsDocument.Empty;
         if(key.Length==0)return;
