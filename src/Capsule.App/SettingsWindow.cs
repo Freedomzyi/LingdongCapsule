@@ -23,7 +23,7 @@ public sealed class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string,int> movePlugin)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string,int> movePlugin,Action<string> uninstallPlugin)
     {
         this.settings = settings; this.save = save;
         Closed+=(_,_)=>soundPreview.Dispose();
@@ -55,7 +55,7 @@ public sealed class SettingsWindow : Window
         {
             pluginRows.Children.Clear();foreach(var id in activePlugins())
             {
-                var row=new DockPanel{Margin=new Thickness(0,5,0,5)};foreach(var direction in new[]{1,-1}){var step=direction;var move=new Button{Content=step<0 ? "↑" : "↓",Padding=new Thickness(8,6,8,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(move,Dock.Right);move.Click+=(_,_)=>{movePlugin(id,step);RefreshPlugins();};row.Children.Add(move);}var disable=new Button{Content="停用",Padding=new Thickness(10,6,10,6)};DockPanel.SetDock(disable,Dock.Right);disable.Click+=(_,_)=>{disablePlugin(id);RefreshPlugins();};row.Children.Add(disable);row.Children.Add(new TextBlock{Text=id,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});pluginRows.Children.Add(row);
+                var row=new DockPanel{Margin=new Thickness(0,5,0,5)};foreach(var direction in new[]{1,-1}){var step=direction;var move=new Button{Content=step<0 ? "↑" : "↓",Padding=new Thickness(8,6,8,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(move,Dock.Right);move.Click+=(_,_)=>{movePlugin(id,step);RefreshPlugins();};row.Children.Add(move);}var remove=new Button{Content="卸载",Padding=new Thickness(10,6,10,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(remove,Dock.Right);remove.Click+=(_,_)=>{if(CardDialog.Show("卸载插件？","胶囊安装的包将删除；外部 DLL 只移出列表，原文件和个人设置保留。","卸载",destructive:true)==null)return;try{uninstallPlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("卸载未完成",error.Message);}};row.Children.Add(remove);var disable=new Button{Content="停用",Padding=new Thickness(10,6,10,6)};DockPanel.SetDock(disable,Dock.Right);disable.Click+=(_,_)=>{disablePlugin(id);RefreshPlugins();};row.Children.Add(disable);row.Children.Add(new TextBlock{Text=id,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});pluginRows.Children.Add(row);
             }
             if(pluginRows.Children.Count==0)pluginRows.Children.Add(new TextBlock{Text="尚未加载外部插件。",Margin=new Thickness(0,8,0,8)});
         }

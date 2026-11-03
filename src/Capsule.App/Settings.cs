@@ -7,6 +7,7 @@ public sealed class Settings
 {
     public Dictionary<string,Dictionary<string,string>> PluginPreferences{get;set;}=[];
     public List<string> PluginFiles{get;set;}=[];
+    public List<string> PendingPluginRemovals{get;set;}=[];
     public Dictionary<string,string> PluginFailures{get;set;}=[];
     public int ThemeMode{get;set;}=2;
     public double BackgroundOpacity{get;set;}=96;
@@ -79,6 +80,7 @@ public sealed class Settings
     {
         PluginPreferences??=[];
         PluginFiles??=[];
+        PendingPluginRemovals??=[];
         PluginFailures??=[];
         foreach(var key in PluginPreferences.Keys.ToArray())PluginPreferences[key]??=[];
         ThemeMode=Math.Clamp(ThemeMode,0,2);

@@ -31,6 +31,12 @@ internal static class PluginTests
         var valid=Path.Combine(packageRoot,"valid.zip");
         using(var zip=ZipFile.Open(valid,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.1.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
         var installed=PluginPackage.Install(valid,Path.Combine(packageRoot,"installed"));
+        var removable=PluginPackage.Install(valid,Path.Combine(packageRoot,"removable"));
+        if(!PluginPackage.Uninstall(removable.EntryFile,Path.Combine(packageRoot,"removable")) || Directory.Exists(removable.Directory))throw new Exception("Managed package uninstall failed");
+        if(PluginPackage.Uninstall(typeof(FixturePlugin).Assembly.Location,Path.Combine(packageRoot,"removable")) || !File.Exists(typeof(FixturePlugin).Assembly.Location))throw new Exception("External plugin file was deleted");
+        var locked=PluginPackage.Install(valid,Path.Combine(packageRoot,"locked"));var blocked=false;
+        using(var hold=new FileStream(locked.EntryFile,FileMode.Open,FileAccess.Read,FileShare.None)){try{PluginPackage.Uninstall(locked.EntryFile,Path.Combine(packageRoot,"locked"));}catch(IOException){blocked=true;}}
+        if(!blocked || !File.Exists(Path.Combine(locked.Directory,".capsule-install.json")) || !PluginPackage.Uninstall(locked.EntryFile,Path.Combine(packageRoot,"locked")))throw new Exception("Occupied package did not preserve receipt for retry");
         using(var loaded=new PluginModule(installed.EntryFile))if(loaded.Plugin?.Identity.Id!="fixture.clock")throw new Exception("Installed package did not load independently");
         var unsafePackage=Path.Combine(packageRoot,"unsafe.zip");using(var zip=ZipFile.Open(unsafePackage,ZipArchiveMode.Create)){using var writer=new StreamWriter(zip.CreateEntry("../escape.txt").Open());writer.Write("must not escape");}
         var rejected=false;try{PluginPackage.Install(unsafePackage,Path.Combine(packageRoot,"unsafe-target"));}catch(InvalidDataException){rejected=true;}

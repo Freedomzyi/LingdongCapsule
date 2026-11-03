@@ -22,6 +22,11 @@ public partial class MainWindow
         Loaded+=(_,_)=>
         {
             var failed=false;
+            foreach(var entry in settings.PendingPluginRemovals.ToArray())
+            {
+                try{PluginPackage.Uninstall(entry,pluginDirectory);settings.PendingPluginRemovals.Remove(entry);failed=true;}
+                catch(Exception error) when(error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException){settings.PluginFailures[entry]="待删除插件仍未清理："+error.GetType().Name;}
+            }
             foreach(var file in settings.PluginFiles.ToArray())try{LoadPlugin(file,false);}catch(Exception error)
             {
                 settings.PluginFailures[file]=Path.GetFileName(file)+"：加载失败（"+error.GetType().Name+"）";
@@ -81,5 +86,14 @@ public partial class MainWindow
     {
         if(!plugins.Move(id,direction))return;
         settings.PluginFiles=plugins.ActiveIds.Select(item=>pluginPaths[item]).Concat(settings.PluginFiles).Distinct(StringComparer.OrdinalIgnoreCase).ToList();SaveAndApplySettings();
+    }
+    internal void UninstallPlugin(string id)
+    {
+        if(!pluginPaths.TryGetValue(id,out var path))return;
+        plugins.Disable(id);
+        settings.PluginFiles.RemoveAll(file=>string.Equals(file,path,StringComparison.OrdinalIgnoreCase));pluginPaths.Remove(id);
+        SaveAndApplySettings();
+        try{PluginPackage.Uninstall(path,pluginDirectory);}
+        catch(IOException){settings.PendingPluginRemovals.Add(path);SavePluginRecovery();Design.PresentMessage("插件已停用","文件仍被占用，将在下次启动时完成删除。个人插件设置继续保留。");}
     }
 }

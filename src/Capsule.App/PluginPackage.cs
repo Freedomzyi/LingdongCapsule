@@ -28,6 +28,7 @@ internal static class PluginPackage
         foreach(var entry in zip.Entries)
         {
             var path=Relative(entry.FullName);if(!names.Add(path))throw new InvalidDataException("插件包文件名重复。");
+            if(path.Equals(".capsule-install.json",StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("插件包占用安装凭据名称。");
             if(((entry.ExternalAttributes>>16)&0xF000)==0xA000)throw new InvalidDataException("插件包不支持符号链接。");
             total+=entry.Length;if(entry.Length>16*1024*1024 || total>64*1024*1024)throw new InvalidDataException("插件包展开体积超限。");
         }
@@ -52,6 +53,7 @@ internal static class PluginPackage
                 using var input=entry.Open();using var output=new FileStream(destination,FileMode.CreateNew,FileAccess.Write,FileShare.None);int count;long length=0;
                 while((count=input.Read(buffer,0,buffer.Length))>0){length+=count;expanded+=count;if(length>16*1024*1024 || expanded>64*1024*1024)throw new InvalidDataException("实际展开体积超限。");output.Write(buffer,0,count);}
             }
+            File.WriteAllText(Path.Combine(target,".capsule-install.json"),JsonSerializer.Serialize(new{schema=1,root=basePath,folder=Path.GetFileName(target)}));
             return new(info,target,Path.Combine(target,entryPath));
         }
         catch
@@ -59,5 +61,33 @@ internal static class PluginPackage
             if(Path.GetFullPath(target).StartsWith(basePath+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) && !File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))Directory.Delete(target,true);
             throw;
         }
+    }
+    public static string? ManagedDirectory(string entryFile,string root)
+    {
+        var basePath=Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);var entry=Path.GetFullPath(entryFile);
+        if(!entry.StartsWith(basePath+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))return null;
+        var relative=Path.GetRelativePath(basePath,entry);var folder=relative.Split(Path.DirectorySeparatorChar)[0];
+        if(!Regex.IsMatch(folder,@"^package-[a-f0-9]{32}$"))return null;
+        var directory=Path.Combine(basePath,folder);var receipt=Path.Combine(directory,".capsule-install.json");
+        if(!File.Exists(receipt) || File.GetAttributes(basePath).HasFlag(FileAttributes.ReparsePoint) || File.GetAttributes(directory).HasFlag(FileAttributes.ReparsePoint))return null;
+        using var json=JsonDocument.Parse(File.ReadAllText(receipt));var data=json.RootElement;
+        return data.GetProperty("schema").GetInt32()==1 && string.Equals(data.GetProperty("root").GetString()?.TrimEnd(Path.DirectorySeparatorChar),basePath,StringComparison.OrdinalIgnoreCase) && data.GetProperty("folder").GetString()==folder ? directory : null;
+    }
+    public static bool Uninstall(string entryFile,string root)
+    {
+        var directory=ManagedDirectory(entryFile,root);if(directory==null)return false;
+        var pending=new Stack<string>();pending.Push(directory);var files=new List<string>();var directories=new List<string>();
+        while(pending.Count>0)
+        {
+            foreach(var item in Directory.EnumerateFileSystemEntries(pending.Pop()))
+            {
+                var attributes=File.GetAttributes(item);if(attributes.HasFlag(FileAttributes.ReparsePoint))throw new InvalidDataException("卸载目录包含重解析点，已停止删除。");
+                if(attributes.HasFlag(FileAttributes.Directory)){pending.Push(item);directories.Add(item);}else files.Add(item);
+            }
+        }
+        var receipt=Path.Combine(directory,".capsule-install.json");
+        foreach(var file in files.Where(file=>!string.Equals(file,receipt,StringComparison.OrdinalIgnoreCase)))File.Delete(file);
+        foreach(var child in directories.OrderByDescending(path=>path.Length))Directory.Delete(child,false);
+        File.Delete(receipt);Directory.Delete(directory,false);return true;
     }
 }
