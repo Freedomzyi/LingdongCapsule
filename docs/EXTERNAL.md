@@ -1,5 +1,15 @@
 # 本机外部接入
 
+## Just Solo
+
+专用类型、手动选定 Just Solo，或自动媒体实际选中 Just Solo 会话时，连接回环 WebSocket 127.0.0.1:47290。提供 init 歌词、progress 毫秒位置、playback、spectrum 和 volume。连接/重连取消与分片有边界，本地服务断线不隐藏仍有效的原生媒体会话；时间轴、控制和封面继续使用匹配的 Windows 会话，无本地歌词时回到普通取词链。
+
+init 支持正文内换行携带译文，显式 translation 优先；坏行隔离，无效 replacement init 清空旧歌词。时间范围限制到协议的 Int32 毫秒范围，外推饱和，防止异常输入导致 TimeSpan 溢出。收到本地频谱优先使用，否则回退系统 Loopback；有本地音量时滑杆和滚轮都发送播放器 volume，不改系统主音量。发送成功先更新本地显示，后续服务端消息仍为准，防止等待回声时滑杆跳回。
+
+该协议没有封面字段。早期差距描述中的“协议专属封面”已按参照源码纠正；封面通过匹配的 GSMTC 提供，并非删除封面需求。独立对端与自建系统媒体已验证，实际 Just Solo 软件仍需验收。
+
+## MSP
+
 MSP 默认关闭，开启后以 `lingdongcapsule` 节点提供 `ping`、`notify`、`media_status`、`media_control`。控制只接受播放、暂停、切换及上下首；`prev` 为 `previous` 别名。独立事件广播开关默认关闭，隐私预览会隐藏通知事件中的标题和正文。MSP 通知不会再次广播。
 
 `notify` 的 `title`、`body`、`content` 均可省略，但至少有一项有效内容。`content` 最多 64 项，支持 `text`、`image`、`resource_link`，未知类型跳过。首个文本块在 body 为空时作为正文；标题也为空时用作标题。标题上限 4096 字符，正文上限 16384 字符。订阅 `notify.**` 使用同一解析规则并保持对端身份；遵守来源过滤、安静及隐私设置。

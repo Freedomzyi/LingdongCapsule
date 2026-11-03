@@ -23,7 +23,7 @@ internal static class SoloTests
         await socket.SendAsync(new ArraySegment<byte>(payload,0,10),WebSocketMessageType.Text,false,timeout.Token);await socket.SendAsync(new ArraySegment<byte>(payload,10,payload.Length-10),WebSocketMessageType.Text,true,timeout.Token);
         for(var attempt=0;attempt<30 && connection.Snapshot().Lyrics.Lines.Count==0;attempt++)await Task.Delay(50);
         if(!connection.Snapshot().Connected || connection.Snapshot().Lyrics.Lines.Count!=1)throw new Exception("Fragmented local lyric message not received");
-        if(!await connection.SetVolumeAsync(.25))throw new Exception("Volume command failed");var volume=await socket.ReceiveAsync(new ArraySegment<byte>(buffer),timeout.Token);
+        if(!await connection.SetVolumeAsync(.25) || connection.Snapshot().Volume!=.25)throw new Exception("Volume command or optimistic local value failed");var volume=await socket.ReceiveAsync(new ArraySegment<byte>(buffer),timeout.Token);
         if(!Encoding.UTF8.GetString(buffer,0,volume.Count).Contains("0.25"))throw new Exception("Volume command value incorrect");
         await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure,"test disconnect",timeout.Token);
         for(var attempt=0;attempt<30 && connection.Snapshot().Connected;attempt++)await Task.Delay(25);
@@ -33,11 +33,31 @@ internal static class SoloTests
         await Task.Delay(150);if(connection.Snapshot().Connected)throw new Exception("Canceled reconnect published a stale connection");
         Console.WriteLine("PASS Local handshake, fragmented lyrics, volume, disconnect cleanup, reconnect and cancellation");
         await TestIslandAsync();
+        await TestNativeFallbackAsync();
+    }
+    private static async Task TestNativeFallbackAsync()
+    {
+        using var publisher=await OwnedMediaPublisher.StartAsync("LingdongCapsule.Owned.justsolo");
+        var directory=System.IO.Path.Combine(Environment.CurrentDirectory,"artifacts","solo-native-tests",Guid.NewGuid().ToString("N"));System.IO.Directory.CreateDirectory(directory);var path=System.IO.Path.Combine(directory,"owned-thumbnail.png");
+        var bitmap=System.Windows.Media.Imaging.BitmapSource.Create(1,1,96,96,System.Windows.Media.PixelFormats.Bgra32,null,new byte[]{0,0,130,255},4);var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using(var output=System.IO.File.Create(path))encoder.Save(output);await publisher.SetThumbnailAsync(path);
+        using var unavailable=new TcpListener(IPAddress.Loopback,0);unavailable.Start();var port=((IPEndPoint)unavailable.LocalEndpoint).Port;
+        var settings=new Settings{MediaSourceKind="other",ManualMediaSource="LingdongCapsule.Owned.justsolo",NotificationsEnabled=false,LyricsEnabled=false,OnlineCoversEnabled=false,ShowSpectrum=false};
+        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings,localSoloEndpoint:new Uri($"ws://127.0.0.1:{port}/")){ShowActivated=false};
+        try
+        {
+            window.Show();using var attempt=await unavailable.AcceptTcpClientAsync().WaitAsync(TimeSpan.FromSeconds(6));
+            for(var index=0;index<60 && (!window.LiveState.Media.Available || window.EffectiveCover==null);index++)await Task.Delay(100);
+            if(window.LiveSolo.Connected || !window.LiveState.Media.Available || window.LiveState.Media.Title!=publisher.Title || window.EffectiveCover==null)throw new Exception("Unavailable Solo lyric server hid matched native metadata or thumbnail");
+            settings.ManualMediaSource="";var select=typeof(Capsule.App.MainWindow).GetMethod("SoloSourceSelected",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
+            if(!(bool)select.Invoke(window,new object[]{"LingdongCapsule.Owned.justsolo"})! || (bool)select.Invoke(window,new object[]{"OtherPlayer.exe"})!)throw new Exception("Automatic media selection did not identify only Solo sources");
+            Console.WriteLine("PASS Matched Just Solo SMTC retains metadata/artwork without lyric server; manual connection and automatic-source policy verified with owned native publisher");
+        }
+        finally{window.Close();}
     }
     private static async Task TestIslandAsync()
     {
         using var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();var port=((IPEndPoint)listener.LocalEndpoint).Port;
-        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
+        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();app.ShutdownMode=System.Windows.ShutdownMode.OnExplicitShutdown;Design.ApplySystemTheme();
         var settings=new Settings{MediaSourceKind="justsolo",NotificationsEnabled=false,LyricsEnabled=true,CompositeEnabled=true,MediaFirst=true};
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings,localSoloEndpoint:new Uri($"ws://127.0.0.1:{port}/"),pluginSettingsWriter:()=>{});
         try
@@ -53,6 +73,17 @@ internal static class SoloTests
             var view=(LyricView)window.FindName("LiveLyrics");
             for(var attempt=0;attempt<30 && (!window.LiveState.Media.Available || view.Visibility!=System.Windows.Visibility.Visible);attempt++)await Task.Delay(100);
             if(!window.LiveState.Media.Playing || view.FrameProvider?.Invoke().Line?.Text!="Live test" || view.Visibility!=System.Windows.Visibility.Visible)throw new Exception("Local protocol lyrics did not reach actual island");
+            await socket.SendAsync(Encoding.UTF8.GetBytes("{\"type\":\"volume\",\"value\":0.25}"),WebSocketMessageType.Text,true,timeout.Token);
+            for(var attempt=0;attempt<30 && window.LiveSolo.Volume!=.25;attempt++)await Task.Delay(50);
+            if(window.LiveSolo.Volume!=.25)throw new Exception("Local volume fixture did not reach actual island");
+            using(var systemAudio=new AudioService())
+            {
+                var before=systemAudio.Volume;((System.Windows.Controls.Slider)window.FindName("VolumeBar")).Value=.35;
+                var volumeFrame=await socket.ReceiveAsync(new ArraySegment<byte>(buffer),timeout.Token);
+                using var volumeJson=System.Text.Json.JsonDocument.Parse(Encoding.UTF8.GetString(buffer,0,volumeFrame.Count));
+                if(volumeJson.RootElement.GetProperty("type").GetString()!="volume" || Math.Abs(volumeJson.RootElement.GetProperty("value").GetDouble()-.35)>.0001 || Math.Abs(systemAudio.Volume-before)>.0001)throw new Exception("Solo volume slider failed local command or changed system master volume");
+                await socket.SendAsync(Encoding.UTF8.GetBytes("{\"type\":\"volume\",\"value\":0.35}"),WebSocketMessageType.Text,true,timeout.Token);
+            }
             window.UpdateLayout();var clock=(System.Windows.FrameworkElement)window.FindName("Clock");var panel=(System.Windows.FrameworkElement)window.FindName("MediaPanel");
             if(clock.Visibility!=System.Windows.Visibility.Visible || panel.Visibility!=System.Windows.Visibility.Visible || !window.LiveModuleOrder.SequenceEqual(new[]{"media","clock"}) || window.ActualWidth>settings.Width+.5)throw new Exception("Composite media/clock layout or ordering failed");
             var render=typeof(Capsule.App.MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;

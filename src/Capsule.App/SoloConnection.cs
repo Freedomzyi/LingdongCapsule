@@ -80,7 +80,10 @@ internal sealed class SoloConnection : IDisposable
         try
         {
             await sendGate.WaitAsync(timeout.Token);acquired=true;
-            await target.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{type="volume",value=Math.Clamp(value,0,1)})),WebSocketMessageType.Text,true,timeout.Token);return true;
+            var message=JsonSerializer.Serialize(new{type="volume",value=Math.Clamp(value,0,1)});
+            await target.SendAsync(Encoding.UTF8.GetBytes(message),WebSocketMessageType.Text,true,timeout.Token);
+            lock(gate){if(!connected || !ReferenceEquals(socket,target) || token.IsCancellationRequested)return false;state.Apply(message,Environment.TickCount64);}
+            return true;
         }
         catch(Exception error) when(error is WebSocketException or OperationCanceledException or ObjectDisposedException or InvalidOperationException){return false;}
         finally{if(acquired)sendGate.Release();}

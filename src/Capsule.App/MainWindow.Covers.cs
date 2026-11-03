@@ -12,11 +12,11 @@ public partial class MainWindow
     private CancellationTokenSource? coverLookup;
     private BitmapSource? networkCover,playerIcon;
     private CoverIdentity? networkCoverKey;
-    internal BitmapSource? EffectiveCover=>!settings.MediaEnabled || !state.Media.Available || SoloSelected ? null : (settings.OnlineCoversEnabled ? networkCover : null) ?? (state.Media.IsVideo && state.Media.SourceId.Contains("potplayer",StringComparison.OrdinalIgnoreCase) ? playerIcon : media.Cover ?? playerIcon);
+    internal BitmapSource? EffectiveCover=>!settings.MediaEnabled || !state.Media.Available ? null : (settings.OnlineCoversEnabled ? networkCover : null) ?? (state.Media.IsVideo && state.Media.SourceId.Contains("potplayer",StringComparison.OrdinalIgnoreCase) ? playerIcon : media.Cover ?? playerIcon);
     private void InitializeCovers()=>Closed+=(_,_)=>{coverLookup?.Cancel();coverLookup?.Dispose();coverClient.Dispose();networkCovers.Clear();playerIcons.Clear();};
     private void UpdateCovers(MediaSnapshot track)
     {
-        CoverIdentity? key=settings.MediaEnabled && track.Available && !SoloSelected ? new(track.SourceId,track.Title,track.Artist,track.Album,track.Duration.Ticks,track.IsVideo,settings.OnlineCoversEnabled) : null;
+        CoverIdentity? key=settings.MediaEnabled && track.Available ? new(track.SourceId,track.Title,track.Artist,track.Album,track.Duration.Ticks,track.IsVideo,settings.OnlineCoversEnabled) : null;
         if(key==networkCoverKey)return;
         networkCoverKey=key;coverLookup?.Cancel();coverLookup?.Dispose();coverLookup=null;networkCover=playerIcon=null;
         if(key==null)return;

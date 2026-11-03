@@ -7,7 +7,9 @@ public partial class MainWindow
 {
     private readonly LyricsClient lyricsClient=new();
     private readonly SoloConnection solo;
-    private bool SoloSelected=>settings.MediaSourceKind=="justsolo" && settings.ManualMediaSource.Length==0;
+    internal SoloSnapshot LiveSolo=>solo.Snapshot();
+    private bool SoloSourceSelected(string source)=>settings.ManualMediaSource.Length>0 ? settings.ManualMediaSource.Contains("justsolo",StringComparison.OrdinalIgnoreCase) : settings.MediaSourceKind=="justsolo" || settings.MediaSourceKind=="other" && source.Contains("justsolo",StringComparison.OrdinalIgnoreCase);
+    private bool SoloSelected=>SoloSourceSelected(state.Media.SourceId);
     private readonly Dictionary<string,LyricsDocument> lyricsCache=[];
     private LyricsDocument lyrics=LyricsDocument.Empty;
     private CancellationTokenSource? lyricRequest;
@@ -17,12 +19,13 @@ public partial class MainWindow
     private LyricFrame CurrentLyricFrame()
     {
         if(!settings.LyricsEnabled)return default;
-        if(SoloSelected){var current=solo.Snapshot();return current.Connected ? current.Lyrics.At(TimeSpan.FromMilliseconds(current.Position),settings.LyricOffsetSeconds+0.13) : default;}
+        if(SoloSelected){var current=solo.Snapshot();if(current.Connected && current.Lyrics.Lines.Count>0)return current.Lyrics.At(TimeSpan.FromMilliseconds(current.Position),settings.LyricOffsetSeconds+0.13);}
         return lyrics.At(media.Position,settings.LyricOffsetSeconds+0.13);
     }
     private void UpdateLyrics(MediaSnapshot track)
     {
-        var key=!SoloSelected && settings.MediaEnabled && settings.LyricsEnabled && track.Available && !track.IsVideo && track.Artist.Length>0 ? $"{track.SourceId}|{track.Title}|{track.Artist}|{track.Album}|{track.Duration.TotalSeconds:0}" : "";
+        var directLyrics=SoloSelected && solo.Snapshot() is {Connected:true,Lyrics.Lines.Count:>0};
+        var key=!directLyrics && settings.MediaEnabled && settings.LyricsEnabled && track.Available && !track.IsVideo && track.Artist.Length>0 ? $"{track.SourceId}|{track.Title}|{track.Artist}|{track.Album}|{track.Duration.TotalSeconds:0}" : "";
         if(key==lyricKey)return;
         lyricKey=key;lyricRequest?.Cancel();lyricRequest?.Dispose();lyricRequest=null;lyrics=LyricsDocument.Empty;
         if(key.Length==0)return;

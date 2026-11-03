@@ -6,6 +6,13 @@ if(!solo.Apply("{\"type\":\"init\",\"lyrics\":[{\"time\":1000,\"text\":\"Test\",
 solo.Apply("{\"type\":\"progress\",\"position\":1000}",100);solo.Apply("{\"type\":\"playback\",\"status\":\"playing\"}",100);solo.Apply("{\"type\":\"playback\",\"status\":\"paused\"}",600);
 if(solo.Position(5000)!=1500 || solo.Apply("{broken",0))throw new Exception("Solo pause or malformed-message handling failed");
 Console.WriteLine("PASS Solo lyrics, progress extrapolation, pause and malformed-message isolation");
+var mergedSolo=new SoloState();mergedSolo.Apply("{\"type\":\"init\",\"lyrics\":[7,{\"time\":\"bad\",\"text\":\"ignored\"},{\"time\":1000,\"text\":\"Original\\n译文\"},{\"time\":2000,\"text\":\"Second\\u2028自动译文\",\"translation\":\"显式译文\"}]}",0);
+if(mergedSolo.Lyrics.Lines.Count!=2 || mergedSolo.Lyrics.Lines[0].Text!="Original" || mergedSolo.Lyrics.Lines[0].Translation!="译文" || mergedSolo.Lyrics.Lines[1].Translation!="显式译文")throw new Exception("Solo merged translation or invalid row isolation failed");
+if(mergedSolo.Apply("{\"type\":\"progress\",\"position\":1e300}",0))throw new Exception("Huge Solo progress was accepted");
+mergedSolo.Apply("{\"type\":\"progress\",\"position\":2147483647}",0);mergedSolo.Apply("{\"type\":\"playback\",\"status\":\"playing\"}",0);
+if(mergedSolo.Position(long.MaxValue)!=int.MaxValue)throw new Exception("Solo extrapolation escaped the protocol time range");
+mergedSolo.Apply("{\"type\":\"init\"}",0);if(mergedSolo.Lyrics.Lines.Count!=0)throw new Exception("Invalid replacement init retained previous track lyrics");
+Console.WriteLine("PASS Solo merged translations, invalid row isolation, bounded time extrapolation and invalid-init cleanup");
 var s = new IslandState();
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); Console.WriteLine("PASS " + message); }
 var supplementBase=LyricsDocument.Parse("[00:01.00]First line\n[00:03.00]Second line",source:"Base");

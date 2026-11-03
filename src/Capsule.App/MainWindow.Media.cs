@@ -18,8 +18,9 @@ public partial class MainWindow
         CoverRing.ReadProgress=()=>media.Duration>TimeSpan.Zero ? media.Position.TotalSeconds/media.Duration.TotalSeconds : 0;
         Spectrum.ReadBands=()=>
         {
-            if(!SoloSelected)return audio.Bands;
-            var source=solo.Snapshot().Bands;var output=new double[5];
+            var local=SoloSelected ? solo.Snapshot() : null;
+            if(local is not {Connected:true,Bands.Length:>0})return audio.Bands;
+            var source=local.Bands;var output=new double[5];
             for(var band=0;band<5;band++){var start=band*source.Length/5;var end=(band+1)*source.Length/5;for(var index=start;index<end;index++)output[band]=Math.Max(output[band],source[index]);}
             return output;
         };
@@ -29,14 +30,20 @@ public partial class MainWindow
         SeekBar.LostMouseCapture+=(_,_)=>{if(seeking){seeking=false;UpdateTimeline();}};
         SeekBar.PreviewKeyUp+=async(_,e)=>{if(e.Key is Key.Left or Key.Right or Key.Home or Key.End or Key.PageDown or Key.PageUp){seekTitle=state.Media.Title;seeking=true;await CommitSeekAsync();}};
         SeekBar.ValueChanged+=(_,_)=>{if(seeking && !timelineUpdating)Elapsed.Text=FormatTime(TimeSpan.FromSeconds(media.Duration.TotalSeconds*SeekBar.Value));};
-        VolumeBar.ValueChanged+=(_,_)=>{if(!volumeUpdating && !audio.SetVolume(VolumeBar.Value))Design.PresentMessage("音量暂不可用","未能连接当前系统输出设备，请稍后重试。");};
-        Shell.MouseWheel+=(_,e)=>
+        VolumeBar.ValueChanged+=async(_,_)=>
+        {
+            if(volumeUpdating || closing)return;
+            var changed=await SetRequestedVolumeAsync(VolumeBar.Value);
+            if(!closing && !changed)Design.PresentMessage("音量暂不可用","未能连接播放器或当前系统输出设备，请稍后重试。");
+        };
+        Shell.MouseWheel+=async(_,e)=>
         {
             if(state.Notification is not null || overviewOpen || !state.Media.Available)return;
-            if(SoloSelected){var local=solo.Snapshot();if(local.Volume is {} volume)_=solo.SetVolumeAsync(volume+e.Delta/120d*0.05);}
-            else audio.SetVolume(audio.Volume+e.Delta/120d*0.05);UpdateTimeline();e.Handled=true;
+            var local=SoloSelected ? solo.Snapshot() : null;var volume=local is {Connected:true,Volume:not null} ? local.Volume.Value : audio.Volume;
+            e.Handled=true;await SetRequestedVolumeAsync(volume+e.Delta/120d*0.05);if(!closing)UpdateTimeline();
         };
     }
+    private Task<bool> SetRequestedVolumeAsync(double level)=>SoloSelected && solo.Snapshot() is {Connected:true,Volume:not null} ? solo.SetVolumeAsync(level) : Task.FromResult(audio.SetVolume(level));
     private async Task CommitSeekAsync()
     {
         if(!seeking)return;
@@ -55,7 +62,8 @@ public partial class MainWindow
         Spectrum.Visibility=settings.ShowSpectrum && state.Media.Playing ? Visibility.Visible : Visibility.Collapsed;
         var visibleMedia=MediaPanel.Visibility==Visibility.Visible && !visibilityResult.PassThrough;
         Spectrum.Active=settings.ShowSpectrum && state.Media.Playing && visibleMedia;
-        audio.Tick(!SoloSelected && settings.ShowSpectrum && state.Media.Playing && settings.MediaEnabled && visibleMedia);
+        var soloSpectrum=SoloSelected && solo.Snapshot() is {Connected:true,Bands.Length:>0};
+        audio.Tick(!soloSpectrum && settings.ShowSpectrum && state.Media.Playing && settings.MediaEnabled && visibleMedia);
         CoverRing.Radius=Shell.CornerRadius.TopLeft;
         CoverRing.Active=settings.CoverProgress && visibleMedia && state.Mode==Capsule.Core.IslandMode.Media && state.Media.Playing && media.Duration>TimeSpan.Zero;
         mediaTimer.IsEnabled=expanded && visibleMedia;
@@ -72,7 +80,13 @@ public partial class MainWindow
             SeekBar.IsEnabled=media.Duration>TimeSpan.Zero;
             timelineUpdating=false;
         }
-        if(VolumeSection.Visibility==Visibility.Visible){volumeUpdating=true;VolumeBar.Value=audio.Volume;VolumeBar.IsEnabled=audio.HasDevice;volumeUpdating=false;}
+        if(VolumeSection.Visibility==Visibility.Visible)
+        {
+            var local=SoloSelected ? solo.Snapshot() : null;volumeUpdating=true;
+            if(local is {Connected:true,Volume:not null}){VolumeBar.Value=local.Volume.Value;VolumeBar.IsEnabled=true;}
+            else{VolumeBar.Value=audio.Volume;VolumeBar.IsEnabled=audio.HasDevice;}
+            volumeUpdating=false;
+        }
     }
     private static string FormatTime(TimeSpan time)=>$"{(int)Math.Max(0,time.TotalMinutes)}:{Math.Max(0,time.Seconds):00}";
     private void OnCoverClick(object sender,MouseButtonEventArgs e)

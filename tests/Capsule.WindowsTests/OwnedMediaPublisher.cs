@@ -11,9 +11,9 @@ internal sealed class OwnedMediaPublisher : IDisposable
     private readonly MediaPlayer player=new(){Volume=0,IsLoopingEnabled=true,AutoPlay=false};
     internal SystemMediaTransportControls Controls=>player.SystemMediaTransportControls;
     internal string Title{get;private set;}="Capsule owned test audio "+Guid.NewGuid().ToString("N")[..8];
-    internal static async Task<OwnedMediaPublisher> StartAsync()
+    internal static async Task<OwnedMediaPublisher> StartAsync(string appId="LingdongCapsule.Owned.bilibili")
     {
-        if(SetCurrentProcessExplicitAppUserModelID("LingdongCapsule.Owned.bilibili")!=0)throw new Exception("Owned process AUMID could not be set");
+        if(SetCurrentProcessExplicitAppUserModelID(appId)!=0)throw new Exception("Owned process AUMID could not be set");
         var owned=new OwnedMediaPublisher();
         try
         {
@@ -34,6 +34,10 @@ internal sealed class OwnedMediaPublisher : IDisposable
     {
         Title=title;var display=Controls.DisplayUpdater;display.ClearAll();display.Type=video ? MediaPlaybackType.Video : MediaPlaybackType.Music;
         if(video)display.VideoProperties.Title=title;else{display.MusicProperties.Title=title;display.MusicProperties.Artist="Capsule test artist";display.MusicProperties.AlbumTitle="Owned test album";}display.Update();
+    }
+    internal async Task SetThumbnailAsync(string path)
+    {
+        var file=await Windows.Storage.StorageFile.GetFileFromPathAsync(path);Controls.DisplayUpdater.Thumbnail=Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(file);Controls.DisplayUpdater.Update();
     }
     internal void SetPosition(TimeSpan position)
     {

@@ -119,15 +119,14 @@ public partial class MainWindow : Window
         try
         {
             media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
-            solo.Configure(settings.MediaEnabled && SoloSelected);
             var latest = await media.ReadAsync();
             if(closing)return;
             timer.Interval=TimeSpan.FromMilliseconds(media.PollMilliseconds);
-            if(SoloSelected)
+            var useSolo=SoloSourceSelected(latest.SourceId);solo.Configure(settings.MediaEnabled && useSolo);
+            if(useSolo)
             {
                 var local=solo.Snapshot();
                 if(local.Connected)latest=latest.Available ? latest with{Playing=local.Playing} : new MediaSnapshot("Just Solo","",local.Playing,true,SourceId:"justsolo");
-                else latest=new("","",false,false);
             }
             if (!latest.Available || (state.Media.Playing && !latest.Playing)) controlsOpen = false;
             state.UpdateMedia(latest);
@@ -141,8 +140,9 @@ public partial class MainWindow : Window
             if(modulesVisible && !settings.StandbyActive && !visibilityResult.PassThrough)plugins.Update(new(DateTimeOffset.Now,Design.IsDark,new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing)));
             QuarantineFailedPlugins();
             if(overviewOpen)await overview.TickAsync();
-            var mediaStatus=!settings.MediaEnabled ? "媒体已关闭" : SoloSelected ? solo.Snapshot().Connected ? "Just Solo 本机已连接" : "等待 Just Solo 本机服务（127.0.0.1:47290）" : media.Status;
-            var lyricStatus=!settings.LyricsEnabled ? "歌词已关闭" : SoloSelected ? "歌词由 Just Solo 本机服务提供" : lyricKey.Length==0 ? "等待可匹配的音乐信息" : lyricsClient.Status;
+            var localStatus=solo.Snapshot();
+            var mediaStatus=!settings.MediaEnabled ? "媒体已关闭" : SoloSelected ? localStatus.Connected ? "Just Solo 本机已连接" : media.SourceId.Length>0 ? "Just Solo 原生媒体已连接 · 本机歌词服务未连接" : "等待 Just Solo 本机服务（127.0.0.1:47290）" : media.Status;
+            var lyricStatus=!settings.LyricsEnabled ? "歌词已关闭" : SoloSelected && localStatus.Connected && localStatus.Lyrics.Lines.Count>0 ? "歌词由 Just Solo 本机服务提供" : lyricKey.Length==0 ? "等待可匹配的音乐信息" : lyricsClient.Status;
             settingsWindow?.UpdateStatus(mediaStatus+"\n"+lyricStatus+"\n"+MaterialStatus+"\n"+(msp.Error.Length>0 ? msp.Error : msp.Enabled ? "MSP 本机节点已启用" : "MSP 已关闭"), settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
         }
         finally { busy = false; }
