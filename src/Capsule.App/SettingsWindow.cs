@@ -67,6 +67,8 @@ public sealed class SettingsWindow : Window
             try{loadPlugin(picker.FileName);RefreshPlugins();}catch(Exception error){Design.PresentMessage("插件未能加载",error.Message);}
         };
         pluginPage.Children.Add(pluginLoad);pluginPage.Children.Add(Design.Card(pluginRows));RefreshPlugins();
+        var pluginErrors=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,10,0,0)};Design.Bind(pluginErrors,TextBlock.ForegroundProperty,"TextSecondary");pluginPage.Children.Add(pluginErrors);
+        var priorPlugins=string.Join("|",activePlugins());var pluginTimer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};pluginTimer.Tick+=(_,_)=>{var current=string.Join("|",activePlugins());if(current!=priorPlugins){priorPlugins=current;RefreshPlugins();}pluginErrors.Text=string.Join("\n",settings.PluginFailures.Values);};pluginTimer.Start();Closed+=(_,_)=>pluginTimer.Stop();
         var panel=pages["个性化中心"];
 
         Heading(panel, "外观与动效");

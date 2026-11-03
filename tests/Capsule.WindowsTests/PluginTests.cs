@@ -10,8 +10,9 @@ public sealed class FixturePlugin : ICapsulePlugin
     public PluginIdentity Identity=>new(System.IO.Path.GetFileName(typeof(FixturePlugin).Assembly.Location).Contains("second",StringComparison.OrdinalIgnoreCase) ? "fixture.second" : "fixture.clock","Test clock","0.1.0");
     public bool Disposed{get;private set;}
     private readonly TextBlock view=new();
-    public FrameworkElement CreateWidget(ICapsulePluginHost host){view.Text=host.ReadSetting("label","Test");return view;}
-    public void Update(PluginFrame frame){if(frame.Media.Title=="throw")throw new InvalidOperationException("Fixture callback error");view.Text=frame.Now.ToString("HH:mm");}
+    private ICapsulePluginHost? host;
+    public FrameworkElement CreateWidget(ICapsulePluginHost host){this.host=host;view.Text=host.ReadSetting("label","Test");return view;}
+    public void Update(PluginFrame frame){if(frame.Media.Title=="throw" || host?.ReadSetting("fail")=="true")throw new InvalidOperationException("Fixture callback error");view.Text=frame.Now.ToString("HH:mm");}
     public void Dispose()=>Disposed=true;
 }
 
@@ -54,14 +55,19 @@ internal static class PluginTests
         Console.WriteLine("PASS Independent plugin assembly loading, shared API, widget update and disposal");
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
         var windowSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false};
+        var missing=Path.Combine(packageRoot,"missing.dll");windowSettings.PluginFiles.Add(missing);
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:windowSettings,localPluginDirectory:Path.Combine(packageRoot,"window-installed"));
         try
         {
             window.Show();await Task.Delay(300);window.LoadPlugin(valid,save:false);
+            if(!windowSettings.PluginFailures.ContainsKey(missing) || windowSettings.PluginFiles.Contains(missing))throw new Exception("Failed startup plugin was not quarantined");
             if(windowSettings.PluginFiles.Count!=1 || !windowSettings.PluginFiles[0].EndsWith("fixture.dll"))throw new Exception("Installed plugin entry was not retained for restart");
             for(var attempt=0;attempt<30 && ((TextBlock)window.LivePluginView.Children[0]).Text=="Test";attempt++)await Task.Delay(100);
             var text=(TextBlock)window.LivePluginView.Children[0];
             if(text.Text.Length!=5 || !text.Text.Contains(':') || !text.IsVisible)throw new Exception("Actual island plugin did not display live clock");
+            windowSettings.PluginPreferences["fixture.clock"]=new(){["fail"]="true"};
+            for(var attempt=0;attempt<30 && window.LivePluginView.Children.Count!=0;attempt++)await Task.Delay(100);
+            if(window.LivePluginView.Children.Count!=0 || windowSettings.PluginFiles.Count!=0 || !windowSettings.PluginFailures.ContainsKey("fixture.clock"))throw new Exception("Faulted plugin was not removed from restart list");
             Console.WriteLine("PASS Actual island hosts and updates an independently loaded plugin widget");
         }
         finally{window.Close();}
