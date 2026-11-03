@@ -343,7 +343,11 @@ public sealed class SettingsWindow : Window
     private CheckBox AddCheck(StackPanel panel, string text, bool value, Action<bool> changed, string help)
     {
         var check = new CheckBox { Content = Label(text, help), IsChecked = value, Margin = new(0, 4, 0, 4), ToolTip = help }; System.Windows.Automation.AutomationProperties.SetName(check, text);
-        check.Click += (_, _) => { changed(check.IsChecked == true); save(); }; panel.Children.Add(check); return check;
+        check.Click += (_, _) =>
+        {
+            try{changed(check.IsChecked==true);save();value=check.IsChecked==true;}
+            catch(Exception error){check.IsChecked=value;Design.PresentMessage("未能更新设置",error.Message);}
+        }; panel.Children.Add(check); return check;
     }
     public void UpdateStatus(string media, string notification, Dictionary<string, string> apps)
     {

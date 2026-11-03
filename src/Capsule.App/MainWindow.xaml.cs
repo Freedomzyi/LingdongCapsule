@@ -257,12 +257,14 @@ public partial class MainWindow : Window
         settingsWindow.Show();
     }
     private void SaveAndApplySettings()
+        =>ApplySettings(true);
+    private void ApplySettings(bool persist)
     {
         ApplyMsp();
         ApplyUserFont();
         solo.Configure(settings.MediaEnabled && SoloSelected);
         Design.ApplyTheme(settings.ThemeMode);
-        try{settings.Save();}catch(Exception exception){Design.PresentMessage("设置未能保存",exception.Message);}
+        if(persist)try{settings.Save();}catch(Exception exception){Design.PresentMessage("设置未能保存",exception.Message);}
         media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
         if(!settings.MediaEnabled)state.UpdateMedia(new("","",false,false));
         if(!settings.NotificationsEnabled)state.Dismiss();
@@ -271,7 +273,12 @@ public partial class MainWindow : Window
         ApplyCapture();UpdateLyrics(state.Media);UpdateCovers(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
     }
     private void ApplyUserFont(){Design.ApplyFont(settings.FontName);FontFamily=Design.UserFont;LiveLyrics.SetFont(Design.UserFont);}
-    private void ConfigureStartup(bool enabled) { StartupService.SetEnabled(enabled); settings.StartWithWindows = enabled; settings.Save(); }
+    private void ConfigureStartup(bool enabled)
+    {
+        var previous=settings.StartWithWindows;settings.StartWithWindows=enabled;
+        try{StartupService.SetEnabledTransactional(enabled,settings.Save);}
+        catch{settings.StartWithWindows=previous;throw;}
+    }
     private void ShowTrayMenu()
     {
         var menu = new System.Windows.Controls.ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, PlacementTarget = this };
@@ -280,8 +287,14 @@ public partial class MainWindow : Window
     }
     private void ShowWelcome()
     {
-        if (welcomeWindow is not null) { welcomeWindow.Activate(); return; }
-        welcomeWindow = new WelcomeWindow(StartupService.IsEnabled, ConfigureStartup, OpenSettings, () => { settings.OnboardingCompleted = true; settings.Save(); });
+        if(closing)return;
+        if (welcomeWindow is not null) { if(welcomeWindow.WindowState==WindowState.Minimized)welcomeWindow.WindowState=WindowState.Normal;welcomeWindow.Show();welcomeWindow.Activate(); return; }
+        welcomeWindow = new WelcomeWindow(WelcomeOptions.Read(settings),StartupService.IsEnabled,(choices,startup)=>
+        {
+            WelcomeOptions.Commit(settings,choices,startup,settings.Save,(enabled,save)=>
+            {if(StartupService.IsEnabled==enabled)save();else StartupService.SetEnabledTransactional(enabled,save);});
+            ApplySettings(false);
+        },OpenSettings);
         welcomeWindow.Closed += (_, _) => welcomeWindow = null; welcomeWindow.Show();
     }
 }
