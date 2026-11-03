@@ -29,6 +29,11 @@ internal static class PluginTests
         plugin.Update(new(new DateTimeOffset(2026,11,3,12,34,0,TimeSpan.Zero),true,new("","",false,false)));
         if(plugin.Identity.Id!="fixture.clock" || ((TextBlock)view).Text!="12:34")throw new Exception("Plugin contract or widget update failed");
         module.Dispose();if(module.Plugin!=null || plugin.GetType().GetProperty("Disposed")!.GetValue(plugin) is not true)throw new Exception("Plugin disposal was not called");
+        using var runtime=new PluginRuntime(new Settings(),()=>new("","",false,false),(_,_,_,_)=>Task.FromResult(true),()=>{});
+        var id=runtime.Enable(typeof(FixturePlugin).Assembly.Location);
+        runtime.Update(new(new DateTimeOffset(2026,11,3,10,12,0,TimeSpan.Zero),true,new("","",false,false)));
+        if(runtime.View.Children.Count!=1 || ((TextBlock)runtime.View.Children[0]).Text!="10:12")throw new Exception("Runtime did not host plugin widget");
+        runtime.Disable(id);if(runtime.View.Children.Count!=0 || runtime.ActiveIds.Count!=0)throw new Exception("Runtime did not remove disabled widget");
         Console.WriteLine("PASS Independent plugin assembly loading, shared API, widget update and disposal");
     }
 }
