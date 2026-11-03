@@ -9,6 +9,7 @@ public sealed class Settings
     public bool ClockEnabled{get;set;}=true;
     public int ClockLayout{get;set;}
     public bool HardwareEnabled{get;set;}
+    public bool HardwareFirst{get;set;}
     public bool MediaShortcutsEnabled{get;set;}
     public bool IslandShortcutEnabled{get;set;}
     public Dictionary<ShortcutAction,ShortcutChord> Shortcuts{get;set;}=Enum.GetValues<ShortcutAction>().ToDictionary(action=>action,ShortcutChord.Default);

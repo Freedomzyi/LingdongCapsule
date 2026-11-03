@@ -112,7 +112,10 @@ public partial class MainWindow : Window
         ClockDate.Text=clockNow.ToString("MM/dd");
         ClockDate.Visibility=settings.ClockEnabled && settings.ClockLayout==1 ? Visibility.Visible : Visibility.Collapsed;
         HardwarePanel.Visibility=settings.HardwareEnabled ? Visibility.Visible : Visibility.Collapsed;
-        HardwarePanel.Margin=new Thickness(settings.ClockEnabled ? 12 : 0,0,0,0);
+        var hardwareIndex=Clock.Children.IndexOf(HardwarePanel);
+        var targetIndex=settings.HardwareFirst ? 0 : Clock.Children.Count-1;
+        if(hardwareIndex!=targetIndex){Clock.Children.Remove(HardwarePanel);Clock.Children.Insert(targetIndex,HardwarePanel);}
+        HardwarePanel.Margin=new Thickness(!settings.HardwareFirst && settings.ClockEnabled ? 12 : 0,0,settings.HardwareFirst && settings.ClockEnabled ? 12 : 0,0);
         state.MediaClockSwitch=settings.MediaClockSwitch;
         state.SetQuietUntil(settings.QuietUntil,DateTimeOffset.Now);
         if(!settings.NotificationsEnabled || !settings.NotificationSoundEnabled || state.IsQuiet(DateTimeOffset.Now))notificationSound.StopPlayback();

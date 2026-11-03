@@ -114,6 +114,7 @@ public sealed class SettingsWindow : Window
         panel=pages["显示设置"];
         Heading(panel,"显示位置与形态");
         var clockOptions=new StackPanel();
+        AddSelection(clockOptions,"空闲组件顺序",()=>new Dictionary<string,string>{{"clock","时钟 → 硬件"},{"hardware","硬件 → 时钟"}},settings.HardwareFirst ? "hardware" : "clock",value=>settings.HardwareFirst=value=="hardware","调整折叠态已启用的时钟与硬件组件排列；关闭的组件不占位置。");
         AddSelection(clockOptions,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟对应当前定制组件；时间与日期按 HH:mm 与 MM/dd 显示，并根据内容收窄。");
         AddCheck(clockOptions,"显示时间日期",settings.ClockEnabled,value=>settings.ClockEnabled=value,"关闭后不显示时钟文本；仍保留空闲面板点击入口，不影响播放和通知。");
         AddCheck(clockOptions,"显示硬件占用",settings.HardwareEnabled,value=>settings.HardwareEnabled=value,"空闲折叠态每秒采样真实 CPU 与内存；无有效数据时显示横线，不显示虚构数值。媒体组合与排序仍在对齐中。");
