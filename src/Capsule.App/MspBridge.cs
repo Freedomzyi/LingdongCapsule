@@ -6,6 +6,7 @@ namespace Capsule.App;
 internal sealed class MspBridge : IDisposable
 {
     private MspNode? node;
+    private int noticeSequence;
     private readonly Func<Notice,Task<bool>> notify;
     private readonly Func<Task<MediaSnapshot>> readMedia;
     private readonly Func<string,Task<bool>> control;
@@ -23,7 +24,7 @@ internal sealed class MspBridge : IDisposable
             candidate.Tool("notify",(Func<string,string,Task<object>>)(async(title,body)=>
             {
                 title??="";body??="";if(title.Length>4096 || body.Length>16384)return new{ok=false,error="通知长度超限"};
-                return new{ok=await notify(new("msp","MSP",title,body))};
+                return new{ok=await notify(new("msp","MSP",title,body,unchecked((uint)Interlocked.Increment(ref noticeSequence))))};
             }),"在胶囊显示通知；遵守来源、隐私与安静设置");
             candidate.Tool("media_status",(Func<Task<object>>)(async()=>{var media=await readMedia();return new{active=media.Available,playing=media.Playing,title=media.Title,artist=media.Artist};}),"读取当前媒体状态");
             candidate.Tool("media_control",(Func<string,Task<object>>)(async action=>

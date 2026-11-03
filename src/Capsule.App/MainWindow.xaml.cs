@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         Closed+=(_,_)=>solo.Dispose();
         ApplyUserFont();
         InitializeVisibility();
+        InitializeMsp();
         islandClickDelay.Interval=TimeSpan.FromMilliseconds(Forms.SystemInformation.DoubleClickTime);
         islandClickDelay.Tick+=(_,_)=>{islandClickDelay.Stop();if(!closing)HandleIslandClick();};
         Closed+=(_,_)=>islandClickDelay.Stop();
@@ -75,6 +76,7 @@ public partial class MainWindow : Window
             SystemEvents.PowerModeChanged += OnPowerChanged;
             timer.Tick += async (_, _) => await RefreshAsync(); timer.Start();
             await RefreshAsync();
+            ApplyMsp();
             if (Environment.GetCommandLineArgs().Contains("--settings")) OpenSettings();
             else if (!suppressOnboarding && !settings.OnboardingCompleted && !Environment.GetCommandLineArgs().Contains("--startup")) ShowWelcome();
         };
@@ -123,7 +125,7 @@ public partial class MainWindow : Window
             if(overviewOpen)await overview.TickAsync();
             var mediaStatus=!settings.MediaEnabled ? "媒体已关闭" : SoloSelected ? solo.Snapshot().Connected ? "Just Solo 本机已连接" : "等待 Just Solo 本机服务（127.0.0.1:47290）" : media.Status;
             var lyricStatus=!settings.LyricsEnabled ? "歌词已关闭" : SoloSelected ? "歌词由 Just Solo 本机服务提供" : lyricsClient.Status;
-            settingsWindow?.UpdateStatus(mediaStatus+"\n"+lyricStatus, settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
+            settingsWindow?.UpdateStatus(mediaStatus+"\n"+lyricStatus+"\n"+(msp.Error.Length>0 ? msp.Error : msp.Enabled ? "MSP 本机节点已启用" : "MSP 已关闭"), settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
         }
         finally { busy = false; }
     }
@@ -229,6 +231,7 @@ public partial class MainWindow : Window
     }
     private void SaveAndApplySettings()
     {
+        ApplyMsp();
         ApplyUserFont();
         solo.Configure(settings.MediaEnabled && SoloSelected);
         Design.ApplyTheme(settings.ThemeMode);
