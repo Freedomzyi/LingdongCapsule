@@ -13,6 +13,8 @@ public sealed class LyricView : FrameworkElement
     private readonly Dictionary<LyricLine,double[]> wordWidths=[];
     private double cachedDpi;
     private Typeface typeface=new("Microsoft YaHei UI");
+    private bool dark=true;
+    public void SetDark(bool value){if(dark==value)return;dark=value;layouts.Clear();InvalidateVisual();}
     public void SetFont(FontFamily family){if(typeface.FontFamily.Source==family.Source)return;typeface=new(family,FontStyles.Normal,FontWeights.Normal,FontStretches.Normal);layouts.Clear();wordWidths.Clear();InvalidateVisual();}
     private bool listening;
     private bool playing;
@@ -73,7 +75,7 @@ public sealed class LyricView : FrameworkElement
         if(layouts.Count>40)layouts.Clear();
         var dpi=VisualTreeHelper.GetDpi(this).PixelsPerDip;
         FormattedText Make(Brush ink)=>new(text,CultureInfo.CurrentUICulture,FlowDirection.LeftToRight,typeface,size,ink,dpi);
-        var result=new TextLayout(Make(new SolidColorBrush(Color.FromRgb(135,135,145))),Make(Brushes.White));
+        var result=new TextLayout(Make(new SolidColorBrush(Color.FromRgb(135,135,145))),Make(dark ? Brushes.White : Brushes.Black));
         layouts[key]=result;return result;
     }
     private void DrawLine(DrawingContext context,string text,double size,double baseline,LyricFrame frame,bool translated)

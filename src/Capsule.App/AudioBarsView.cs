@@ -21,6 +21,6 @@ public sealed class AudioBarsView : FrameworkElement
     protected override void OnRender(DrawingContext context)
     {
         var gap=2d;var width=Math.Max(1,(ActualWidth-gap*4)/5);
-        for(var i=0;i<5;i++){var height=Math.Max(2,ActualHeight*levels[i]);context.DrawRoundedRectangle(Ink,null,new Rect(i*(width+gap),(ActualHeight-height)/2,width,height),width/2,width/2);}
+        for(var i=0;i<5;i++){var height=Math.Max(2,ActualHeight*levels[i]);context.DrawRoundedRectangle(Design.IsDark ? Ink : Brushes.Black,null,new Rect(i*(width+gap),(ActualHeight-height)/2,width,height),width/2,width/2);}
     }
 }

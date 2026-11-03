@@ -15,5 +15,5 @@ public sealed class TransportIcon : FrameworkElement
         Geometry.Parse("M4,3 L7,3 L7,15 L4,15 Z M11,3 L14,3 L14,15 L11,15 Z"),
         Geometry.Parse("M4,3 L13,9 L4,15 Z M13,3 L15,3 L15,15 L13,15 Z")
     ];
-    protected override void OnRender(DrawingContext context){context.PushTransform(new ScaleTransform(ActualWidth/18,ActualHeight/18));context.DrawGeometry(Brushes.White,null,Shapes[(int)Kind]);context.Pop();}
+    protected override void OnRender(DrawingContext context){context.PushTransform(new ScaleTransform(ActualWidth/18,ActualHeight/18));context.DrawGeometry(Design.IsDark ? Brushes.White : Brushes.Black,null,Shapes[(int)Kind]);context.Pop();}
 }

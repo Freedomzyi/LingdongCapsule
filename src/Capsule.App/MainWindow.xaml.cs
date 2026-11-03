@@ -165,6 +165,7 @@ public partial class MainWindow : Window
         Animate(width, height);
         UpdateIslandVisibility();
         RenderMediaControls();
+        ApplyIslandTheme();
     }
     private void Animate(double width, double height)
     {

@@ -54,11 +54,12 @@ internal static class ShortcutTests
         Design.ApplyTheme(1);await Task.Delay(50);var light=((System.Windows.Media.SolidColorBrush)themedCard.Background).Color;
         if(dark.R>=light.R || light.R!=255)throw new Exception("Existing theme card did not update dynamically");
         themeWindow.Hide();Design.ApplySystemTheme();Console.WriteLine("PASS Existing card resources switch from dark to light without recreating controls");
-        var islandSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,AutoHide=true,FocusAutoHide=true,IslandShortcutEnabled=true,ClockLayout=1,HardwareEnabled=true,HardwareFirst=true};islandSettings.Shortcuts[ShortcutAction.ToggleIsland]=free[5];
+        var islandSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,AutoHide=true,FocusAutoHide=true,IslandShortcutEnabled=true,ClockLayout=1,HardwareEnabled=true,HardwareFirst=true,ThemeMode=1};islandSettings.Shortcuts[ShortcutAction.ToggleIsland]=free[5];
         var island=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:islandSettings);
         try
         {
             island.Show();await Task.Delay(900);
+            if(((System.Windows.Media.SolidColorBrush)((Border)island.FindName("Shell")).Background).Color.R<200 || ((System.Windows.Media.SolidColorBrush)((TextBlock)island.FindName("ClockTime")).Foreground).Color.R>100)throw new Exception("Light island theme has unreadable foreground/background");
             var date=(TextBlock)island.FindName("ClockDate");var clock=(FrameworkElement)island.FindName("Clock");
             if(((StackPanel)clock).Children[0]!=(UIElement)island.FindName("HardwarePanel"))throw new Exception("Configured hardware-first order was not applied");
             if(date.Visibility!=Visibility.Visible || date.Text!=DateTime.Now.ToString("MM/dd") || clock.DesiredSize.Width>island.ActualWidth-24)throw new Exception("Time/date layout exceeds compact island");
