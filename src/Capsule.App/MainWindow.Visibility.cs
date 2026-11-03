@@ -56,10 +56,11 @@ public partial class MainWindow
         var hidden=result.PassThrough;
         var duration=TimeSpan.FromMilliseconds(settings.MotionMs);
         var easing=new CubicEase{EasingMode=EasingMode.EaseOut};
-        IslandSurface.BeginAnimation(OpacityProperty,new DoubleAnimation(hidden ? 0 : 1,duration){EasingFunction=easing});
+        var fade=new DoubleAnimation(hidden ? 0 : 1,duration){EasingFunction=easing};Timeline.SetDesiredFrameRate(fade,settings.Glass.FramesPerSecond);
+        IslandSurface.BeginAnimation(OpacityProperty,fade);
         IslandSurface.IsHitTestVisible=!hidden;
         WakeButton.Visibility=result.ShowWake ? Visibility.Visible : Visibility.Collapsed;
-        RenderMediaControls();RenderLyrics();
+        RenderMediaControls();RenderLyrics();UpdateMaterial();
     }
     internal void SetIslandHidden(bool hidden)
     {

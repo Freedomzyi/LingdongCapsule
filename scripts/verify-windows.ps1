@@ -9,6 +9,7 @@ Push-Location $root
 try {
     $suites=@(
         @{Name='core';Project='tests/Capsule.Tests';Args=@()},
+        @{Name='materials';Project='tests/Capsule.WindowsTests';Args=@('--material-test')},
         @{Name='plugins';Project='tests/Capsule.WindowsTests';Args=@('--plugin-test')},
         @{Name='msp';Project='tests/Capsule.WindowsTests';Args=@('--msp-test')},
         @{Name='solo';Project='tests/Capsule.WindowsTests';Args=@('--solo-test')},

@@ -12,7 +12,9 @@ public sealed class CapsuleProgressView : FrameworkElement
     private static readonly Brush Green=new SolidColorBrush(Color.FromRgb(48,209,88));
     public CapsuleProgressView(){IsHitTestVisible=false;Loaded+=(_,_)=>Subscribe();Unloaded+=(_,_)=>{CompositionTarget.Rendering-=OnFrame;listening=false;};}
     private void Subscribe(){var next=active&&IsLoaded;if(next==listening)return;if(next)CompositionTarget.Rendering+=OnFrame;else CompositionTarget.Rendering-=OnFrame;listening=next;InvalidateVisual();}
-    private void OnFrame(object? sender,EventArgs args)=>InvalidateVisual();
+    private readonly AnimationCadence cadence=new();
+    public int FrameRate{get=>cadence.FramesPerSecond;set=>cadence.FramesPerSecond=value;}
+    private void OnFrame(object? sender,EventArgs args){if(cadence.Advance(args))InvalidateVisual();}
     protected override void OnRender(DrawingContext context)
     {
         if(!active || ActualWidth<3 || ActualHeight<3)return;

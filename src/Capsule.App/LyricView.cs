@@ -43,7 +43,9 @@ public sealed class LyricView : FrameworkElement
         if(needed)CompositionTarget.Rendering+=OnFrame;else CompositionTarget.Rendering-=OnFrame;
         listening=needed;
     }
-    private void OnFrame(object? sender,EventArgs args)=>InvalidateVisual();
+    private readonly AnimationCadence cadence=new();
+    public int FrameRate{get=>cadence.FramesPerSecond;set=>cadence.FramesPerSecond=value;}
+    private void OnFrame(object? sender,EventArgs args){if(cadence.Advance(args))InvalidateVisual();}
 
     protected override void OnRender(DrawingContext context)
     {

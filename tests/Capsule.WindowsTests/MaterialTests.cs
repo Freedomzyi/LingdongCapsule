@@ -29,6 +29,39 @@ internal static class MaterialTests
                 using var file=System.IO.File.Create(System.IO.Path.Combine(folder,acrylic ? "acrylic-synthetic.png" : "glass-synthetic.png"));encoder.Save(file);
             }
             Console.WriteLine("PASS Synthetic material pixels encoded through WPF; desktop diagnostic is not backend acceptance");
+            overlay.Close();
+            var settings=new Settings{MaterialKind=2,NotificationsEnabled=false,MediaEnabled=false,ShowInCapture=true,BackgroundOpacity=100};
+            var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings);
+            try
+            {
+                window.Show();await Task.Delay(500);window.Top=160;await Task.Delay(100);var location=window.PointToScreen(new Point());
+                var backgroundScale=VisualTreeHelper.GetDpi(background);
+                background.Left=(location.X-80)/backgroundScale.DpiScaleX;background.Top=Math.Max(0,location.Y-10)/backgroundScale.DpiScaleY;background.Width=500;background.Height=400;
+                await Task.Delay(800);
+                for(var attempt=0;attempt<40 && !window.MaterialHasFrame;attempt++)await Task.Delay(100);
+                if(!window.MaterialHasFrame || !window.MaterialRunning)throw new Exception("Actual island did not produce glass background");
+                var actual=window.MaterialFrame!;var data=new byte[actual.PixelWidth*actual.PixelHeight*4];actual.CopyPixels(data,actual.PixelWidth*4,0);
+                if(data.Where((_,i)=>i%4==2).Average(b=>(int)b)<150 || data.Where((_,i)=>i%4==1).Average(b=>(int)b)>80)throw new Exception($"Actual island background mismatch: R={data.Where((_,i)=>i%4==2).Average(b=>(int)b)}, G={data.Where((_,i)=>i%4==1).Average(b=>(int)b)}");
+                window.UpdateLayout();var rendered=new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth),(int)Math.Ceiling(window.ActualHeight),96,96,PixelFormats.Pbgra32);rendered.Render(window);
+                var actualEncoder=new System.Windows.Media.Imaging.PngBitmapEncoder();actualEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rendered));using(var file=System.IO.File.Create(System.IO.Path.Combine(folder,"actual-island-glass.png")))actualEncoder.Save(file);
+                var render=typeof(Capsule.App.MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
+                settings.MaterialKind=1;render.Invoke(window,null);
+                for(var attempt=0;attempt<40 && !window.MaterialHasFrame;attempt++)await Task.Delay(100);
+                if(!window.MaterialHasFrame || !window.MaterialStatus.Contains("亚克力"))throw new Exception("Actual acrylic background failed");
+                window.SetIslandHidden(true);await Task.Delay(700);
+                if(window.MaterialRunning || window.MaterialHasFrame)throw new Exception("Hidden island retained capture or stale async frame");
+                window.SetIslandHidden(false);
+                for(var attempt=0;attempt<40 && !window.MaterialHasFrame;attempt++)await Task.Delay(100);
+                if(!window.MaterialHasFrame)throw new Exception("Unhidden island did not resume material");
+                settings.MaterialKind=0;render.Invoke(window,null);
+                if(window.MaterialRunning || window.MaterialHasFrame || ((System.Windows.Controls.Border)window.FindName("Shell")).Background is not SolidColorBrush)throw new Exception("Solid background did not stop and release material");
+                Console.WriteLine("PASS Actual island glass/acrylic, underlying pixels, hide cancellation, resume and solid cleanup");
+                var cadence=new AnimationCadence{FramesPerSecond=30};var count=0;
+                for(var tick=0;tick<144;tick++)if(cadence.Advance(TimeSpan.FromSeconds(tick/144d)))count++;
+                if(count>30 || count<25)throw new Exception("Dynamic content frame cap failed");
+                Console.WriteLine("PASS Dynamic content cadence caps 144 input ticks to at most 30 redraws");
+            }
+            finally{window.Close();}
         }
         finally{overlay.Close();background.Close();}
     }

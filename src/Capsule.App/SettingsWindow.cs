@@ -8,6 +8,7 @@ namespace Capsule.App;
 
 public sealed class SettingsWindow : Window
 {
+    private bool updatingControls;
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, LineHeight = 19 };
     private readonly StackPanel sources = new();
     private readonly Settings settings;
@@ -75,11 +76,28 @@ public sealed class SettingsWindow : Window
         AddSelection(panel,"字体",()=>{var options=new Dictionary<string,string>{{"","系统默认（恢复默认）"}};foreach(var font in Fonts.SystemFontFamilies.OrderBy(font=>font.Source))options.TryAdd(font.Source,font.Source);return options;},settings.FontName,value=>{settings.FontName=value;Design.ApplyFont(value);FontFamily=Design.UserFont;},"选择本机字体；不打包或分发字体文件，找不到字形时由系统回退。");
         AddSelection(panel,"界面主题",()=>new Dictionary<string,string>{{"0","深色"},{"1","浅色"},{"2","跟随系统"}},settings.ThemeMode.ToString(),value=>{settings.ThemeMode=int.Parse(value);Design.ApplyTheme(settings.ThemeMode);foreach(var tab in tabs)if(tab.Value.Background!=Brushes.Transparent)tab.Value.SetResourceReference(Control.BackgroundProperty,"ButtonFill");},"设置、引导和弹窗即时切换；岛体材质主题仍在单独对齐。");
         var appearance = new StackPanel();
+        AddSelection(appearance,"背景材质",()=>new Dictionary<string,string>{{"0","实体"},{"1","亚克力"},{"2","液态玻璃"}},settings.MaterialKind.ToString(),value=>settings.MaterialKind=int.Parse(value),"亚克力和玻璃读取岛体后方的桌面像素，仅在内存合成，不录制或上传；显示环境不支持时回退实体背景。");
+        AddSelection(appearance,"玻璃质量",()=>new Dictionary<string,string>{{"0","节能"},{"1","均衡"},{"2","高质量"}},settings.GlassQuality.ToString(),value=>settings.GlassQuality=int.Parse(value),"按一半、四分之三或完整像素尺寸合成；质量越高越耗资源。");
         AddSlider(appearance,"背景不透明度",0,100,settings.BackgroundOpacity,value=>settings.BackgroundOpacity=value,"百分比；仅调整岛体背景，不降低文字和按钮的不透明度。",1);
         AddSlider(appearance, "*全局上限／播放宽度", 80, 300, settings.Width, v => settings.Width = v, "逻辑像素；播放固定宽度，时钟、通知和详情均不超过此上限。较窄时内容会裁切。",5);
         AddSlider(appearance, "折叠高度", 32, 60, settings.CompactHeight, v => settings.CompactHeight = v, "逻辑像素；默认 35，控制时钟与紧凑媒体高度，不压缩展开内容。", 1);
         AddSlider(appearance, "收放时长", 150, 900, settings.MotionMs, v => settings.MotionMs = (int)v, "毫秒；统一控制展开和收起，数值越大越舒缓。");
         panel.Children.Add(Design.Card(appearance));
+        var glassOptions=new StackPanel();
+        AddSlider(glassOptions,"背景模糊",0,4,settings.Glass.Blur,v=>settings.Glass=settings.Glass with{Blur=(int)v},"五档：0 / 2 / 4 / 6 / 10 逻辑像素；仅液态玻璃。",1);
+        AddSlider(glassOptions,"折射强度",0,4,settings.Glass.Refraction,v=>settings.Glass=settings.Glass with{Refraction=(int)v},"控制边缘背景偏移；仅液态玻璃。",1);
+        AddSlider(glassOptions,"边缘色散",0,4,settings.Glass.Dispersion,v=>settings.Glass=settings.Glass with{Dispersion=(int)v},"控制折射边缘的颜色分离；折射为零时无效。",1);
+        AddSlider(glassOptions,"边缘高光",0,4,settings.Glass.Rim,v=>settings.Glass=settings.Glass with{Rim=(int)v},"控制边缘光线强度。",1);
+        AddSlider(glassOptions,"玻璃厚度",0,4,settings.Glass.Thickness,v=>settings.Glass=settings.Glass with{Thickness=(int)v},"控制折射带宽度。",1);
+        AddSlider(glassOptions,"透镜感",0,4,settings.Glass.Depth,v=>settings.Glass=settings.Glass with{Depth=(int)v},"控制玻璃的凸透镜感。",1);
+        AddSlider(glassOptions,"饱和度",0,4,settings.Glass.Saturation,v=>settings.Glass=settings.Glass with{Saturation=(int)v},"控制背景色彩浓度。",1);
+        AddSlider(glassOptions,"玻璃雾度",0,4,settings.Glass.Frost,v=>settings.Glass=settings.Glass with{Frost=(int)v},"控制主题雾色的混合程度。",1);
+        AddSlider(glassOptions,"明度",0,4,settings.Glass.Brightness,v=>settings.Glass=settings.Glass with{Brightness=(int)v},"五档：80% / 90% / 100% / 108% / 115%。",1);
+        AddSlider(glassOptions,"抓屏刷新",0,4,settings.Glass.Capture,v=>settings.Glass=settings.Glass with{Capture=(int)v},"五档：1000 / 500 / 250 / 160 / 60 毫秒；亚克力与玻璃共用。",1);
+        AddSlider(glassOptions,"岛体动画帧率",0,4,settings.Glass.FrameRate,v=>settings.Glass=settings.Glass with{FrameRate=(int)v},"五档：30 / 60 / 90 / 120 / 144 FPS，控制歌词、频谱、进度线及下一次收放/淡出动画；实际受系统合成与显示器刷新率限制。",1);
+        AddSlider(glassOptions,"放大倍率",0,4,settings.Glass.Zoom,v=>settings.Glass=settings.Glass with{Zoom=(int)v},"五档：1 / 1.08 / 1.18 / 1.32 / 1.5 倍。",1);
+        var resetGlass=new Button{Content="恢复默认玻璃参数",Margin=new Thickness(0,8,0,0)};resetGlass.Click+=(_,_)=>{updatingControls=true;try{var sliders=glassOptions.Children.OfType<Slider>().ToArray();for(var index=0;index<sliders.Length;index++)sliders[index].Value=index==11 ? 0 : 2;settings.Glass=new();}finally{updatingControls=false;}save();};glassOptions.Children.Add(resetGlass);
+        panel.Children.Add(Design.Card(glassOptions));
         var displayBehavior=new StackPanel();
         AddCheck(displayBehavior,"媒体与时钟自动切换",settings.MediaClockSwitch,v=>settings.MediaClockSwitch=v,"播放时显示媒体，暂停后收回时钟；有会话时点击时钟仍可展开控制。");
         AddCheck(displayBehavior,"播放进度线",settings.CoverProgress,v=>settings.CoverProgress=v,"沿胶囊外沿显示当前歌曲的播放进度。");
@@ -279,7 +297,7 @@ public sealed class SettingsWindow : Window
         var format=step<1 ? "0.0" : "0";
         var number = new TextBlock { Text = value.ToString(format), FontSize = 13, FontWeight = FontWeights.Medium, Foreground = new SolidColorBrush(Color.FromRgb(0, 122, 255)) }; Grid.SetColumn(number, 1); row.Children.Add(number); panel.Children.Add(row);
         var slider = new Slider { Minimum = min, Maximum = max, Value = value, TickFrequency = step, IsSnapToTickEnabled = true, Margin = new(0, 4, 0, 7), ToolTip = help };
-        slider.ValueChanged += (_, _) => { changed(slider.Value); number.Text = slider.Value.ToString(format); save(); }; panel.Children.Add(slider);
+        slider.ValueChanged += (_, _) => { number.Text = slider.Value.ToString(format);if(updatingControls)return;changed(slider.Value);save(); }; panel.Children.Add(slider);
     }
     private CheckBox AddCheck(StackPanel panel, string text, bool value, Action<bool> changed, string help)
     {

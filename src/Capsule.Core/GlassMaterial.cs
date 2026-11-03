@@ -17,6 +17,7 @@ public sealed record GlassOptions
     public int FrameRate { get; init; } = 2;
     public int Zoom { get; init; }
     private static int L(int level) => Math.Clamp(level, 0, 4);
+    public GlassOptions Normalized()=>this with{Blur=L(Blur),Refraction=L(Refraction),Dispersion=L(Dispersion),Rim=L(Rim),Thickness=L(Thickness),Depth=L(Depth),Saturation=L(Saturation),Frost=L(Frost),Brightness=L(Brightness),Capture=L(Capture),FrameRate=L(FrameRate),Zoom=L(Zoom)};
     public int CaptureMilliseconds => new[] { 1000, 500, 250, 160, 60 }[L(Capture)];
     public int FramesPerSecond => new[] { 30, 60, 90, 120, 144 }[L(FrameRate)];
     internal int BlurRadius => new[] { 0, 2, 4, 6, 10 }[L(Blur)];

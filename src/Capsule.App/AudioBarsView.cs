@@ -10,12 +10,18 @@ public sealed class AudioBarsView : FrameworkElement
     private static readonly Brush Ink=new SolidColorBrush(Color.FromRgb(225,225,232));
     public Func<double[]>? ReadBands {get;set;}
     public bool Active {get=>active;set{active=value;Subscribe();}}
+    private readonly AnimationCadence cadence=new();
+    public int FrameRate{get=>cadence.FramesPerSecond;set=>cadence.FramesPerSecond=value;}
+    private TimeSpan lastFrame;
     public AudioBarsView(){Loaded+=(_,_)=>Subscribe();IsVisibleChanged+=(_,_)=>Subscribe();Unloaded+=(_,_)=>{CompositionTarget.Rendering-=OnFrame;listening=false;};}
     private void Subscribe(){var on=active&&IsVisible&&IsLoaded;if(on==listening)return;if(on)CompositionTarget.Rendering+=OnFrame;else CompositionTarget.Rendering-=OnFrame;listening=on;InvalidateVisual();}
     private void OnFrame(object? sender,EventArgs args)
     {
+        if(!cadence.Advance(args))return;
+        var now=args is RenderingEventArgs frame ? frame.RenderingTime : lastFrame+TimeSpan.FromSeconds(1d/60);
+        var steps=lastFrame==TimeSpan.Zero ? 1 : Math.Clamp((now-lastFrame).TotalSeconds*60,0,6);lastFrame=now;
         var target=ReadBands?.Invoke();
-        for(var i=0;i<5;i++){var next=target is {Length:>=5} ? target[i] : 0;levels[i]+=(next-levels[i])*(next>levels[i] ? 0.42 : 0.12);}
+        for(var i=0;i<5;i++){var next=target is {Length:>=5} ? target[i] : 0;levels[i]+=(next-levels[i])*(1-Math.Pow(1-(next>levels[i] ? 0.42 : 0.12),steps));}
         InvalidateVisual();
     }
     protected override void OnRender(DrawingContext context)

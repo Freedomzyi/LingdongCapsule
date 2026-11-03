@@ -45,6 +45,7 @@ public partial class MainWindow : Window
         shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();
         InitializeComposite();
+        InitializeMaterial();
         Closed+=(_,_)=>solo.Dispose();
         ApplyUserFont();
         InitializeVisibility();
@@ -133,7 +134,7 @@ public partial class MainWindow : Window
             if(overviewOpen)await overview.TickAsync();
             var mediaStatus=!settings.MediaEnabled ? "媒体已关闭" : SoloSelected ? solo.Snapshot().Connected ? "Just Solo 本机已连接" : "等待 Just Solo 本机服务（127.0.0.1:47290）" : media.Status;
             var lyricStatus=!settings.LyricsEnabled ? "歌词已关闭" : SoloSelected ? "歌词由 Just Solo 本机服务提供" : lyricsClient.Status;
-            settingsWindow?.UpdateStatus(mediaStatus+"\n"+lyricStatus+"\n"+(msp.Error.Length>0 ? msp.Error : msp.Enabled ? "MSP 本机节点已启用" : "MSP 已关闭"), settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
+            settingsWindow?.UpdateStatus(mediaStatus+"\n"+lyricStatus+"\n"+MaterialStatus+"\n"+(msp.Error.Length>0 ? msp.Error : msp.Enabled ? "MSP 本机节点已启用" : "MSP 已关闭"), settings.NotificationsEnabled ? notifications.Status : "通知监听已关闭", notifications.Sources);
         }
         finally { busy = false; }
     }
@@ -191,6 +192,7 @@ public partial class MainWindow : Window
         UpdateIslandVisibility();
         RenderMediaControls();
         ApplyIslandTheme();
+        UpdateMaterial();
     }
     private void Animate(double width, double height)
     {
@@ -198,8 +200,9 @@ public partial class MainWindow : Window
         desiredWidth = width; desiredHeight = height;
         var duration = TimeSpan.FromMilliseconds(settings.MotionMs);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        BeginAnimation(WidthProperty, new DoubleAnimation(width, duration) { EasingFunction = ease });
-        BeginAnimation(HeightProperty, new DoubleAnimation(height, duration) { EasingFunction = ease });
+        var horizontal=new DoubleAnimation(width,duration){EasingFunction=ease};var vertical=new DoubleAnimation(height,duration){EasingFunction=ease};
+        Timeline.SetDesiredFrameRate(horizontal,settings.Glass.FramesPerSecond);Timeline.SetDesiredFrameRate(vertical,settings.Glass.FramesPerSecond);
+        BeginAnimation(WidthProperty,horizontal);BeginAnimation(HeightProperty,vertical);
     }
     private void OnIslandClick(object sender, MouseButtonEventArgs e)
     {

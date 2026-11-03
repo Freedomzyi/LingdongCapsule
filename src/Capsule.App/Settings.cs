@@ -11,6 +11,9 @@ public sealed class Settings
     public Dictionary<string,string> PluginFailures{get;set;}=[];
     public int ThemeMode{get;set;}=2;
     public double BackgroundOpacity{get;set;}=96;
+    public int MaterialKind{get;set;}
+    public int GlassQuality{get;set;}=1;
+    public GlassOptions Glass{get;set;}=new();
     public bool MspEnabled{get;set;}
     public bool MspPublishEvents{get;set;}
     public string FontName{get;set;}="";
@@ -92,6 +95,7 @@ public sealed class Settings
         static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;
         Width=Limit(Width,80,300,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
         BackgroundOpacity=Limit(BackgroundOpacity,0,100,96);
+        MaterialKind=Math.Clamp(MaterialKind,0,2);GlassQuality=Math.Clamp(GlassQuality,0,2);Glass=(Glass ?? new()).Normalized();
         NotificationMode=Math.Clamp(NotificationMode,0,2);NotificationHeight=Limit(NotificationHeight,40,120,55);
         NotificationIconSize=Limit(NotificationIconSize,18,Width,38);NotificationIconGap=Limit(NotificationIconGap,0,20,6);
         NotificationSoundVolume=Limit(NotificationSoundVolume,0,100,10);NotificationSoundKey??="none";NotificationSoundPath??="";
