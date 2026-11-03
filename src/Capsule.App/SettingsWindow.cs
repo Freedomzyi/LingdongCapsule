@@ -56,6 +56,17 @@ public sealed class SettingsWindow : Window
             var recovery=new TextBlock{Text=settings.RecoveryMessage,TextWrapping=TextWrapping.Wrap,FontSize=12,LineHeight=19};Design.Bind(recovery,TextBlock.ForegroundProperty,"TextSecondary");pages["通用设置"].Children.Add(Design.Card(recovery));
         }
         var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();var installedRows=new StackPanel();Action refreshDisplayOrder=()=>{};
+        Heading(pluginPage,"内置组件");
+        var builtinClock=new StackPanel();
+        AddSelection(builtinClock,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟显示 HH:mm；时间与日期同时显示 MM/dd。沿用原有选择，停止组件不会重置布局。");
+        AddCheck(builtinClock,"*居中时钟",settings.ClockEnabled,value=>settings.ClockEnabled=value,"独立实现的内置时钟组件，随主程序提供。停用后保留布局与排列位置，不影响媒体、通知及空闲面板入口。").Tag="builtin:centerclock";
+        pluginPage.Children.Add(Design.Card(builtinClock));
+        var builtinOverview=new StackPanel();
+        AddCheck(builtinOverview,"*空闲信息面板",settings.OverviewEnabled,value=>settings.OverviewEnabled=value,"独立实现的内置信息组件。空闲时点击或从托盘展开天气、网速、硬件和内存排行；停用保留城市和天气选项。").Tag="builtin:idleoverview";
+        AddCheck(builtinOverview,"明日天气",settings.ShowTomorrow,value=>settings.ShowTomorrow=value,"空闲面板显示第二天预报，不影响今日天气；停用组件不会重置此选择。");
+        pluginPage.Children.Add(Design.Card(builtinOverview));
+        var displayOptions=new Button{Content="排列与显示选项",Padding=new Thickness(12,9,12,9),Margin=new Thickness(0,0,0,12)};displayOptions.Click+=(_,_)=>SelectPage("显示设置");pluginPage.Children.Add(displayOptions);
+        Heading(pluginPage,"外部组件");
         void RefreshPlugins()
         {
             pluginRows.Children.Clear();foreach(var id in activePlugins())
@@ -179,10 +190,9 @@ public sealed class SettingsWindow : Window
         AddSelection(clockOptions,"待机场景",()=>new Dictionary<string,string>{{"1","时间"},{"2","空白"},{"3","媒体控制"}},settings.StandbyScene.ToString(),value=>settings.StandbyScene=int.Parse(value),"待机时仅显示所选内容；通知仍可临时覆盖，媒体控制需要已有媒体会话。");
         AddCheck(clockOptions,"待机模式",settings.StandbyActive,value=>settings.StandbyActive=value,"临时使用单一场景，退出后恢复原有组件开关与顺序。");
         AddCheck(clockOptions,"双击切换待机",settings.StandbyDoubleClick,value=>settings.StandbyDoubleClick=value,"双击岛体内容区域切换待机；启用后单击会等待系统双击判定时间。");
-        AddSelection(clockOptions,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟对应当前定制组件；时间与日期按 HH:mm 与 MM/dd 显示，并根据内容收窄。");
-        AddCheck(clockOptions,"显示时间日期",settings.ClockEnabled,value=>settings.ClockEnabled=value,"关闭后不显示时钟文本；仍保留空闲面板点击入口，不影响播放和通知。");
         AddCheck(clockOptions,"显示硬件占用",settings.HardwareEnabled,value=>settings.HardwareEnabled=value,"折叠态每秒采样真实 CPU 与内存；无有效数据时显示横线。开启组合显示后可与媒体同时显示。");
         panel.Children.Add(Design.Card(clockOptions));
+        var manageBuiltin=new Button{Content="管理时钟与空闲面板",Padding=new Thickness(12,9,12,9),Margin=new Thickness(0,0,0,12)};manageBuiltin.Click+=(_,_)=>SelectPage("我的插件");panel.Children.Add(manageBuiltin);
         Heading(panel,"组件排列");var orderRows=new StackPanel();
         void RefreshDisplayOrder()
         {
@@ -200,10 +210,6 @@ public sealed class SettingsWindow : Window
         AddSelection(positionOptions,"岛体形态",()=>new Dictionary<string,string>{{"1","灵动胶囊"},{"0","刘海"}},settings.IslandShape.ToString(),v=>settings.IslandShape=int.Parse(v),"刘海贴合屏幕上沿；胶囊保留顶部间距。");
         AddSlider(positionOptions,"刘海底部圆角",0,28,settings.BottomRadius,v=>settings.BottomRadius=v,"逻辑像素，仅刘海形态生效。",1);
         panel.Children.Add(Design.Card(positionOptions));
-        var overviewOptions=new StackPanel();
-        AddCheck(overviewOptions,"*空闲信息面板",settings.OverviewEnabled,v=>settings.OverviewEnabled=v,"空闲时单击时钟展开天气、网速、硬件状态和内存排行；也可从托盘打开。城市只在面板顶部编辑。");
-        AddCheck(overviewOptions,"明日天气",settings.ShowTomorrow,v=>settings.ShowTomorrow=v,"空闲面板显示第二天预报，不影响今日天气。");
-        panel.Children.Add(Design.Card(overviewOptions));
         panel=pages["媒体设置"];
         Heading(panel,"媒体识别");
         var mediaOptions=new StackPanel();
@@ -289,7 +295,11 @@ public sealed class SettingsWindow : Window
     {
         if(!pageViews.TryGetValue(name,out var view))return;
         pageHost.Content=view;
-        foreach(var tab in tabs){tab.Value.Background=tab.Key==name ? (Brush)System.Windows.Application.Current.FindResource("ButtonFill") : Brushes.Transparent;tab.Value.Foreground=tab.Key==name ? new SolidColorBrush(Color.FromRgb(0,122,255)) : (Brush)System.Windows.Application.Current.FindResource("TextPrimary");}
+        foreach(var tab in tabs)
+        {
+            if(tab.Key==name){Design.Bind(tab.Value,Control.BackgroundProperty,"ButtonFill");tab.Value.Foreground=new SolidColorBrush(Color.FromRgb(0,122,255));}
+            else{tab.Value.Background=Brushes.Transparent;Design.Bind(tab.Value,Control.ForegroundProperty,"TextPrimary");}
+        }
         pageHost.BeginAnimation(OpacityProperty,new DoubleAnimation(0.65,1,TimeSpan.FromMilliseconds(150)));
     }
     private void AddSelection(StackPanel parent,string title,Func<IReadOnlyDictionary<string,string>> readOptions,string selected,Action<string> changed,string help)

@@ -14,6 +14,7 @@ try {
         @{Name='media';Project='tests/Capsule.WindowsTests';Args=@('--media-test')},
         @{Name='materials';Project='tests/Capsule.WindowsTests';Args=@('--material-test')},
         @{Name='plugins';Project='tests/Capsule.WindowsTests';Args=@('--plugin-test')},
+        @{Name='builtins';Project='tests/Capsule.WindowsTests';Args=@('--builtin-test')},
         @{Name='market';Project='tests/Capsule.WindowsTests';Args=@('--market-test')},
         @{Name='msp';Project='tests/Capsule.WindowsTests';Args=@('--msp-test')},
         @{Name='solo';Project='tests/Capsule.WindowsTests';Args=@('--solo-test')},

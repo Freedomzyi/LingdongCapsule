@@ -62,7 +62,7 @@ internal sealed class OverviewView : Grid,IDisposable
     }
     internal async Task TickAsync()
     {
-        if(disposed)return;
+        if(disposed || !settings.OverviewEnabled)return;
         weather.SelectCity(settings.WeatherCity);RenderWeather();_=weather.RefreshIfDueAsync();
         var sample=sampler.Sample();CurrentSample=sample;
         ram.Text=sample.Memory is {} memory ? $"{memory}%" : "—";cpu.Text=sample.Cpu is {} cpuValue ? $"{cpuValue:0}%" : "—";battery.Text=sample.Battery;
@@ -74,7 +74,7 @@ internal sealed class OverviewView : Grid,IDisposable
         try
         {
             var ranked=await Task.Run(sampler.ReadProcesses);
-            if(disposed)return;
+            if(disposed || !settings.OverviewEnabled)return;
             CurrentProcesses=ranked;RenderProcesses();
         }
         finally{reading=false;nextProcesses=Environment.TickCount64+5000;}
@@ -132,4 +132,5 @@ internal sealed class OverviewView : Grid,IDisposable
         _=TickAsync();
     }
     public void Dispose(){disposed=true;weather.Dispose();icons.Clear();}
+    internal void SetEnabled(bool enabled){if(!enabled)weather.Suspend();}
 }

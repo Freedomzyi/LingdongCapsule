@@ -51,6 +51,11 @@ internal sealed class WeatherService : IDisposable
         request?.Dispose();request=new CancellationTokenSource();busy=true;
         return FetchAsync(city,request.Token);
     }
+    internal void Suspend()
+    {
+        if(busy)nextAt=0;
+        request?.Cancel();request?.Dispose();request=null;busy=false;
+    }
     private async Task FetchAsync(string selected,CancellationToken token)
     {
         try

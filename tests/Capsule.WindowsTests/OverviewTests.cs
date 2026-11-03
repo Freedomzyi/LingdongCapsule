@@ -47,6 +47,14 @@ internal static class OverviewTests
             await weather.RefreshIfDueAsync();if(weather.Data?.City!="北京")throw new Exception("New city did not refresh after cancellation");
         }
         Console.WriteLine("PASS Weather decoding, request interval, same-city offline cache and stale-city cancellation");
+        var stoppedCache=Path.Combine(output,"stopped-weather-"+run+".json");var stoppedHandler=new WeatherHandler{Delay=new TaskCompletionSource()};
+        using(var weather=new WeatherService(new HttpClient(stoppedHandler),stoppedCache))
+        {
+            weather.SelectCity("上海");var pending=weather.RefreshIfDueAsync();weather.Suspend();stoppedHandler.Delay.SetResult();await pending;
+            if(weather.Data!=null || File.Exists(stoppedCache))throw new Exception("Stopped component accepted or cached a late weather result");
+            await weather.RefreshIfDueAsync();if(weather.Data?.City!="上海")throw new Exception("Stopped weather request prevented later re-enable");
+        }
+        Console.WriteLine("PASS Stopping overview rejects late weather/cache writes and allows re-enable without clearing city");
         var sampler=new OverviewService();sampler.Sample();await Task.Delay(1100);var sample=sampler.Sample();
         if(sample.Cpu is not (>=0 and <=100) || sample.Memory is not (>=0 and <=100))throw new Exception("Native hardware readings invalid");
         var groups=await Task.Run(sampler.ReadProcesses);

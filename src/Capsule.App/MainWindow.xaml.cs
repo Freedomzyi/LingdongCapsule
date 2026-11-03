@@ -155,7 +155,7 @@ public partial class MainWindow : Window
         state.SetQuietUntil(settings.QuietUntil,DateTimeOffset.Now);
         if(!settings.NotificationsEnabled || !settings.NotificationSoundEnabled || state.IsQuiet(DateTimeOffset.Now))notificationSound.StopPlayback();
         var mode = state.Mode;
-        if(!settings.OverviewEnabled)overviewOpen=false;
+        overview.SetEnabled(settings.OverviewEnabled);if(!settings.OverviewEnabled)overviewOpen=false;
         var showOverview=overviewOpen && mode!=IslandMode.Notification;
         var showMedia = !showOverview && (mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available));
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
