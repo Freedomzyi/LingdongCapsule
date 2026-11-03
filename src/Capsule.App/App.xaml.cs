@@ -8,6 +8,12 @@ public partial class App : System.Windows.Application
     private Mutex? mutex;
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Contains("--install"))
+        {
+            base.OnStartup(e);
+            Design.ApplySystemTheme();
+            MainWindow = new InstallWindow(); MainWindow.Show(); return;
+        }
         mutex = new Mutex(true, "Local\\LingdongCapsule", out var first);
         if (!first) { Shutdown(); return; }
         base.OnStartup(e);
