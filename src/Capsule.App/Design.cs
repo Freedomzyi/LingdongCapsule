@@ -7,9 +7,16 @@ namespace Capsule.App;
 
 internal static class Design
 {
+    public static FontFamily UserFont{get;private set;}=new("Microsoft YaHei UI");
+    public static void ApplyFont(string family)
+    {
+        UserFont=new(string.IsNullOrWhiteSpace(family) ? "Microsoft YaHei UI" : family);
+        System.Windows.Application.Current.Resources["UserFont"]=UserFont;
+    }
     public static void ApplySystemTheme()=>ApplyTheme(2);
     public static void ApplyTheme(int mode)
     {
+        if(!System.Windows.Application.Current.Resources.Contains("UserFont"))ApplyFont("");
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
         var dark=mode==0 || mode==2 && key?.GetValue("AppsUseLightTheme") is int value && value==0;
         Set("PageFill",dark ? "#1C1C1E" : "#F5F5F7");Set("CardFill",dark ? "#2C2C2E" : "#FFFFFF");Set("TextPrimary",dark ? "#F5F5F7" : "#1D1D1F");Set("TextSecondary",dark ? "#A1A1AA" : "#7A7A82");Set("ButtonFill",dark ? "#3A3A3C" : "#E9E9EF");
@@ -23,7 +30,7 @@ internal static class Design
     public static void Bind(FrameworkElement element, DependencyProperty property, string resource) => element.SetResourceReference(property, resource);
     public static Border Card(UIElement content)
     {
-        var card=new Border{CornerRadius=new(16),Padding=new(16,10,16,10),Margin=new(0,0,0,12),Child=content};Bind(card,Border.BackgroundProperty,"CardFill");return card;
+        var card=new Border{CornerRadius=new(16),Padding=new(16,10,16,10),Margin=new(0,0,0,12),Child=content};Bind(card,Border.BackgroundProperty,"CardFill");Bind(card,System.Windows.Documents.TextElement.FontFamilyProperty,"UserFont");return card;
     }
     public static void PresentMessage(string title, string message)
     {

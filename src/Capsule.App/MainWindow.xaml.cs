@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         Design.ApplyTheme(settings.ThemeMode);
         shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();
+        ApplyUserFont();
         InitializeVisibility();
         overview=new OverviewView(settings,SaveAndApplySettings);OverviewHost.Content=overview;
         MouseEnter+=(_,_)=>panelCollapse.Stop();
@@ -197,6 +198,7 @@ public partial class MainWindow : Window
     }
     private void SaveAndApplySettings()
     {
+        ApplyUserFont();
         Design.ApplyTheme(settings.ThemeMode);
         try{settings.Save();}catch(Exception exception){Design.PresentMessage("设置未能保存",exception.Message);}
         media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
@@ -205,6 +207,7 @@ public partial class MainWindow : Window
         shortcuts.Apply();
         ApplyCapture();UpdateLyrics(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
     }
+    private void ApplyUserFont(){Design.ApplyFont(settings.FontName);FontFamily=Design.UserFont;LiveLyrics.SetFont(Design.UserFont);}
     private void ConfigureStartup(bool enabled) { StartupService.SetEnabled(enabled); settings.StartWithWindows = enabled; settings.Save(); }
     private void ShowTrayMenu()
     {

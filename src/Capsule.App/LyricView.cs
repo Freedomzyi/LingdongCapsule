@@ -12,7 +12,8 @@ public sealed class LyricView : FrameworkElement
     private readonly Dictionary<(string,double),TextLayout> layouts=[];
     private readonly Dictionary<LyricLine,double[]> wordWidths=[];
     private double cachedDpi;
-    private readonly Typeface typeface=new("Microsoft YaHei UI");
+    private Typeface typeface=new("Microsoft YaHei UI");
+    public void SetFont(FontFamily family){if(typeface.FontFamily.Source==family.Source)return;typeface=new(family,FontStyles.Normal,FontWeights.Normal,FontStretches.Normal);layouts.Clear();wordWidths.Clear();InvalidateVisual();}
     private bool listening;
     private bool playing;
     private LyricFrame previous, last;

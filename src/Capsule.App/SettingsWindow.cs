@@ -28,7 +28,7 @@ public sealed class SettingsWindow : Window
         Closed+=(_,_)=>soundPreview.Dispose();
         Title = "灵动胶囊 · 设置"; Width = Math.Min(700,SystemParameters.WorkArea.Width-40); Height = Math.Min(720, SystemParameters.WorkArea.Height - 48);
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize; AllowsTransparency = true; Background = Brushes.Transparent;
-        FontFamily = new("Microsoft YaHei UI"); FontSize = 13; WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        FontFamily = Design.UserFont; FontSize = 13; WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Design.Bind(this, ForegroundProperty, "TextPrimary");
         var outer = new Border { CornerRadius = new(22), BorderBrush = new SolidColorBrush(Color.FromArgb(35, 128, 128, 128)), BorderThickness = new(1) };
         Design.Bind(outer, Border.BackgroundProperty, "PageFill"); Content = outer;
@@ -52,6 +52,7 @@ public sealed class SettingsWindow : Window
         var panel=pages["个性化中心"];
 
         Heading(panel, "外观与动效");
+        AddSelection(panel,"字体",()=>{var options=new Dictionary<string,string>{{"","系统默认（恢复默认）"}};foreach(var font in Fonts.SystemFontFamilies.OrderBy(font=>font.Source))options.TryAdd(font.Source,font.Source);return options;},settings.FontName,value=>{settings.FontName=value;Design.ApplyFont(value);FontFamily=Design.UserFont;},"选择本机字体；不打包或分发字体文件，找不到字形时由系统回退。");
         AddSelection(panel,"界面主题",()=>new Dictionary<string,string>{{"0","深色"},{"1","浅色"},{"2","跟随系统"}},settings.ThemeMode.ToString(),value=>{settings.ThemeMode=int.Parse(value);Design.ApplyTheme(settings.ThemeMode);foreach(var tab in tabs)if(tab.Value.Background!=Brushes.Transparent)tab.Value.SetResourceReference(Control.BackgroundProperty,"ButtonFill");},"设置、引导和弹窗即时切换；岛体材质主题仍在单独对齐。");
         var appearance = new StackPanel();
         AddSlider(appearance, "播放与通知宽度", 220, 480, settings.Width, v => settings.Width = v, "逻辑像素；播放固定宽度，通知不会超过此值。");

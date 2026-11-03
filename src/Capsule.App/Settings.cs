@@ -6,6 +6,7 @@ namespace Capsule.App;
 public sealed class Settings
 {
     public int ThemeMode{get;set;}=2;
+    public string FontName{get;set;}="";
     public bool ClockEnabled{get;set;}=true;
     public int ClockLayout{get;set;}
     public bool HardwareEnabled{get;set;}
@@ -68,6 +69,7 @@ public sealed class Settings
     internal void Normalize()
     {
         ThemeMode=Math.Clamp(ThemeMode,0,2);
+        FontName??="";
         ClockLayout=Math.Clamp(ClockLayout,0,1);
         static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;
         Width=Limit(Width,220,480,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
