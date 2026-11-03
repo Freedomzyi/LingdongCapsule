@@ -61,7 +61,9 @@ public partial class MainWindow
             MaterialStatus=materialBackdrop.Status;
             if(source==null){ClearMaterialFrame();return;}
             var options=settings.Glass;var acrylic=settings.MaterialKind==1;var dark=Design.IsDark;
-            var alpha=settings.BackgroundOpacity/100;var corners=Shell.CornerRadius;
+            // Glass already composites the captured desktop and its own tint. The saved
+            // solid/acrylic opacity must not mix unprocessed desktop back into it.
+            var alpha=acrylic ? settings.BackgroundOpacity/100 : 1;var corners=Shell.CornerRadius;
             var quality=settings.GlassQuality switch{0=>.5,2=>1d,_=>.75};
             var result=await Task.Run(()=>
             {

@@ -24,6 +24,9 @@ internal static class GlassMaterialTests
         var neutral=new GlassOptions{Blur=4,Refraction=0,Dispersion=0,Rim=0,Depth=0,Saturation=2,Frost=0,Brightness=2};
         var flat=GlassMaterial.Compose(constant,sw,sh,width,height,margin,30,30,neutral,false,false);
         if(flat.Where((_,i)=>i%4!=3).Any(v=>v!=120))throw new Exception("Blur does not preserve constant energy or has uninitialized weights");
+        var clearAcrylic=GlassMaterial.Compose(constant,sw,sh,width,height,margin,30,30,neutral,true,true,0);
+        var tintedAcrylic=GlassMaterial.Compose(constant,sw,sh,width,height,margin,30,30,neutral,true,true,1);
+        if(clearAcrylic.Where((_,i)=>i%4!=3).Any(v=>v!=120) || clearAcrylic.Where((_,i)=>i%4==3).Any(v=>v!=255) || tintedAcrylic.Where((_,i)=>i%4!=3).Any(v=>v>=120))throw new Exception("Acrylic opacity must change tint while retaining complete blurred backdrop");
         void Reject(Action action){try{action();}catch(ArgumentException){return;}throw new Exception("Invalid material input accepted");}
         Reject(()=>GlassMaterial.Compose(source,sw,sh,-1,height,margin,30,30,options,false,false));
         Reject(()=>GlassMaterial.Compose([],sw,sh,width,height,margin,30,30,options,false,false));

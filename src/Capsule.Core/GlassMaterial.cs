@@ -64,12 +64,15 @@ public static class GlassMaterial
             var green=Sample(blurred,sourceWidth,sourceHeight,sx,sy,1);
             var red=Sample(blurred,sourceWidth,sourceHeight,sx+nx*bend*options.ColorSpread,sy+ny*bend*options.ColorSpread,2);
             var gray=red*.2126+green*.7152+blue*.0722;
-            var saturation=acrylic ? .85 : options.Colorfulness;var mist=acrylic ? .22 : options.Mist;
+            var saturation=acrylic ? .85 : options.Colorfulness;
+            // Acrylic opacity controls its tint coat over a complete blurred backdrop,
+            // rather than revealing an unblurred desktop through the whole surface.
+            var mist=acrylic ? (140d/255)*Math.Clamp(opacity,0,1) : options.Mist;
             var tint=dark ? 20d : 245d;var light=acrylic ? 0 : options.EdgeLight*Math.Exp(-inward/1.6)*(.4+.6*Math.Max(0,-nx*.5-ny*.86))*255;
             var offset=(y*width+x)*4;
             double Convert(double channel)=>((gray+(channel-gray)*saturation)*(acrylic ? 1 : options.Exposure))*(1-mist)+tint*mist+light;
             output[offset]=(byte)Math.Clamp(Math.Round(Convert(blue)),0,255);output[offset+1]=(byte)Math.Clamp(Math.Round(Convert(green)),0,255);output[offset+2]=(byte)Math.Clamp(Math.Round(Convert(red)),0,255);
-            output[offset+3]=(byte)Math.Round(Math.Clamp(opacity,0,1)*255);
+            output[offset+3]=acrylic ? (byte)255 : (byte)Math.Round(Math.Clamp(opacity,0,1)*255);
         }
         return output;
     }

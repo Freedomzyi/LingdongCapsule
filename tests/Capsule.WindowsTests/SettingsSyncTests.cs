@@ -45,6 +45,18 @@ internal static class SettingsSyncTests
             Check(Descendants<Button>(page).Any(item=>Equals(item.Content,"检查更新")),"Scrolled About page could not open");
             await Task.Delay(180);var bitmap=new RenderTargetBitmap((int)Math.Ceiling(page.ActualWidth),(int)Math.Ceiling(page.ActualHeight),96,96,PixelFormats.Pbgra32);bitmap.Render(page);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var output=File.Create(Path.Combine(root,"short-settings-light.png")))encoder.Save(output);
             Check(Settings.LoadFrom(path).ThemeMode==1 && Settings.LoadFrom(path).OnboardingCompleted,"Owned persisted guide state did not survive reload");
+            page.SelectPage("个性化中心");page.UpdateLayout();
+            var glassCard=Descendants<Border>(page).Single(item=>Equals(item.Tag,"material-glass"));
+            var opacity=Descendants<StackPanel>(page).Single(item=>Equals(item.Tag,"material-opacity"));
+            var retainedGlass=settings.Glass;var retainedOpacity=settings.BackgroundOpacity;var beforeRefresh=writes;
+            foreach(var material in new[]{0,1,2,0,2})
+            {
+                settings.MaterialKind=material;page.RefreshPreferences();page.UpdateLayout();
+                Check(glassCard.Visibility==(material==2 ? Visibility.Visible : Visibility.Collapsed) && opacity.Visibility==(material==2 ? Visibility.Collapsed : Visibility.Visible),"Material controls do not follow selection/guide refresh");
+                Check(settings.Glass==retainedGlass && settings.BackgroundOpacity==retainedOpacity && writes==beforeRefresh,"Material visibility reset preferences or saved during refresh");
+            }
+            Check(Descendants<Slider>(glassCard).Count()==12 && Control("玻璃质量").IsVisible,"Glass detail controls are missing after mode changes");
+            Console.WriteLine("PASS material-dependent opacity/glass controls, twelve parameters and preserved preferences without refresh writes");
             Console.WriteLine("PASS shared guide preferences, startup backend, no extra save/page reset, read-fault feedback and short-window navigation; evidence: "+root);
         }
         finally{page.Close();}
