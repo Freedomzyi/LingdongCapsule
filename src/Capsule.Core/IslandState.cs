@@ -1,7 +1,7 @@
 namespace Capsule.Core;
 
 public record MediaSnapshot(string Title, string Artist, bool Playing, bool Available, string Album = "", TimeSpan Duration = default, string SourceId = "",bool IsVideo=false);
-public record Notice(string SourceId, string App, string Title, string Body, uint Id=0,DateTimeOffset CreatedAt=default);
+public record Notice(string SourceId, string App, string Title, string Body, uint Id=0,DateTimeOffset CreatedAt=default,string? Avatar=null,string? Icon=null);
 public enum IslandMode { Clock, Media, Notification }
 
 // Media is live state, never a saved UI frame. Dismissing an overlay resolves it again.

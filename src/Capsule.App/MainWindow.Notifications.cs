@@ -14,6 +14,8 @@ public partial class MainWindow
     private Notice? pressedNotice;
     private bool noticeSwiped;
     private readonly NotificationSound notificationSound=new();
+    private readonly NoticeImages noticeImages=new();
+    private CancellationTokenSource noticeImageRequest=new();
     internal int NoticeSoundPlayCount=>notificationSound.PlayCount;
     private readonly BitmapImage defaultNoticeIcon=new(new Uri("pack://application:,,,/LingdongCapsule;component/Assets/icon.png"));
     internal bool AcceptNotification(Notice notice,DateTimeOffset now)
@@ -24,10 +26,17 @@ public partial class MainWindow
         if(!settings.NotificationsEnabled || settings.MutedSources.Contains(notice.SourceId) || !state.Show(notice,now))return false;
         if(settings.MspPublishEvents)msp.PublishNotice(notice,settings.PrivatePreview);
         if(!state.LastNoticeGrouped)_=notificationSound.PlayAsync(settings);
-        controlsOpen=false;overviewOpen=false;Render();return true;
+        controlsOpen=false;overviewOpen=false;Render();_=ResolveNoticeImagesAsync(notice);return true;
+    }
+    private async Task ResolveNoticeImagesAsync(Notice notice)
+    {
+        noticeImageRequest.Cancel();noticeImageRequest.Dispose();noticeImageRequest=new();
+        await noticeImages.ResolveAsync(notice,noticeImageRequest.Token);
+        if(!closing && ReferenceEquals(state.Notification,notice))Render();
     }
     private void InitializeNotifications()
     {
+        Closed+=(_,_)=>{noticeImageRequest.Cancel();noticeImageRequest.Dispose();noticeImages.Dispose();};
         Shell.PreviewMouseLeftButtonDown+=(_,args)=>
         {
             if(state.Notification==null)return;
@@ -70,7 +79,8 @@ public partial class MainWindow
         var textWidth=Math.Max(Measure(title,13),Measure(notice.Body,11));
         if(settings.NotificationMode==2)textWidth=Math.Max(textWidth,Measure(notice.App,11));
         var side=settings.NotificationMode==1 ? Math.Min(64,Math.Max(Measure(notice.App,10),Measure("现在",10)))+7 : settings.NotificationMode==2 ? 36 : 0;
-        return state.Expanded ? cap : Math.Min(cap,Math.Max(104,textWidth+Math.Min(settings.NotificationIconSize,Math.Max(1,cap-64))+settings.NotificationIconGap+30+side));
+        var imageSize=settings.NotificationIconSize+(noticeImages.Get(notice)?.Avatar==true ? 5 : 0);
+        return state.Expanded ? cap : Math.Min(cap,Math.Max(104,textWidth+Math.Min(imageSize,Math.Max(1,cap-64))+settings.NotificationIconGap+30+side));
     }
     private double RenderNotification(double width)
     {
@@ -99,10 +109,12 @@ public partial class MainWindow
         NoticeBody.LineHeight=state.Expanded ? 18 : double.NaN;
         NoticeBodyScroll.VerticalScrollBarVisibility=state.Expanded ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
         NoticeBodyScroll.Margin=new Thickness(0,state.Expanded ? 6 : 3,0,0);
-        NoticeIcon.Source=notifications.Logo(notice.SourceId) ?? defaultNoticeIcon;
-        var size=Math.Min(settings.NotificationIconSize,Math.Max(1,width-64));
+        var supplied=noticeImages.Get(notice);
+        NoticeIcon.Source=supplied?.Bitmap ?? notifications.Logo(notice.SourceId) ?? defaultNoticeIcon;
+        NoticeIcon.Stretch=Stretch.UniformToFill;
+        var size=Math.Min(settings.NotificationIconSize+(supplied?.Avatar==true ? 5 : 0),Math.Max(1,width-64));
         NoticeIconFrame.Width=NoticeIconFrame.Height=size;
-        NoticeIcon.Clip=new RectangleGeometry(new Rect(0,0,size,size),4,4);
+        NoticeIcon.Clip=new RectangleGeometry(new Rect(0,0,size,size),supplied?.Avatar==true ? size/2 : 4,supplied?.Avatar==true ? size/2 : 4);
         NoticeIconFrame.Margin=new Thickness(0,0,settings.NotificationIconGap,0);
         if(state.Expanded)
         {

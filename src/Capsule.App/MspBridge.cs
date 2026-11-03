@@ -29,11 +29,7 @@ internal sealed class MspBridge : IDisposable
                 _=ReceiveSignalAsync(signal.Source ?? "MSP",signal.Payload.Clone());
             });
             candidate.Tool("ping",()=>new{node="lingdongcapsule",active=true},"胶囊节点健康检查");
-            candidate.Tool("notify",(Func<string,string,Task<object>>)(async(title,body)=>
-            {
-                title??="";body??="";if(title.Length>4096 || body.Length>16384)return new{ok=false,error="通知长度超限"};
-                return new{ok=await notify(new("msp","MSP",title,body,unchecked((uint)Interlocked.Increment(ref noticeSequence))))};
-            }),"在胶囊显示通知；遵守来源、隐私与安静设置");
+            candidate.Tool("notify",(Func<string,string,List<JsonElement>?,Task<object>>)NotifyAsync,"在胶囊显示通知；content 支持 text、image、resource_link，annotations.role=avatar/icon；遵守来源、隐私与安静设置");
             candidate.Tool("media_status",(Func<Task<object>>)(async()=>{var media=await readMedia();return new{active=media.Available,playing=media.Playing,title=media.Title,artist=media.Artist};}),"读取当前媒体状态");
             candidate.Tool("media_control",(Func<string,Task<object>>)(async action=>
             {
@@ -57,15 +53,19 @@ internal sealed class MspBridge : IDisposable
         Publish(notice.SourceId=="self" ? "notify.lingdongcapsule.reminder.raised" : "notify.toast.raised",new{app=notice.App,source=notice.SourceId,title=privatePreview ? "" : notice.Title,body=privatePreview ? "" : notice.Body});
     }
     private void Publish(string path,object payload){try{node?.Publish(path,payload);}catch(Exception error){Error="MSP 广播失败："+error.GetType().Name;}}
+    private async Task<object> NotifyAsync(string title="",string body="",List<JsonElement>? content=null)
+    {
+        var parsed=NoticeContent.Parse(JsonSerializer.SerializeToElement(new{title,body,content}));
+        if(parsed==null)return new{ok=false,error="通知内容无效或超限"};
+        return new{ok=await notify(new("msp","MSP",parsed.Title,parsed.Body,unchecked((uint)Interlocked.Increment(ref noticeSequence)),Avatar:parsed.Avatar,Icon:parsed.Icon))};
+    }
     private async Task ReceiveSignalAsync(string peer,JsonElement payload)
     {
         try
         {
             if(payload.ValueKind!=JsonValueKind.Object)return;
-            string Read(params string[] names){foreach(var name in names)if(payload.TryGetProperty(name,out var value) && value.ValueKind==JsonValueKind.String)return value.GetString() ?? "";return "";}
-            var title=Read("title","Title","name");var body=Read("body","Body","text","message");
-            if(title.Length==0 && body.Length==0 || title.Length>4096 || body.Length>16384 || peer.Length>128)return;
-            await notify(new("msp:"+peer,peer,title.Length>0 ? title : body,body,unchecked((uint)Interlocked.Increment(ref noticeSequence))));
+            var parsed=NoticeContent.Parse(payload);if(parsed==null || peer.Length>128)return;
+            await notify(new("msp:"+peer,peer,parsed.Title,parsed.Body,unchecked((uint)Interlocked.Increment(ref noticeSequence)),Avatar:parsed.Avatar,Icon:parsed.Icon));
         }
         catch(Exception){ /* A stale UI dispatcher or invalid peer message must not stop the node. */ }
     }
