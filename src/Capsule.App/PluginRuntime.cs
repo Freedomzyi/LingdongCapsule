@@ -6,7 +6,7 @@ namespace Capsule.App;
 
 internal sealed class PluginRuntime : IDisposable
 {
-    private sealed record Active(PluginModule Module,FrameworkElement View);
+    private sealed record Active(PluginModule Module,FrameworkElement View,PluginIdentity Identity);
     private readonly Dictionary<string,Active> active=new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> order=[];
     private readonly Settings settings;
@@ -15,6 +15,7 @@ internal sealed class PluginRuntime : IDisposable
     private readonly Action save;
     public StackPanel View{get;}=new(){Orientation=Orientation.Horizontal};
     public IReadOnlyCollection<string> ActiveIds=>order.AsReadOnly();
+    public PluginIdentity Identity(string id)=>active[id].Identity;
     public Dictionary<string,string> Errors{get;}=[];
     public PluginRuntime(Settings settings,Func<PluginMedia> media,Func<string,string,string,string,Task<bool>> notify,Action save){this.settings=settings;this.media=media;this.notify=notify;this.save=save;}
     private sealed class Host(PluginRuntime owner,PluginIdentity identity) : ICapsulePluginHost
@@ -43,7 +44,7 @@ internal sealed class PluginRuntime : IDisposable
             if(active.ContainsKey(identity.Id))throw new InvalidOperationException("同一插件已经启用。");
             var view=plugin.CreateWidget(new Host(this,identity)) ?? throw new InvalidOperationException("插件未返回组件。");
             if(view.Parent!=null)throw new InvalidOperationException("插件组件已有父级。");
-            View.Children.Add(view);active[identity.Id]=new(module,view);order.Add(identity.Id);Errors.Remove(identity.Id);return identity.Id;
+            View.Children.Add(view);active[identity.Id]=new(module,view,identity);order.Add(identity.Id);Errors.Remove(identity.Id);return identity.Id;
         }
         catch{module?.Dispose();throw;}
     }

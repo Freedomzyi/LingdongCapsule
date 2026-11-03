@@ -35,8 +35,24 @@ public partial class MainWindow
     {
         var path=Path.GetFullPath(file);PluginPackageInfo? expected=null;
         if(path.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){var installed=PluginPackage.Install(path,pluginDirectory);path=installed.EntryFile;expected=installed.Info;}
-        var id=plugins.Enable(path);
-        if(expected!=null && id!=expected.Id){plugins.Disable(id);throw new InvalidDataException("清单 ID 与插件实际 ID 不一致，未启用。");}
+        string? previousPath=null;var previousIndex=-1;
+        if(expected!=null && pluginPaths.TryGetValue(expected.Id,out previousPath)){previousIndex=plugins.ActiveIds.ToList().IndexOf(expected.Id);plugins.Disable(expected.Id);}
+        string id;
+        try
+        {
+            id=plugins.Enable(path);
+            if(expected!=null)
+            {
+                static Version NormalizeVersion(string value){var v=Version.Parse(value);return new(v.Major,v.Minor,Math.Max(0,v.Build),Math.Max(0,v.Revision));}
+                if(id!=expected.Id || NormalizeVersion(plugins.Identity(id).Version)!=NormalizeVersion(expected.Version)){plugins.Disable(id);throw new InvalidDataException("清单与插件实际 ID 或版本不一致，未启用。");}
+            }
+        }
+        catch
+        {
+            if(previousPath!=null){plugins.Enable(previousPath);for(var index=plugins.ActiveIds.Count-1;index>previousIndex;index--)plugins.Move(expected!.Id,-1);}
+            throw;
+        }
+        if(previousPath!=null){settings.PluginFiles.RemoveAll(file=>string.Equals(file,previousPath,StringComparison.OrdinalIgnoreCase));for(var index=plugins.ActiveIds.Count-1;index>previousIndex;index--)plugins.Move(id,-1);}
         pluginPaths[id]=path;
         settings.PluginFailures.Remove(id);settings.PluginFailures.Remove(path);
         if(!settings.PluginFiles.Contains(path,StringComparer.OrdinalIgnoreCase))settings.PluginFiles.Add(path);
