@@ -1,4 +1,5 @@
 using Capsule.Core;
+GlassMaterialTests.Run();
 var now = DateTimeOffset.UtcNow;
 var solo=new SoloState();
 if(!solo.Apply("{\"type\":\"init\",\"lyrics\":[{\"time\":1000,\"text\":\"Test\",\"translation\":\"译文\"}]}",0) || solo.Lyrics.Lines.Count!=1)throw new Exception("Solo lyric protocol failed");

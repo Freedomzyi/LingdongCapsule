@@ -20,6 +20,7 @@ internal static class Program
     }
     private static async Task RunAsync(string[] args)
     {
+        if(args.Contains("--material-test")){await MaterialTests.RunAsync();return;}
         if(args.Contains("--release-test")){await ReleaseTests.RunAsync();return;}
         if(args.Contains("--solo-test")){await SoloTests.RunAsync();return;}
         if(args.Contains("--msp-test")){await MspTests.RunAsync();return;}
