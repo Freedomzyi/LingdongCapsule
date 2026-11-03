@@ -39,7 +39,7 @@ internal static class SoloTests
         using var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();var port=((IPEndPoint)listener.LocalEndpoint).Port;
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
         var settings=new Settings{MediaSourceKind="justsolo",NotificationsEnabled=false,LyricsEnabled=true,CompositeEnabled=true,MediaFirst=true};
-        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings,localSoloEndpoint:new Uri($"ws://127.0.0.1:{port}/"));
+        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings,localSoloEndpoint:new Uri($"ws://127.0.0.1:{port}/"),pluginSettingsWriter:()=>{});
         try
         {
             window.Show();using var client=await listener.AcceptTcpClientAsync().WaitAsync(TimeSpan.FromSeconds(5));using var stream=client.GetStream();
@@ -54,13 +54,13 @@ internal static class SoloTests
             for(var attempt=0;attempt<30 && (!window.LiveState.Media.Available || view.Visibility!=System.Windows.Visibility.Visible);attempt++)await Task.Delay(100);
             if(!window.LiveState.Media.Playing || view.FrameProvider?.Invoke().Line?.Text!="Live test" || view.Visibility!=System.Windows.Visibility.Visible)throw new Exception("Local protocol lyrics did not reach actual island");
             window.UpdateLayout();var clock=(System.Windows.FrameworkElement)window.FindName("Clock");var panel=(System.Windows.FrameworkElement)window.FindName("MediaPanel");
-            if(clock.Visibility!=System.Windows.Visibility.Visible || panel.Visibility!=System.Windows.Visibility.Visible || System.Windows.Controls.Grid.GetColumn(panel)!=0 || System.Windows.Controls.Grid.GetColumn(clock)!=1 || window.ActualWidth>settings.Width+.5)throw new Exception("Composite media/clock layout or ordering failed");
+            if(clock.Visibility!=System.Windows.Visibility.Visible || panel.Visibility!=System.Windows.Visibility.Visible || !window.LiveModuleOrder.SequenceEqual(new[]{"media","clock"}) || window.ActualWidth>settings.Width+.5)throw new Exception("Composite media/clock layout or ordering failed");
             var render=typeof(Capsule.App.MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
             foreach(var width in new[]{80d,195d,280d,300d})foreach(var first in new[]{false,true})
             {
                 settings.Width=width;settings.MediaFirst=first;render.Invoke(window,null);await Task.Delay(650);window.UpdateLayout();
-                var slot=System.Windows.Controls.Primitives.LayoutInformation.GetLayoutSlot(clock);
-                if(System.Windows.Controls.Grid.GetColumn(panel)!=(first ? 0 : 1) || !double.IsFinite(clock.ActualWidth) || clock.MaxWidth!=Math.Max(0,width-24-110-8) || slot.Width>Math.Max(0,width-24-110)+1 || window.ActualWidth>width+.5)throw new Exception($"Composite width/order boundary failed: requested={width}, first={first}, slot={slot.Width}, max={clock.MaxWidth}, window={window.ActualWidth}");
+                var slot=System.Windows.Controls.Primitives.LayoutInformation.GetLayoutSlot((System.Windows.FrameworkElement)clock.Parent);
+                if(!window.LiveModuleOrder.SequenceEqual(first ? new[]{"media","clock"} : new[]{"clock","media"}) || !double.IsFinite(clock.ActualWidth) || slot.Width>Math.Max(0,width-26-110)+1 || window.ActualWidth>width+.5)throw new Exception($"Composite width/order boundary failed: requested={width}, first={first}, slot={slot.Width}, window={window.ActualWidth}");
             }
             settings.CompositeEnabled=false;render.Invoke(window,null);
             if(clock.Visibility!=System.Windows.Visibility.Collapsed || panel.Visibility!=System.Windows.Visibility.Visible)throw new Exception("Disabling composite did not restore exclusive media");
@@ -69,6 +69,25 @@ internal static class SoloTests
             var evidence=System.IO.Path.Combine("artifacts","verification","composite");System.IO.Directory.CreateDirectory(evidence);
             var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using(var file=System.IO.File.Create(System.IO.Path.Combine(evidence,"media-clock.png")))encoder.Save(file);
             Console.WriteLine("PASS Composite width 80/195/280/300, both orders, exclusive fallback and WPF render");
+            var mixed=new[]{"plugin:fixture.second","hardware","media","plugin:fixture.clock","clock"};
+            var directory=System.IO.Path.Combine(evidence,Guid.NewGuid().ToString("N"));System.IO.Directory.CreateDirectory(directory);var second=System.IO.Path.Combine(directory,"fixture-second.dll");System.IO.File.Copy(typeof(FixturePlugin).Assembly.Location,second);
+            window.LoadPlugin(typeof(FixturePlugin).Assembly.Location,save:false);window.LoadPlugin(second,save:false);settings.HardwareEnabled=true;settings.ComponentOrder=mixed.ToList();render.Invoke(window,null);await Task.Delay(700);window.UpdateLayout();
+            if(!window.LiveModuleOrder.SequenceEqual(mixed))throw new Exception("Native modules and individual plugins were not interleaved");
+            var previousRight=0d;
+            foreach(var id in mixed)
+            {
+                var element=id switch{"clock"=>clock,"hardware"=>(System.Windows.FrameworkElement)window.FindName("HardwarePanel"),"media"=>panel,_=>window.LivePluginWidgets[Array.IndexOf(new[]{"fixture.clock","fixture.second"},id[7..])]};
+                var host=(System.Windows.FrameworkElement)element.Parent;var left=host.TransformToAncestor(window).Transform(new System.Windows.Point()).X;
+                if(left<previousRight-.5 || left+host.ActualWidth>window.ActualWidth+.5)throw new Exception("Mixed component columns overlap or exceed island bounds");previousRight=left+host.ActualWidth;
+            }
+            settings.HardwareEnabled=false;render.Invoke(window,null);if(window.LiveModuleOrder.Contains("hardware"))throw new Exception("Disabled hardware retained a visible slot");
+            settings.HardwareEnabled=true;window.SetStandby(true);if(!window.LiveModuleOrder.SequenceEqual(new[]{"clock"}))throw new Exception("Standby failed to isolate clock from mixed modules");
+            window.SetStandby(false);if(!window.LiveModuleOrder.SequenceEqual(mixed))throw new Exception("Leaving standby lost mixed module order");
+            var click=typeof(Capsule.App.MainWindow).GetMethod("HandleIslandClick",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;click.Invoke(window,null);
+            if(!window.LiveModuleOrder.SequenceEqual(new[]{"media"}))throw new Exception("Expanded media did not isolate its controls");click.Invoke(window,null);
+            if(!window.LiveModuleOrder.SequenceEqual(mixed))throw new Exception("Collapsing media lost mixed module order");
+            window.MoveDisplayComponent("clock",-1);if(!window.LiveModuleOrder.SequenceEqual(new[]{"plugin:fixture.second","hardware","media","clock","plugin:fixture.clock"}))throw new Exception("Unified module move did not alter actual layout");
+            Console.WriteLine("PASS Interleaved media/hardware/clock/two plugins, non-overlap, disabled slots, standby and expansion restore");
             await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure,"end integration",timeout.Token);
             for(var attempt=0;attempt<30 && window.LiveState.Media.Available;attempt++)await Task.Delay(100);
             if(window.LiveState.Media.Available || view.FrameProvider?.Invoke().Line!=null)throw new Exception("Disconnected island retained local media or lyrics");

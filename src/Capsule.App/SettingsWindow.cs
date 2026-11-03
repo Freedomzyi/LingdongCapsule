@@ -24,7 +24,7 @@ public sealed class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string,int> movePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage,Func<DisplayComponent[]> displayComponents,Action<string,int> moveDisplayComponent)
     {
         this.settings = settings; this.save = save;
         Closed+=(_,_)=>soundPreview.Dispose();
@@ -51,12 +51,12 @@ public sealed class SettingsWindow : Window
             button.Click+=(_,_)=>SelectPage(name);tabs[name]=button;navigation.Children.Add(button);
         }
         SelectPage("个性化中心");
-        var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();var installedRows=new StackPanel();
+        var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();var installedRows=new StackPanel();Action refreshDisplayOrder=()=>{};
         void RefreshPlugins()
         {
             pluginRows.Children.Clear();foreach(var id in activePlugins())
             {
-                var row=new DockPanel{Margin=new Thickness(0,5,0,5)};foreach(var direction in new[]{1,-1}){var step=direction;var move=new Button{Content=step<0 ? "↑" : "↓",Padding=new Thickness(8,6,8,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(move,Dock.Right);move.Click+=(_,_)=>{try{movePlugin(id,step);RefreshPlugins();}catch(Exception error){Design.PresentMessage("排序未能保存",error.Message);}};row.Children.Add(move);}var remove=new Button{Content="卸载",Padding=new Thickness(10,6,10,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(remove,Dock.Right);remove.Click+=(_,_)=>{if(CardDialog.Show("卸载插件？","胶囊安装的包将删除；外部 DLL 只移出列表，原文件和个人设置保留。","卸载",destructive:true)==null)return;try{uninstallPlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("卸载未完成",error.Message);}};row.Children.Add(remove);var disable=new Button{Content="停用",Padding=new Thickness(10,6,10,6)};DockPanel.SetDock(disable,Dock.Right);disable.Click+=(_,_)=>{try{disablePlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("停用未能保存",error.Message);}};row.Children.Add(disable);row.Children.Add(new TextBlock{Text=id,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});pluginRows.Children.Add(row);
+                var row=new DockPanel{Margin=new Thickness(0,5,0,5)};var remove=new Button{Content="卸载",Padding=new Thickness(10,6,10,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(remove,Dock.Right);remove.Click+=(_,_)=>{if(CardDialog.Show("卸载插件？","胶囊安装的包将删除；外部 DLL 只移出列表，原文件和个人设置保留。","卸载",destructive:true)==null)return;try{uninstallPlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("卸载未完成",error.Message);}};row.Children.Add(remove);var disable=new Button{Content="停用",Padding=new Thickness(10,6,10,6)};DockPanel.SetDock(disable,Dock.Right);disable.Click+=(_,_)=>{try{disablePlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("停用未能保存",error.Message);}};row.Children.Add(disable);row.Children.Add(new TextBlock{Text=id,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});pluginRows.Children.Add(row);
             }
             if(pluginRows.Children.Count==0)pluginRows.Children.Add(new TextBlock{Text="尚未加载外部插件。",Margin=new Thickness(0,8,0,8)});
             installedRows.Children.Clear();
@@ -71,6 +71,7 @@ public sealed class SettingsWindow : Window
                 row.Children.Add(actions);installedRows.Children.Add(row);
             }
             if(installedRows.Children.Count==0)installedRows.Children.Add(new TextBlock{Text="没有停用或待清理的安装包。",FontSize=12,Margin=new Thickness(0,6,0,6)});
+            refreshDisplayOrder();
         }
         var pluginLoad=new Button{Content="安装插件包／加载 DLL…",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,12,0,12)};
         pluginLoad.Click+=(_,_)=>
@@ -171,15 +172,25 @@ public sealed class SettingsWindow : Window
         Heading(panel,"显示位置与形态");
         var clockOptions=new StackPanel();
         AddCheck(clockOptions,"组合显示",settings.CompositeEnabled,value=>settings.CompositeEnabled=value,"折叠态同时显示已启用的时钟、硬件、插件和媒体；展开播放器时保留完整控制。较窄时其他组件会裁切。");
-        AddSelection(clockOptions,"媒体排列位置",()=>new Dictionary<string,string>{{"last","其他组件 → 媒体"},{"first","媒体 → 其他组件"}},settings.MediaFirst ? "first" : "last",value=>settings.MediaFirst=value=="first","组合显示下调整媒体与其他组件的排列。");
         AddSelection(clockOptions,"待机场景",()=>new Dictionary<string,string>{{"1","时间"},{"2","空白"},{"3","媒体控制"}},settings.StandbyScene.ToString(),value=>settings.StandbyScene=int.Parse(value),"待机时仅显示所选内容；通知仍可临时覆盖，媒体控制需要已有媒体会话。");
         AddCheck(clockOptions,"待机模式",settings.StandbyActive,value=>settings.StandbyActive=value,"临时使用单一场景，退出后恢复原有组件开关与顺序。");
         AddCheck(clockOptions,"双击切换待机",settings.StandbyDoubleClick,value=>settings.StandbyDoubleClick=value,"双击岛体内容区域切换待机；启用后单击会等待系统双击判定时间。");
-        AddSelection(clockOptions,"空闲组件顺序",()=>new Dictionary<string,string>{{"clock","时钟 → 硬件"},{"hardware","硬件 → 时钟"}},settings.HardwareFirst ? "hardware" : "clock",value=>settings.HardwareFirst=value=="hardware","调整折叠态已启用的时钟与硬件组件排列；关闭的组件不占位置。");
         AddSelection(clockOptions,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟对应当前定制组件；时间与日期按 HH:mm 与 MM/dd 显示，并根据内容收窄。");
         AddCheck(clockOptions,"显示时间日期",settings.ClockEnabled,value=>settings.ClockEnabled=value,"关闭后不显示时钟文本；仍保留空闲面板点击入口，不影响播放和通知。");
         AddCheck(clockOptions,"显示硬件占用",settings.HardwareEnabled,value=>settings.HardwareEnabled=value,"折叠态每秒采样真实 CPU 与内存；无有效数据时显示横线。开启组合显示后可与媒体同时显示。");
         panel.Children.Add(Design.Card(clockOptions));
+        Heading(panel,"组件排列");var orderRows=new StackPanel();
+        void RefreshDisplayOrder()
+        {
+            orderRows.Children.Clear();var components=displayComponents();
+            for(var index=0;index<components.Length;index++)
+            {
+                var item=components[index];var row=new DockPanel{Margin=new Thickness(0,5,0,5)};
+                foreach(var direction in new[]{1,-1}){var step=direction;var button=new Button{Content=step<0 ? "↑" : "↓",ToolTip=step<0 ? "向前移动" : "向后移动",Padding=new Thickness(10,6,10,6),Margin=new Thickness(4,0,0,0),IsEnabled=step<0 ? index>0 : index<components.Length-1};DockPanel.SetDock(button,Dock.Right);button.Click+=(_,_)=>{try{moveDisplayComponent(item.Id,step);RefreshDisplayOrder();}catch(Exception error){Design.PresentMessage("排列未能保存",error.Message);}};row.Children.Add(button);}
+                row.Children.Add(new TextBlock{Text=item.Name,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});orderRows.Children.Add(row);
+            }
+        }
+        refreshDisplayOrder=RefreshDisplayOrder;RefreshDisplayOrder();panel.Children.Add(Design.Card(orderRows));
         var positionOptions=new StackPanel();
         AddSelection(positionOptions,"目标显示器",MonitorPlacement.Options,settings.MonitorId,v=>settings.MonitorId=v,"显示器断开时回到主屏，不修改其他软件设置。");
         AddSelection(positionOptions,"岛体形态",()=>new Dictionary<string,string>{{"1","灵动胶囊"},{"0","刘海"}},settings.IslandShape.ToString(),v=>settings.IslandShape=int.Parse(v),"刘海贴合屏幕上沿；胶囊保留顶部间距。");

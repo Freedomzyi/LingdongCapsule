@@ -130,7 +130,7 @@ public partial class MainWindow : Window
             if (settings.NotificationsEnabled) foreach (var n in await notifications.ReadAsync(settings.MutedSources)) AcceptNotification(n,DateTimeOffset.Now);
             if (closing) return;
             state.Tick(DateTimeOffset.Now); Render();
-            if(Clock.Visibility==Visibility.Visible && !visibilityResult.PassThrough)plugins.Update(new(DateTimeOffset.Now,Design.IsDark,new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing)));
+            if(modulesVisible && !settings.StandbyActive && !visibilityResult.PassThrough)plugins.Update(new(DateTimeOffset.Now,Design.IsDark,new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing)));
             QuarantineFailedPlugins();
             if(overviewOpen)await overview.TickAsync();
             var mediaStatus=!settings.MediaEnabled ? "媒体已关闭" : SoloSelected ? solo.Snapshot().Connected ? "Just Solo 本机已连接" : "等待 Just Solo 本机服务（127.0.0.1:47290）" : media.Status;
@@ -146,12 +146,6 @@ public partial class MainWindow : Window
         ClockDate.Text=clockNow.ToString("MM/dd");
         ClockDate.Visibility=settings.ClockEnabled && settings.ClockLayout==1 ? Visibility.Visible : Visibility.Collapsed;
         HardwarePanel.Visibility=settings.HardwareEnabled && !settings.StandbyActive ? Visibility.Visible : Visibility.Collapsed;
-        plugins.View.Visibility=settings.StandbyActive || plugins.ActiveIds.Count==0 ? Visibility.Collapsed : Visibility.Visible;
-        plugins.View.Margin=new Thickness(settings.ClockEnabled || settings.HardwareEnabled ? 12 : 0,0,0,0);
-        var hardwareIndex=Clock.Children.IndexOf(HardwarePanel);
-        var targetIndex=settings.HardwareFirst ? 0 : 2;
-        if(hardwareIndex!=targetIndex){Clock.Children.Remove(HardwarePanel);Clock.Children.Insert(targetIndex,HardwarePanel);}
-        HardwarePanel.Margin=new Thickness(!settings.HardwareFirst && settings.ClockEnabled ? 12 : 0,0,settings.HardwareFirst && settings.ClockEnabled ? 12 : 0,0);
         state.MediaClockSwitch=settings.MediaClockSwitch;
         state.SetQuietUntil(settings.QuietUntil,DateTimeOffset.Now);
         if(!settings.NotificationsEnabled || !settings.NotificationSoundEnabled || state.IsQuiet(DateTimeOffset.Now))notificationSound.StopPlayback();
@@ -164,9 +158,9 @@ public partial class MainWindow : Window
         Clock.Visibility = mode == IslandMode.Clock && !showMedia && !showOverview ? Visibility.Visible : Visibility.Collapsed;
         var combined=settings.CompositeEnabled && showMedia && !IsMediaExpanded && !settings.StandbyActive && mode!=IslandMode.Notification;
         if(combined)Clock.Visibility=Visibility.Visible;
-        RenderComposite(showMedia,combined);
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)Clock.Visibility=settings.StandbyScene==1 ? Visibility.Visible : Visibility.Collapsed;
-        if(HardwarePanel.Visibility==Visibility.Visible && Clock.Visibility==Visibility.Visible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
+        RenderComposite(showMedia,combined);
+        if(HardwarePanel.Visibility==Visibility.Visible && modulesVisible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
         {
             nextHardwareSample=Environment.TickCount64+1000;var sample=compactHardware.Sample();CompactHardwareSample=sample;
             CpuUsage.Text=sample.Cpu is {} cpu ? $"CPU {cpu:0}%" : "CPU —";RamUsage.Text=sample.Memory is {} ram ? $"RAM {ram}%" : "RAM —";
@@ -181,7 +175,7 @@ public partial class MainWindow : Window
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
         var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(80, SystemParameters.WorkArea.Width - 16)) : Math.Min(104,settings.Width);
-        if(Clock.Visibility==Visibility.Visible && !showMedia && !showOverview && (plugins.ActiveIds.Count>0 || HardwarePanel.Visibility==Visibility.Visible || settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
+        if(modulesVisible && !showMedia && !showOverview)width=Math.Min(settings.Width,Math.Max(104,compactNaturalWidth+26));
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);
         var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? settings.ShowTomorrow ? 278 : 258 : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;
@@ -242,7 +236,7 @@ public partial class MainWindow : Window
     private void OpenSettings()
     {
         if (settingsWindow is not null) { settingsWindow.Activate(); return; }
-        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,MovePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin,InstallMarketPackage);
+        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin,InstallMarketPackage,DisplayComponents,MoveDisplayComponent);
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
     }

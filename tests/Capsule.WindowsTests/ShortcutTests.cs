@@ -64,7 +64,7 @@ internal static class ShortcutTests
             islandSettings.BackgroundOpacity=96;island.SetStandby(false);
             if(((System.Windows.Media.SolidColorBrush)((Border)island.FindName("Shell")).Background).Color.R<200 || ((System.Windows.Media.SolidColorBrush)((TextBlock)island.FindName("ClockTime")).Foreground).Color.R>100)throw new Exception("Light island theme has unreadable foreground/background");
             var date=(TextBlock)island.FindName("ClockDate");var clock=(FrameworkElement)island.FindName("Clock");
-            if(((StackPanel)clock).Children[0]!=(UIElement)island.FindName("HardwarePanel"))throw new Exception("Configured hardware-first order was not applied");
+            if(island.LiveModuleOrder.Take(2).SequenceEqual(new[]{"hardware","clock"})==false)throw new Exception("Configured hardware-first order was not applied");
             if(date.Visibility!=Visibility.Visible || date.Text!=DateTime.Now.ToString("MM/dd") || clock.DesiredSize.Width>island.ActualWidth-24)throw new Exception("Time/date layout exceeds compact island");
             if(!island.LiveVisibility.Hidden || ((Button)island.FindName("WakeButton")).Visibility!=Visibility.Visible)throw new Exception("Idle auto-hide did not retain wake button");
             ((Button)island.FindName("WakeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(100);

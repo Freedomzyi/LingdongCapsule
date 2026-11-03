@@ -23,6 +23,7 @@ public sealed class Settings
     public bool HardwareFirst{get;set;}
     public bool CompositeEnabled{get;set;}
     public bool MediaFirst{get;set;}
+    public List<string> ComponentOrder{get;set;}=[];
     public bool StandbyActive{get;set;}
     public int StandbyScene{get;set;}=1;
     public bool StandbyDoubleClick{get;set;}
@@ -87,6 +88,7 @@ public sealed class Settings
         PluginFiles??=[];
         PendingPluginRemovals??=[];
         PluginFailures??=[];
+        ComponentOrder=Capsule.Core.ComponentOrder.Normalize(ComponentOrder,HardwareFirst,MediaFirst).ToList();
         PluginFiles=PluginFiles.Where(path=>!string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         PendingPluginRemovals=PendingPluginRemovals.Where(path=>!string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         foreach(var key in PluginPreferences.Keys.ToArray())PluginPreferences[key]??=[];

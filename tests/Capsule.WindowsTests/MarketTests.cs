@@ -21,8 +21,8 @@ internal static class MarketTests
         try
         {
             island.Show();var before=DateTime.Now;island.LoadPlugin(file,save:false);
-            for(var attempt=0;attempt<30 && ((System.Windows.Controls.TextBlock)island.LivePluginView.Children[0]).Text.Length==0;attempt++)await Task.Delay(100);
-            var value=((System.Windows.Controls.TextBlock)island.LivePluginView.Children[0]).Text;
+            for(var attempt=0;attempt<30 && ((System.Windows.Controls.TextBlock)island.LivePluginWidgets[0]).Text.Length==0;attempt++)await Task.Delay(100);
+            var value=((System.Windows.Controls.TextBlock)island.LivePluginWidgets[0]).Text;
             if(value!=before.ToString("HH:mm") && value!=DateTime.Now.ToString("HH:mm"))throw new Exception("Live published plugin did not render current clock");
             Console.WriteLine($"PASS Live GitHub asset SHA/identity/version verification and actual island installation: {package.Id} {package.Version}");
         }
@@ -99,8 +99,8 @@ internal static class MarketTests
             {
                 island.Show();installFile=await market.DownloadAsync(package,root,new(0,1,0),default);var before=DateTime.Now;
                 island.LoadPlugin(installFile,save:false);
-                for(var attempt=0;attempt<30 && ((System.Windows.Controls.TextBlock)island.LivePluginView.Children[0]).Text.Length==0;attempt++)await Task.Delay(100);
-                var displayed=((System.Windows.Controls.TextBlock)island.LivePluginView.Children[0]).Text;
+                for(var attempt=0;attempt<30 && ((System.Windows.Controls.TextBlock)island.LivePluginWidgets[0]).Text.Length==0;attempt++)await Task.Delay(100);
+                var displayed=((System.Windows.Controls.TextBlock)island.LivePluginWidgets[0]).Text;
                 if(displayed!=before.ToString("HH:mm") && displayed!=DateTime.Now.ToString("HH:mm"))throw new Exception("Verified market ZIP did not run in actual island");
             }
             finally{island.Close();if(installFile!=null)File.Delete(installFile);}

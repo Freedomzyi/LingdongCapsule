@@ -16,6 +16,7 @@ internal sealed class PluginRuntime : IDisposable
     public StackPanel View{get;}=new(){Orientation=Orientation.Horizontal};
     public IReadOnlyCollection<string> ActiveIds=>order.AsReadOnly();
     public PluginIdentity Identity(string id)=>active[id].Identity;
+    public FrameworkElement Widget(string id)=>active[id].View;
     public Dictionary<string,string> Errors{get;}=[];
     public PluginRuntime(Settings settings,Func<PluginMedia> media,Func<string,string,string,string,Task<bool>> notify,Action save){this.settings=settings;this.media=media;this.notify=notify;this.save=save;}
     private sealed class Host(PluginRuntime owner,PluginIdentity identity) : ICapsulePluginHost
@@ -59,14 +60,16 @@ internal sealed class PluginRuntime : IDisposable
     }
     public void Disable(string id)
     {
-        View.Dispatcher.VerifyAccess();if(!active.Remove(id,out var entry))return;order.Remove(id);View.Children.Remove(entry.View);
+        View.Dispatcher.VerifyAccess();if(!active.Remove(id,out var entry))return;order.Remove(id);
+        if(entry.View.Parent is Panel panel)panel.Children.Remove(entry.View);else if(entry.View.Parent is Decorator decorator)decorator.Child=null;
         try{entry.Module.Dispose();}catch(Exception error){Errors[id]="插件释放失败："+error.GetType().Name;}
     }
     public bool Move(string id,int direction)
     {
         View.Dispatcher.VerifyAccess();var index=order.IndexOf(id);if(index<0)return false;
         var target=Math.Clamp(index+Math.Sign(direction),0,order.Count-1);if(target==index)return false;
-        order.RemoveAt(index);order.Insert(target,id);var view=active[id].View;View.Children.Remove(view);View.Children.Insert(target,view);return true;
+        order.RemoveAt(index);order.Insert(target,id);var view=active[id].View;
+        if(ReferenceEquals(view.Parent,View)){View.Children.Remove(view);View.Children.Insert(Math.Min(target,View.Children.Count),view);}return true;
     }
     public void Dispose(){foreach(var id in active.Keys.ToArray())Disable(id);}
 }

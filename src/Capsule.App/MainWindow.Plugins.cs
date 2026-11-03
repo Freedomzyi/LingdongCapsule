@@ -8,7 +8,7 @@ public partial class MainWindow
 {
     private PluginRuntime plugins=null!;
     private string pluginDirectory="";
-    internal System.Windows.Controls.StackPanel LivePluginView=>plugins.View;
+    internal IReadOnlyList<FrameworkElement> LivePluginWidgets=>plugins.ActiveIds.Select(plugins.Widget).ToArray();
     private readonly Dictionary<string,string> pluginPaths=new(StringComparer.OrdinalIgnoreCase);
     private uint pluginNoticeId;
     private bool persistPluginState;
@@ -48,7 +48,7 @@ public partial class MainWindow
         plugins=new(settings,()=>new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing),
             (id,name,title,body)=>pluginMutationDepth>0 ? Task.FromResult(false) : Dispatcher.InvokeAsync(()=>!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)).Task,
             ()=>{if(persist && pluginMutationDepth==0)writePluginSettings();});
-        plugins.View.Margin=new Thickness(12,0,0,0);plugins.View.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty,"IslandInk");Clock.Children.Add(plugins.View);
+        plugins.View.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty,"IslandInk");
         Loaded+=(_,_)=>
         {
             var failed=false;
@@ -69,6 +69,7 @@ public partial class MainWindow
     internal void LoadPlugin(string file,bool save=true,string? expectedMarketId=null)
     {
         var oldFiles=settings.PluginFiles.ToList();var oldPaths=new Dictionary<string,string>(pluginPaths,StringComparer.OrdinalIgnoreCase);
+        var oldOrder=settings.ComponentOrder.ToList();var oldRuntimeOrder=plugins.ActiveIds.ToArray();
         var oldFailures=new Dictionary<string,string>(settings.PluginFailures);var oldPending=settings.PendingPluginRemovals.ToList();
         var oldPreferences=settings.PluginPreferences.ToDictionary(item=>item.Key,item=>new Dictionary<string,string>(item.Value));
         var path=Path.GetFullPath(file);PluginPackageInfo? expected=null;
@@ -100,6 +101,8 @@ public partial class MainWindow
             pluginPaths[id]=path;
             if(previousPath!=null){settings.PluginFiles.RemoveAll(file=>string.Equals(file,previousPath,StringComparison.OrdinalIgnoreCase));for(var index=plugins.ActiveIds.Count-1;index>previousIndex;index--)plugins.Move(id,-1);}
             settings.PluginFailures.Remove(id);settings.PluginFailures.Remove(path);
+            settings.ComponentOrder=Capsule.Core.ComponentOrder.Effective(settings.ComponentOrder,plugins.ActiveIds,settings.HardwareFirst,settings.MediaFirst).ToList();
+            SetRuntimePluginOrder(settings.ComponentOrder.Where(item=>item.StartsWith("plugin:")).Select(item=>item[7..]));
             settings.PluginFiles=plugins.ActiveIds.Select(item=>pluginPaths[item]).ToList();
             // Persist obsolete-package cleanup before deleting anything. If the
             // second persistence fails, startup can still finish the cleanup.
@@ -109,7 +112,7 @@ public partial class MainWindow
         catch(Exception failure)
         {
             if(enabledId!=null)plugins.Disable(enabledId);
-            settings.PluginFiles=oldFiles;settings.PluginFailures=oldFailures;settings.PendingPluginRemovals=oldPending;settings.PluginPreferences=oldPreferences.ToDictionary(item=>item.Key,item=>new Dictionary<string,string>(item.Value));
+            settings.PluginFiles=oldFiles;settings.ComponentOrder=oldOrder;settings.PluginFailures=oldFailures;settings.PendingPluginRemovals=oldPending;settings.PluginPreferences=oldPreferences.ToDictionary(item=>item.Key,item=>new Dictionary<string,string>(item.Value));
             pluginPaths.Clear();foreach(var item in oldPaths)pluginPaths[item.Key]=item.Value;
             Exception? restoreError=null;
             if(oldDisabled && previousPath!=null)
@@ -120,6 +123,7 @@ public partial class MainWindow
             // A restored plugin may initialize preferences; rollback restores
             // the exact prior preference map, including removed/added keys.
             settings.PluginPreferences=oldPreferences.ToDictionary(item=>item.Key,item=>new Dictionary<string,string>(item.Value));
+            SetRuntimePluginOrder(oldRuntimeOrder);
             if(installedPackage)CleanupPluginPackage(path,save);
             Render();
             if(restoreError!=null){if(save)SavePluginRecovery();throw new AggregateException("安装失败，且旧插件未能恢复；已停用故障项。",failure,restoreError);}
@@ -150,7 +154,7 @@ public partial class MainWindow
             if(plugins.ActiveIds.Contains(entry.Key) || !plugins.Errors.TryGetValue(entry.Key,out var error))continue;
             settings.PluginFailures[entry.Key]=error;settings.PluginFiles.RemoveAll(file=>string.Equals(file,entry.Value,StringComparison.OrdinalIgnoreCase));pluginPaths.Remove(entry.Key);changed=true;
         }
-        if(changed)SavePluginRecovery();
+        if(changed){SavePluginRecovery();Render();}
     }
     private void SavePluginRecovery()
     {
@@ -166,17 +170,8 @@ public partial class MainWindow
     }
     internal void MovePlugin(string id,int direction)
     {
-        var oldIds=plugins.ActiveIds.ToArray();var oldFiles=settings.PluginFiles.ToList();
-        if(!plugins.Move(id,direction))return;
-        settings.PluginFiles=plugins.ActiveIds.Select(item=>pluginPaths[item]).ToList();
-        try{writePluginSettings();}
-        catch
-        {
-            settings.PluginFiles=oldFiles;
-            for(var index=0;index<oldIds.Length;index++)while(plugins.ActiveIds.ToList().IndexOf(oldIds[index])>index)plugins.Move(oldIds[index],-1);
-            Render();throw;
-        }
-        Render();
+        var ids=plugins.ActiveIds.ToArray();var index=Array.IndexOf(ids,id);if(index<0)return;var target=Math.Clamp(index+Math.Sign(direction),0,ids.Length-1);if(index==target)return;
+        var full=EffectiveModuleOrder().ToList();var first=full.IndexOf("plugin:"+id);var second=full.IndexOf("plugin:"+ids[target]);(full[first],full[second])=(full[second],full[first]);CommitDisplayOrder(full);
     }
     internal void UninstallPlugin(string id)
     {

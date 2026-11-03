@@ -8,6 +8,9 @@ if(solo.Position(5000)!=1500 || solo.Apply("{broken",0))throw new Exception("Sol
 Console.WriteLine("PASS Solo lyrics, progress extrapolation, pause and malformed-message isolation");
 var s = new IslandState();
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); Console.WriteLine("PASS " + message); }
+Check(ComponentOrder.Normalize(null,hardwareFirst:true,mediaFirst:true).SequenceEqual(new[]{"media","hardware","clock"}),"Legacy component order migrates without losing media/hardware placement");
+Check(ComponentOrder.Normalize(new[]{"bad","plugin:fixture.clock","plugin:fixture.clock","media"}).SequenceEqual(new[]{"plugin:fixture.clock","media","clock","hardware"}),"Unified order removes invalid/duplicate IDs and restores native slots");
+Check(ComponentOrder.Effective(new[]{"plugin:stopped.clock","hardware","media","clock"},new[]{"fixture.clock"}).SequenceEqual(new[]{"plugin:stopped.clock","hardware","media","clock","plugin:fixture.clock"}),"Inactive plugin positions survive while new components append");
 Check(s.Mode == IslandMode.Clock, "Initial clock");
 s.UpdateMedia(new("A", "Artist", true, true));
 s.Show(new("app", "App", "Title", "Body"), now);
