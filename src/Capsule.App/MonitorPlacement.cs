@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Forms=System.Windows.Forms;
+using Capsule.Core;
 
 namespace Capsule.App;
 
@@ -18,10 +19,17 @@ internal static class MonitorPlacement
     public static void Center(IntPtr window,string selected,double topDip)
     {
         if(window==IntPtr.Zero || !GetWindowRect(window,out var rect))return;
-        var screen=Forms.Screen.AllScreens.FirstOrDefault(item=>item.DeviceName==selected) ?? Forms.Screen.PrimaryScreen ?? Forms.Screen.AllScreens[0];
+        var screen=Target(selected);if(screen==null)return;
         var dpi=GetDpiForWindow(window);if(dpi==0)dpi=96;
-        var left=screen.WorkingArea.Left+(screen.WorkingArea.Width-(rect.Right-rect.Left))/2;
-        var top=screen.WorkingArea.Top+(int)Math.Round(topDip*dpi/96);
-        SetWindowPos(window,IntPtr.Zero,left,top,0,0,0x0001|0x0004|0x0010);
+        var work=screen.WorkingArea;var point=MonitorGeometry.Center(new(work.Left,work.Top,work.Width,work.Height),rect.Right-rect.Left,rect.Bottom-rect.Top,dpi,topDip);
+        SetWindowPos(window,IntPtr.Zero,point.X,point.Y,0,0,0x0001|0x0004|0x0010);
+    }
+    private static Forms.Screen? Target(string selected)
+    {
+        var screens=Forms.Screen.AllScreens;return screens.FirstOrDefault(item=>item.DeviceName==selected) ?? screens.FirstOrDefault(item=>item.Primary) ?? screens.FirstOrDefault();
+    }
+    internal static double WidthLimit(IntPtr window,string selected)
+    {
+        var screen=Target(selected);return screen==null ? double.PositiveInfinity : MonitorGeometry.WidthLimit(screen.WorkingArea.Width,window==IntPtr.Zero ? 96 : GetDpiForWindow(window));
     }
 }

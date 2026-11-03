@@ -16,6 +16,7 @@ try {
         @{Name='materials';Project='tests/Capsule.WindowsTests';Args=@('--material-test')},
         @{Name='plugins';Project='tests/Capsule.WindowsTests';Args=@('--plugin-test')},
         @{Name='builtins';Project='tests/Capsule.WindowsTests';Args=@('--builtin-test')},
+        @{Name='placement';Project='tests/Capsule.WindowsTests';Args=@('--placement-test',(Join-Path $evidence 'placement'))},
         @{Name='market';Project='tests/Capsule.WindowsTests';Args=@('--market-test')},
         @{Name='msp';Project='tests/Capsule.WindowsTests';Args=@('--msp-test')},
         @{Name='solo';Project='tests/Capsule.WindowsTests';Args=@('--solo-test')},

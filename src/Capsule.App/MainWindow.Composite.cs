@@ -20,7 +20,7 @@ public partial class MainWindow
         var root=(Grid)Shell.Child;root.Children.Remove(Clock);root.Children.Remove(MediaPanel);Clock.Children.Remove(HardwarePanel);
         root.Children.Insert(0,compactLayout);Clock.ClipToBounds=true;
     }
-    private void RenderComposite(bool showMedia,bool combined)
+    private void RenderComposite(bool showMedia,bool combined,double widthLimit)
     {
         modulesVisible=Clock.Visibility==Visibility.Visible || combined;
         var showClock=modulesVisible && (settings.ClockEnabled || settings.StandbyActive && settings.StandbyScene==1);
@@ -43,8 +43,8 @@ public partial class MainWindow
             for(var index=0;index<order.Length;index++){var host=moduleHosts[order[index]];Grid.SetColumn(host,index);compactLayout.ColumnDefinitions.Add(new());compactLayout.Children.Add(host);}arrangedModules=order;
         }
         var visible=order.Where(id=>moduleHosts[id].Visibility==Visibility.Visible).ToArray();var natural=new Dictionary<string,double>();
-        foreach(var id in visible){views[id].Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));natural[id]=Math.Clamp(views[id].DesiredSize.Width,0,settings.Width);}
-        var available=Math.Max(0,settings.Width-26);var reserve=showMedia ? Math.Min(110,available) : 0;
+        foreach(var id in visible){views[id].Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));natural[id]=Math.Clamp(views[id].DesiredSize.Width,0,widthLimit);}
+        var available=Math.Max(0,widthLimit-26);var reserve=showMedia ? Math.Min(110,available) : 0;
         var gap=visible.Length>1 ? Math.Min(8,Math.Max(0,(available-reserve)/(visible.Length-1))) : 0;
         var others=visible.Where(id=>id!="media").Sum(id=>natural[id]);var budget=Math.Max(0,available-reserve-gap*Math.Max(0,visible.Length-1));var ratio=others>0 ? Math.Min(1,budget/others) : 1;
         compactNaturalWidth=visible.Sum(id=>natural[id])+gap*Math.Max(0,visible.Length-1);

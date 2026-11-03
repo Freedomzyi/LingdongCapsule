@@ -15,6 +15,13 @@ mergedSolo.Apply("{\"type\":\"init\"}",0);if(mergedSolo.Lyrics.Lines.Count!=0)th
 Console.WriteLine("PASS Solo merged translations, invalid row isolation, bounded time extrapolation and invalid-init cleanup");
 var s = new IslandState();
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); Console.WriteLine("PASS " + message); }
+foreach(var item in new[]{(Dpi:96u,X:-1110,Y:-192),(Dpi:120u,X:-1148,Y:-190),(Dpi:144u,X:-1185,Y:-188),(Dpi:192u,X:-1260,Y:-184)})
+{
+    var point=MonitorGeometry.Center(new(-1920,-200,1920,1080),(int)(300*item.Dpi/96), (int)(35*item.Dpi/96),item.Dpi,8);
+    Check(point==new PixelPoint(item.X,item.Y),"Negative-origin monitor placement at DPI "+item.Dpi);
+}
+Check(MonitorGeometry.WidthLimit(320,192)==144 && MonitorGeometry.WidthLimit(320,0)==304,"Narrow monitor uses its own logical width and zero DPI falls back to 96");
+Check(MonitorGeometry.Center(new(-800,-400,800,600),1000,900,192,80)==new PixelPoint(-800,-400),"Oversized window anchors inside work-area origin without negative inset");
 var supplementBase=LyricsDocument.Parse("[00:01.00]First line\n[00:03.00]Second line",source:"Base");
 var supplementOther=LyricsDocument.Parse("[00:01.10]First line\n[00:03.10]Second line","[00:01.10]第一句\n[00:03.10]第二句","[1100,1500](1100,1500,0)First line\n[3100,1500](3100,1500,0)Second line","Extra");
 var supplemented=supplementBase.Supplement(supplementOther);

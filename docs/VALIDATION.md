@@ -1,5 +1,11 @@
 # 验证记录
 
+## 目标显示器边界与 PMv2
+
+- 修正岛体宽度限制取自主屏的问题；按目标工作区和窗口 DPI 约束实际宽度及模块预算，缩小可视区域时立即限制窗口，用户配置不被覆盖。显示/DPI 变化重新布局，缺失屏幕回退不改选择。
+- 核心覆盖四档 DPI 与负坐标、窄屏、超大窗口；原生测试宿主改用产品 PerMonitorV2 清单，并由 API 确认上下文。当前实际单屏 192 DPI 下完成 18 组宽/高/形态矩形检查，见 DISPLAY.md。
+- 十五组整合回归通过：artifacts/verification/20261103-170104-6152。随后强化实际宽度和主屏回退断言，placement-strict 定向复验通过。没有改变系统缩放或分辨率；其他物理缩放/屏幕与 Owner 体验仍待验收。
+
 ## 系统通知图片只读取证
 
 - 本机仅查询 Notification/NotificationHandler 的建表结构，确认 ID、HandlerId、PrimaryId、ArrivalTime/Payload 字段；未取用户通知正文或头像作为测试材料。

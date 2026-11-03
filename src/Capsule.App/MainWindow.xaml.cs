@@ -95,12 +95,12 @@ public partial class MainWindow : Window
     }
     private IntPtr WindowHook(IntPtr hwnd, int msg, IntPtr wp, IntPtr lp, ref bool handled)
     {
-        if (msg == 0x02E0 || msg == 0x007E) Dispatcher.BeginInvoke(Position);
+        if (msg == 0x02E0 || msg == 0x007E) Dispatcher.BeginInvoke(()=>{Render();Position();});
         if(msg==0x0312 && shortcuts.Handle(wp.ToInt32()))handled=true;
         if(msg==0x0084 && PassThroughHit(lp)){handled=true;return new IntPtr(-1);}
         return IntPtr.Zero;
     }
-    private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(Position);
+    private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(()=>{if(!closing){Render();Position();}});
     private void OnThemePreferenceChanged(object sender,UserPreferenceChangedEventArgs e){if(!closing && settings.ThemeMode==2)Dispatcher.BeginInvoke(()=>Design.ApplyTheme(2));}
     private void OnPowerChanged(object sender, PowerModeChangedEventArgs e) { if (e.Mode == PowerModes.Resume) Dispatcher.BeginInvoke(() => { media.Invalidate();state.Tick(DateTimeOffset.Now); notifications.ResetBaseline(); Position();_=RefreshAsync(); }); }
     private void OnNativeMediaChanged(){if(!closing && !Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(async()=>await RefreshAsync());}
@@ -167,7 +167,10 @@ public partial class MainWindow : Window
         var combined=settings.CompositeEnabled && showMedia && !IsMediaExpanded && !settings.StandbyActive && mode!=IslandMode.Notification;
         if(combined)Clock.Visibility=Visibility.Visible;
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)Clock.Visibility=settings.StandbyScene==1 ? Visibility.Visible : Visibility.Collapsed;
-        RenderComposite(showMedia,combined);
+        var viewportLimit=MonitorPlacement.WidthLimit(new WindowInteropHelper(this).Handle,settings.MonitorId);
+        if(IsLoaded && Width>viewportLimit){BeginAnimation(WidthProperty,null);Width=viewportLimit;desiredWidth=Math.Min(desiredWidth,viewportLimit);}
+        var widthLimit=Math.Min(settings.Width,viewportLimit);
+        RenderComposite(showMedia,combined,widthLimit);
         if(HardwarePanel.Visibility==Visibility.Visible && modulesVisible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
         {
             nextHardwareSample=Environment.TickCount64+1000;var sample=compactHardware.Sample();CompactHardwareSample=sample;
@@ -182,8 +185,8 @@ public partial class MainWindow : Window
         var coverSize = IsMediaExpanded ? 38 : Math.Clamp(settings.CompactHeight - 10, 22, 40);
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
-        var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(80, SystemParameters.WorkArea.Width - 16)) : Math.Min(104,settings.Width);
-        if(modulesVisible && !showMedia && !showOverview)width=Math.Min(settings.Width,Math.Max(104,compactNaturalWidth+26));
+        var width = mode == IslandMode.Notification || showMedia || showOverview ? widthLimit : Math.Min(104,widthLimit);
+        if(modulesVisible && !showMedia && !showOverview)width=Math.Min(widthLimit,Math.Max(104,compactNaturalWidth+26));
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);
         var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? settings.ShowTomorrow ? 278 : 258 : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;
