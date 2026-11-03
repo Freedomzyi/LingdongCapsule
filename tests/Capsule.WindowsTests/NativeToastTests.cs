@@ -70,7 +70,10 @@ internal static class NativeToastTests
                     return pixel[0]==220 && pixel[1]==100 && pixel[2]==40 && pixel[3]==255;
                 }
                 for(var i=0;i<30 && !HasAvatar();i++)await Task.Delay(100);
+                await Task.Delay(settings.MotionMs+100);window.UpdateLayout();
                 if(window.LiveState.Notification?.SourceId!=id || !HasAvatar() || frame.Visibility!=Visibility.Visible)throw new Exception("Real system avatar did not reach actual island");
+                var bounds=frame.TransformToAncestor(window).TransformBounds(new Rect(frame.RenderSize));
+                if(bounds.Top<0 || bounds.Bottom>window.ActualHeight+1)throw new Exception("Settled native avatar is clipped by island height");
                 var rendered=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth),(int)Math.Ceiling(window.ActualHeight),96,96,PixelFormats.Pbgra32);rendered.Render(window);
                 var screenshot=new PngBitmapEncoder();screenshot.Frames.Add(BitmapFrame.Create(rendered));using(var output=File.Create(Path.Combine(root,"own-native-island.png")))screenshot.Save(output);
                 var render=typeof(MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
