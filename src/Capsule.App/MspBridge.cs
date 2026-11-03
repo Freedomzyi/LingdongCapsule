@@ -8,6 +8,7 @@ internal sealed class MspBridge : IDisposable
 {
     private MspNode? node;
     private int noticeSequence;
+    private MediaSnapshot? previousMedia;
     private readonly Func<Notice,Task<bool>> notify;
     private readonly Func<Task<MediaSnapshot>> readMedia;
     private readonly Func<string,Task<bool>> control;
@@ -21,6 +22,7 @@ internal sealed class MspBridge : IDisposable
         var candidate=new MspNode("lingdongcapsule",role,directory);
         try
         {
+            foreach(var path in new[]{"notify.toast.raised","notify.lingdongcapsule.reminder.raised","media.track.changed","media.playback.changed"})candidate.DeclareSignal(path);
             candidate.On("notify.**",signal=>
             {
                 if(signal.Source=="lingdongcapsule")return;
@@ -39,10 +41,22 @@ internal sealed class MspBridge : IDisposable
                 if(normalized is not ("toggle" or "play" or "pause" or "previous" or "next"))return new{ok=false,error="不支持的媒体动作"};
                 return new{ok=await control(normalized)};
             }),"控制播放、暂停、切歌");
-            candidate.Start();node=candidate;Error="";return true;
+            candidate.Start();node=candidate;previousMedia=null;Error="";return true;
         }
         catch(Exception error){try{candidate.Stop();}catch{ }Error="MSP 启动失败："+error.GetType().Name;return false;}
     }
+    public void PublishMedia(MediaSnapshot current)
+    {
+        var previous=previousMedia;previousMedia=current;if(node==null || previous==null)return;
+        if(previous.Title!=current.Title || previous.Artist!=current.Artist || previous.SourceId!=current.SourceId)Publish("media.track.changed",new{title=current.Title,artist=current.Artist,app=current.SourceId,playing=current.Playing});
+        if(previous.Playing!=current.Playing || previous.Available!=current.Available)Publish("media.playback.changed",new{active=current.Available,playing=current.Playing,title=current.Title,artist=current.Artist});
+    }
+    public void PublishNotice(Notice notice,bool privatePreview)
+    {
+        if(notice.SourceId.StartsWith("msp",StringComparison.OrdinalIgnoreCase))return;
+        Publish(notice.SourceId=="self" ? "notify.lingdongcapsule.reminder.raised" : "notify.toast.raised",new{app=notice.App,source=notice.SourceId,title=privatePreview ? "" : notice.Title,body=privatePreview ? "" : notice.Body});
+    }
+    private void Publish(string path,object payload){try{node?.Publish(path,payload);}catch(Exception error){Error="MSP 广播失败："+error.GetType().Name;}}
     private async Task ReceiveSignalAsync(string peer,JsonElement payload)
     {
         try
@@ -55,5 +69,5 @@ internal sealed class MspBridge : IDisposable
         }
         catch(Exception){ /* A stale UI dispatcher or invalid peer message must not stop the node. */ }
     }
-    public void Dispose(){var active=node;node=null;try{active?.Stop();}catch(Exception error){Error="MSP 停止失败："+error.GetType().Name;}}
+    public void Dispose(){var active=node;node=null;previousMedia=null;try{active?.Stop();}catch(Exception error){Error="MSP 停止失败："+error.GetType().Name;}}
 }

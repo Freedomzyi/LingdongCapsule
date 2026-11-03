@@ -72,7 +72,8 @@ public sealed class SettingsWindow : Window
         notificationsCheck = AddCheck(switches, "系统通知", settings.NotificationsEnabled, v => settings.NotificationsEnabled = v, "只接收 Windows 通知中心可提供的通知，不修改系统横幅策略。");
         AddCheck(switches, "开机启动", StartupService.IsEnabled, startup, "登录当前 Windows 用户后自动启动，只驻留系统托盘；不需要管理员权限。");
         panel.Children.Add(Design.Card(switches));
-        var mspOptions=new StackPanel();mspCheck=AddCheck(mspOptions,"MSP 实验性接入",settings.MspEnabled,value=>settings.MspEnabled=value,"默认关闭。开启后向本机共享目录宣告 lingdongcapsule 节点，允许发现它的本机 MSP 节点调用通知、媒体状态与控制；关闭后停止节点。目前不广播系统通知正文。");panel.Children.Add(Design.Card(mspOptions));
+        var publishing=new StackPanel();AddCheck(publishing,"MSP 事件广播",settings.MspPublishEvents,value=>settings.MspPublishEvents=value,"默认关闭，需同时开启 MSP 接入。向已连接本机节点发送媒体变化和通知事件；隐私预览开启时不发送通知标题与正文。接收的 MSP 通知不会回广播。");panel.Children.Add(Design.Card(publishing));
+        var mspOptions=new StackPanel();mspCheck=AddCheck(mspOptions,"MSP 实验性接入",settings.MspEnabled,value=>settings.MspEnabled=value,"默认关闭。开启后向本机共享目录宣告 lingdongcapsule 节点，允许发现它的本机 MSP 节点调用通知、媒体状态与控制；关闭后停止节点。主动广播另由事件广播开关控制。");panel.Children.Add(Design.Card(mspOptions));
         Heading(panel,"通知展示");
         var notificationOptions=new StackPanel();
         AddSlider(notificationOptions,"通知高度",40,120,settings.NotificationHeight,v=>settings.NotificationHeight=v,"逻辑像素；图标或完整内容需要时可自动增高。",1);

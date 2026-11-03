@@ -119,6 +119,7 @@ public partial class MainWindow : Window
             }
             if (!latest.Available || (state.Media.Playing && !latest.Playing)) controlsOpen = false;
             state.UpdateMedia(latest);
+            if(settings.MspPublishEvents)msp.PublishMedia(latest);
             UpdateLyrics(latest);
             if (lastNotificationsEnabled != settings.NotificationsEnabled) { notifications.ResetBaseline(); lastNotificationsEnabled = settings.NotificationsEnabled; if (!lastNotificationsEnabled) state.Dismiss(); }
             if (settings.NotificationsEnabled) foreach (var n in await notifications.ReadAsync(settings.MutedSources)) AcceptNotification(n,DateTimeOffset.Now);

@@ -22,6 +22,7 @@ public partial class MainWindow
         state.GroupNotifications=settings.GroupNotifications;
         state.SetQuietUntil(settings.QuietUntil,now);
         if(!settings.NotificationsEnabled || settings.MutedSources.Contains(notice.SourceId) || !state.Show(notice,now))return false;
+        if(settings.MspPublishEvents)msp.PublishNotice(notice,settings.PrivatePreview);
         if(!state.LastNoticeGrouped)_=notificationSound.PlayAsync(settings);
         controlsOpen=false;overviewOpen=false;Render();return true;
     }

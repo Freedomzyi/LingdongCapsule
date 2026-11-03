@@ -13,6 +13,9 @@ internal static class MspTests
         using var bridge=new MspBridge(notice=>{received=notice;return Task.FromResult(true);},()=>Task.FromResult(new MediaSnapshot("Test track","Test artist",true,true)),action=>{command=action;return Task.FromResult(true);});
         if(!bridge.Start(directory))throw new Exception(bridge.Error);
         var client=new MspNode("capsule-test-peer",nodesDir:directory);
+        var events=new System.Collections.Concurrent.ConcurrentQueue<string>();
+        client.On("media.**",signal=>events.Enqueue(signal.Path+signal.Payload.GetRawText()));
+        client.On("notify.toast.raised",signal=>events.Enqueue(signal.Path+signal.Payload.GetRawText()));
         try
         {
             client.DeclareSignal("notify.capsule.fixture");
@@ -23,6 +26,10 @@ internal static class MspTests
                 await Task.Delay(200);
             }
             if(ping==null || !ping.Contains("lingdongcapsule"))throw new Exception("MSP peers did not exchange ping");
+            bridge.PublishMedia(new("A","Artist",true,true));bridge.PublishMedia(new("B","Artist",false,true));
+            bridge.PublishNotice(new("fixture","Test app","secret title","secret body"),privatePreview:true);
+            for(var attempt=0;attempt<30 && events.Count<3;attempt++)await Task.Delay(100);
+            if(!events.Any(item=>item.StartsWith("media.track.changed")) || !events.Any(item=>item.StartsWith("media.playback.changed")) || !events.Any(item=>item.StartsWith("notify.toast.raised")) || events.Any(item=>item.Contains("secret")))throw new Exception("MSP event delivery or privacy redaction failed");
             await client.CallAsync("lingdongcapsule","notify",new{title="MSP test",body="Independent local fixture"});
             if(received?.Title!="MSP test")throw new Exception("MSP notification did not reach adapter");
             client.Publish("notify.capsule.fixture",new{title="Subscribed fixture",body="Broadcast test only"});

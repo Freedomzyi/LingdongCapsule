@@ -7,6 +7,7 @@ public sealed class Settings
 {
     public int ThemeMode{get;set;}=2;
     public bool MspEnabled{get;set;}
+    public bool MspPublishEvents{get;set;}
     public string FontName{get;set;}="";
     public bool ClockEnabled{get;set;}=true;
     public int ClockLayout{get;set;}
