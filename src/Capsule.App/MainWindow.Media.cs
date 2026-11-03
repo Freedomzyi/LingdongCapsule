@@ -46,12 +46,12 @@ public partial class MainWindow
         PlayGlyph.Kind=state.Media.Playing ? TransportKind.Pause : TransportKind.Play;
         InlinePlayGlyph.Kind=PlayGlyph.Kind;
         Spectrum.Visibility=settings.ShowSpectrum && state.Media.Playing ? Visibility.Visible : Visibility.Collapsed;
-        var visibleMedia=MediaPanel.Visibility==Visibility.Visible;
+        var visibleMedia=MediaPanel.Visibility==Visibility.Visible && !visibilityResult.PassThrough;
         Spectrum.Active=settings.ShowSpectrum && state.Media.Playing && visibleMedia;
         audio.Tick(settings.ShowSpectrum && state.Media.Playing && settings.MediaEnabled && visibleMedia);
         CoverRing.Radius=Shell.CornerRadius.TopLeft;
         CoverRing.Active=settings.CoverProgress && visibleMedia && state.Mode==Capsule.Core.IslandMode.Media && state.Media.Playing && media.Duration>TimeSpan.Zero;
-        mediaTimer.IsEnabled=expanded;
+        mediaTimer.IsEnabled=expanded && visibleMedia;
         if(expanded)UpdateTimeline();
     }
     private void UpdateTimeline()

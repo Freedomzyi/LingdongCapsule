@@ -22,6 +22,7 @@ internal static class Program
     {
         if(args.Contains("--overview-test")){await OverviewTests.RunAsync(args);return;}
         if(args.Contains("--notification-test")){await NotificationTests.RunAsync(args);return;}
+        if(args.Contains("--shortcut-test")){await ShortcutTests.RunAsync();return;}
         // Default probe is read-only. Interactive scenarios must be explicitly selected.
         var media = new MediaService();
         var snapshot = await media.ReadAsync();

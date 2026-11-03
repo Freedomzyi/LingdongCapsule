@@ -43,3 +43,16 @@ s.GroupNotifications=false;s.Show(new("other","Other","Ungrouped","",5),now.AddS
 s.SetQuietUntil(now.AddMinutes(30),now.AddSeconds(13));Check(s.Notification==null && !s.Show(new("app","App","Muted","",6),now.AddMinutes(1)),"Quiet period dismisses overlay and rejects incoming notices");
 s.Tick(now.AddMinutes(31));Check(s.Notification==null && !s.IsQuiet(now.AddMinutes(31)),"Quiet expiry does not replay muted notices");
 Check(s.Show(new("app","App","New","",7),now.AddMinutes(31)) && s.GroupCount==1,"New notices resume after quiet expiry");
+
+Check(Enum.GetValues<ShortcutAction>().All(action=>ShortcutChord.Default(action).IsValid) && new ShortcutChord(0,0).IsValid,"Default and cleared shortcut chords are valid");
+Check(!new ShortcutChord(0,65).IsValid && !new ShortcutChord(2,17).IsValid && !new ShortcutChord(16,65).IsValid,"Bare keys, modifier-only chords and unknown modifier flags are rejected");
+var visibility=default(IslandVisibilityInput) with{AutoHide=true,FocusHide=true};
+Check(IslandVisibility.Resolve(visibility).Hidden && IslandVisibility.Resolve(visibility).ShowWake,"Idle auto-hide retains wake entry");
+Check(!IslandVisibility.Resolve(visibility with{AutoHide=false}).Hidden,"Auto-hide master switch controls idle rule");
+Check(!IslandVisibility.Resolve(visibility with{MediaAvailable=true,Playing=true}).Hidden,"Playing media overrides idle rule");
+Check(IslandVisibility.Resolve(visibility with{MediaAvailable=true,PauseHide=true}).Hidden,"Paused media hides when pause rule is enabled");
+Check(IslandVisibility.Resolve(visibility with{MediaAvailable=true,Playing=true,FullscreenHide=true,Fullscreen=true}).Hidden,"Fullscreen rule also hides playing media");
+Check(!IslandVisibility.Resolve(visibility with{Notification=true}).Hidden && !IslandVisibility.Resolve(visibility with{Expanded=true}).Hidden && !IslandVisibility.Resolve(visibility with{Awake=true}).Hidden,"Notifications, expanded panels and explicit wake protect automatic visibility");
+Check(IslandVisibility.Resolve(visibility with{ManualHidden=true,Notification=true,Expanded=true,Awake=true}) is{Hidden:true,ShowWake:false,PassThrough:true},"Manual hide removes all island UI including wake button");
+Check(IslandVisibility.Resolve(default(IslandVisibilityInput) with{Passthrough=true,PointerOver=true}) is{Hidden:false,ShowWake:true,PassThrough:true},"Hover passthrough exposes wake entry");
+Check(!IslandVisibility.Resolve(default(IslandVisibilityInput) with{Passthrough=true,PointerOver=true,Notification=true}).PassThrough,"Notification remains interactive in passthrough mode");

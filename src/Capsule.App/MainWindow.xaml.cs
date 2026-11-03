@@ -32,7 +32,9 @@ public partial class MainWindow : Window
     public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null)
     {
         settings=initialSettings ?? Settings.Load();
+        shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();
+        InitializeVisibility();
         overview=new OverviewView(settings,SaveAndApplySettings);OverviewHost.Content=overview;
         MouseEnter+=(_,_)=>panelCollapse.Stop();
         MouseLeave+=(_,_)=>{if(overviewOpen || controlsOpen){panelCollapse.Interval=TimeSpan.FromMilliseconds(overviewOpen ? 900 : 3000);panelCollapse.Start();}};
@@ -43,7 +45,7 @@ public partial class MainWindow : Window
         SizeChanged+=(_,_)=>CenterOnMonitor();
         desiredHeight = settings.CompactHeight; Height = desiredHeight;
         if (Environment.GetCommandLineArgs().Contains("--inspect")) ShowInTaskbar = true;
-        SourceInitialized += (_, _) => { var h = new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(h)?.AddHook(WindowHook); ApplyCapture(); };
+        SourceInitialized += (_, _) => { var h = new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(h)?.AddHook(WindowHook);shortcuts.Attach(h); ApplyCapture(); };
         Loaded += async (_, _) =>
         {
             Position();
@@ -58,11 +60,13 @@ public partial class MainWindow : Window
             if (Environment.GetCommandLineArgs().Contains("--settings")) OpenSettings();
             else if (!suppressOnboarding && !settings.OnboardingCompleted && !Environment.GetCommandLineArgs().Contains("--startup")) ShowWelcome();
         };
-        Closed += (_, _) => { closing = true; timer.Stop();panelCollapse.Stop();notificationSound.Dispose();overview.Dispose();mediaTimer.Stop();audio.Dispose();lyricRequest?.Cancel();lyricRequest?.Dispose();lyricsClient.Dispose(); media.Dispose(); notifications.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); settingsWindow?.Close(); welcomeWindow?.Close(); SystemEvents.DisplaySettingsChanged -= OnDisplayChanged; SystemEvents.PowerModeChanged -= OnPowerChanged; };
+        Closed += (_, _) => { closing = true;visibilityProbe.Stop();shortcuts.Dispose(); timer.Stop();panelCollapse.Stop();notificationSound.Dispose();overview.Dispose();mediaTimer.Stop();audio.Dispose();lyricRequest?.Cancel();lyricRequest?.Dispose();lyricsClient.Dispose(); media.Dispose(); notifications.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); settingsWindow?.Close(); welcomeWindow?.Close(); SystemEvents.DisplaySettingsChanged -= OnDisplayChanged; SystemEvents.PowerModeChanged -= OnPowerChanged; };
     }
     private IntPtr WindowHook(IntPtr hwnd, int msg, IntPtr wp, IntPtr lp, ref bool handled)
     {
         if (msg == 0x02E0 || msg == 0x007E) Dispatcher.BeginInvoke(Position);
+        if(msg==0x0312 && shortcuts.Handle(wp.ToInt32()))handled=true;
+        if(msg==0x0084 && PassThroughHit(lp)){handled=true;return new IntPtr(-1);}
         return IntPtr.Zero;
     }
     private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(Position);
@@ -125,6 +129,7 @@ public partial class MainWindow : Window
         Shell.CornerRadius = settings.IslandShape==0 ? new CornerRadius(0,0,settings.BottomRadius,settings.BottomRadius) : new CornerRadius(height > 100 ? 22 : height / 2);
         Topmost=settings.Topmost;
         Animate(width, height);
+        UpdateIslandVisibility();
         RenderMediaControls();
     }
     private void Animate(double width, double height)
@@ -158,14 +163,14 @@ public partial class MainWindow : Window
         finally { button.IsEnabled = true; }
     }
     private void Dismiss() { state.Dismiss(); controlsOpen = false; overviewOpen=false; Render(); }
-    internal void OpenOverview(){if(!settings.OverviewEnabled)return;overviewOpen=true;controlsOpen=false;Render();_=overview.TickAsync();}
+    internal void OpenOverview(){if(!settings.OverviewEnabled)return;WakeIsland();overviewOpen=true;controlsOpen=false;Render();_=overview.TickAsync();}
     private uint testNoticeId;
     private void TestNotice() { if(!AcceptNotification(new("self", "灵动胶囊 · 测试", "通知交互已就绪", "这是一条本地测试通知。真实系统通知需要授权；点击展开，再次点击收起。",++testNoticeId), DateTimeOffset.Now))Design.PresentMessage("通知暂未显示","请检查通知开关或安静时段。"); }
     private void ApplyCapture() { if (!SetWindowDisplayAffinity(new WindowInteropHelper(this).Handle, settings.ShowInCapture ? 0u : 0x11u)) { /* Supported capture tools only; no global capture guarantee. */ } }
     private void OpenSettings()
     {
         if (settingsWindow is not null) { settingsWindow.Activate(); return; }
-        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources);
+        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts);
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
     }
@@ -175,6 +180,7 @@ public partial class MainWindow : Window
         media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
         if(!settings.MediaEnabled)state.UpdateMedia(new("","",false,false));
         if(!settings.NotificationsEnabled)state.Dismiss();
+        shortcuts.Apply();
         ApplyCapture();UpdateLyrics(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
     }
     private void ConfigureStartup(bool enabled) { StartupService.SetEnabled(enabled); settings.StartWithWindows = enabled; settings.Save(); }
@@ -182,7 +188,7 @@ public partial class MainWindow : Window
     {
         var menu = new System.Windows.Controls.ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, PlacementTarget = this };
         void Add(string title, Action action) { var item = new System.Windows.Controls.MenuItem { Header = title }; item.Click += (_, _) => action(); menu.Items.Add(item); }
-        Add("设置", OpenSettings);if(settings.OverviewEnabled)Add("空闲信息面板",OpenOverview); Add("试一条通知", TestNotice); Add("使用指南", ShowWelcome); Add("收起", Dismiss); Add("退出", Close); menu.IsOpen = true;
+        Add("设置", OpenSettings);Add(manuallyHidden ? "唤出灵动胶囊" : "隐藏灵动胶囊",()=>SetIslandHidden(!manuallyHidden));if(settings.OverviewEnabled)Add("空闲信息面板",OpenOverview); Add("试一条通知", TestNotice); Add("使用指南", ShowWelcome); Add("收起", Dismiss); Add("退出", Close); menu.IsOpen = true;
     }
     private void ShowWelcome()
     {

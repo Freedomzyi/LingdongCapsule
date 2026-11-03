@@ -53,7 +53,7 @@ public partial class MainWindow
         LiveLyrics.TranslationEnabled=settings.TranslationEnabled;
         LiveLyrics.KaraokeEnabled=settings.KaraokeEnabled;
         LiveLyrics.ScrollEnabled=settings.ScrollLyrics;
-        LiveLyrics.Playing=state.Media.Playing;
+        LiveLyrics.Playing=state.Media.Playing && !visibilityResult.PassThrough;
         LiveLyrics.Refresh();
     }
 }

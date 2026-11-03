@@ -9,6 +9,7 @@
   <Style x:Key="TimelineSlider" TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider"><Grid Height="24" Background="Transparent"><Border Background="#38FFFFFF" Height="3.5" CornerRadius="2" VerticalAlignment="Center"/><Track x:Name="PART_Track" VerticalAlignment="Center"><Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Height="3.5"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="White" CornerRadius="2"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton><Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Height="3.5" Opacity="0"/></Track.IncreaseRepeatButton><Track.Thumb><Thumb Width="9" Height="9"><Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse x:Name="Dot" Fill="White" Opacity="0"/><ControlTemplate.Triggers><Trigger Property="IsDragging" Value="True"><Setter TargetName="Dot" Property="Opacity" Value="1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Thumb.Template></Thumb></Track.Thumb></Track></Grid></ControlTemplate></Setter.Value></Setter></Style>
  </Window.Resources>
  <Grid>
+ <Grid x:Name="IslandSurface">
  <Border x:Name="Shell" Background="#F5101012" BorderBrush="#333338" BorderThickness="1" CornerRadius="20" Padding="14,7" ClipToBounds="True" MouseLeftButtonUp="OnIslandClick" MouseRightButtonUp="OnRightClick">
   <Grid ClipToBounds="True">
    <TextBlock x:Name="Clock" Foreground="White" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -58,5 +59,7 @@
   </Grid>
  </Border>
  <local:CapsuleProgressView x:Name="CoverRing"/>
+ </Grid>
+ <Button x:Name="WakeButton" Content="⌄" Width="36" Height="36" FontSize="22" Foreground="White" Background="#9E101012" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="唤醒灵动胶囊" AutomationProperties.Name="唤醒灵动胶囊"/>
  </Grid>
 </Window>

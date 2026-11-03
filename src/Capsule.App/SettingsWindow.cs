@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using Capsule.Core;
 namespace Capsule.App;
 
 public sealed class SettingsWindow : Window
@@ -21,7 +22,7 @@ public sealed class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    public SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts)
     {
         this.settings = settings; this.save = save;
         Closed+=(_,_)=>soundPreview.Dispose();
@@ -142,6 +143,28 @@ public sealed class SettingsWindow : Window
         AddCheck(interaction,"点击展开媒体控制",settings.ExpandedMediaControls,v=>settings.ExpandedMediaControls=v,"开启时点击展开完整控制；关闭时在紧凑岛体中显示内联播放按钮。");
         AddCheck(interaction,"点击封面返回播放器",settings.ReturnToPlayer,v=>settings.ReturnToPlayer=v,"单击封面唤回当前媒体软件，歌词和时钟区域仍用于展开控制。");
         panel.Children.Add(Design.Card(interaction));
+        Heading(panel,"自动隐藏与穿透");
+        var hiding=new StackPanel();
+        AddCheck(hiding,"自动隐藏",settings.AutoHide,v=>settings.AutoHide=v,"总开关；下方三种触发条件可组合，通知与已展开面板优先保持可见。");
+        AddCheck(hiding,"空闲时自动隐藏",settings.FocusAutoHide,v=>settings.FocusAutoHide=v,"需开启自动隐藏；没有媒体会话时收起，点击唤醒按钮恢复。");
+        AddCheck(hiding,"暂停时自动隐藏",settings.PauseAutoHide,v=>settings.PauseAutoHide=v,"需开启自动隐藏；媒体暂停时收起，不改播放器状态。");
+        AddCheck(hiding,"全屏时自动隐藏",settings.FullscreenAutoHide,v=>settings.FullscreenAutoHide=v,"需开启自动隐藏；系统报告全屏或演示状态时收起。");
+        AddCheck(hiding,"穿透模式",settings.Passthrough,v=>settings.Passthrough=v,"悬停时淡出岛体并允许点击底层窗口；中央唤醒按钮恢复交互，通知和展开内容不会穿透。");
+        panel.Children.Add(Design.Card(hiding));
+        Heading(panel,"全局快捷键");
+        var bindings=new StackPanel();
+        AddCheck(bindings,"媒体快捷键",settings.MediaShortcutsEnabled,v=>settings.MediaShortcutsEnabled=v,"默认关闭。启用后可在其他软件中控制当前媒体；录制时临时撤下所有胶囊快捷键。");
+        AddCheck(bindings,"岛体快捷键",settings.IslandShortcutEnabled,v=>settings.IslandShortcutEnabled=v,"独立于媒体开关，默认关闭。隐藏后也可从系统托盘唤回。");
+        foreach(var action in Enum.GetValues<ShortcutAction>())
+        {
+            var row=new Grid{Margin=new Thickness(0,5,0,5)};row.ColumnDefinitions.Add(new());row.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
+            var name=new TextBlock{Text=GlobalShortcuts.Label(action),VerticalAlignment=VerticalAlignment.Center};row.Children.Add(name);
+            var record=new Button{Content=GlobalShortcuts.Format(settings.Shortcuts[action]),Padding=new Thickness(10,8,10,8),MinWidth=100,ToolTip="点击录制，Esc 取消，Backspace 清空"};
+            record.Click+=(_,_)=>{if(ShortcutRecorder.Show(this,shortcuts,action)){record.Content=GlobalShortcuts.Format(settings.Shortcuts[action]);save();}};Grid.SetColumn(record,1);row.Children.Add(record);bindings.Children.Add(row);
+        }
+        var shortcutStatus=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,8,0,0)};Design.Bind(shortcutStatus,TextBlock.ForegroundProperty,"TextSecondary");bindings.Children.Add(shortcutStatus);
+        var shortcutTimer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};shortcutTimer.Tick+=(_,_)=>shortcutStatus.Text=shortcuts.Error;shortcutTimer.Start();Closed+=(_,_)=>shortcutTimer.Stop();
+        panel.Children.Add(Design.Card(bindings));
         panel=pages["通用设置"];
         Heading(panel, "连接与体验");
         var connection = new StackPanel();

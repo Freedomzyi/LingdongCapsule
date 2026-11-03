@@ -1,9 +1,18 @@
 using System.IO;
 using System.Text.Json;
+using Capsule.Core;
 namespace Capsule.App;
 
 public sealed class Settings
 {
+    public bool MediaShortcutsEnabled{get;set;}
+    public bool IslandShortcutEnabled{get;set;}
+    public Dictionary<ShortcutAction,ShortcutChord> Shortcuts{get;set;}=Enum.GetValues<ShortcutAction>().ToDictionary(action=>action,ShortcutChord.Default);
+    public bool AutoHide{get;set;}
+    public bool FocusAutoHide{get;set;}
+    public bool PauseAutoHide{get;set;}
+    public bool FullscreenAutoHide{get;set;}
+    public bool Passthrough{get;set;}
     public double Width { get; set; } = 280;
     public double CompactHeight { get; set; } = 35;
     public int MotionMs { get; set; } = 450;
@@ -62,6 +71,7 @@ public sealed class Settings
         BottomRadius=Limit(BottomRadius,0,28,12);IslandShape=Math.Clamp(IslandShape,0,1);MonitorId??="";
         MediaSourceKind??="other";ManualMediaSource??="";WeatherCity=(WeatherCity ?? "").Trim();if(WeatherCity.Length>80)WeatherCity=WeatherCity[..80];
         LyricOffsetSeconds=Limit(LyricOffsetSeconds,-3,3,0);MutedSources=new(MutedSources ?? [],StringComparer.OrdinalIgnoreCase);
+        Shortcuts??=[];foreach(var action in Enum.GetValues<ShortcutAction>())if(!Shortcuts.TryGetValue(action,out var chord) || chord==null || !chord.IsValid)Shortcuts[action]=ShortcutChord.Default(action);
     }
     public void Save()
     {
