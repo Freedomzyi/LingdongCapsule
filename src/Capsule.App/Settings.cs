@@ -76,7 +76,7 @@ public sealed class Settings
         ClockLayout=Math.Clamp(ClockLayout,0,1);
         StandbyScene=Math.Clamp(StandbyScene,1,3);
         static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;
-        Width=Limit(Width,220,480,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
+        Width=Limit(Width,80,300,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
         NotificationMode=Math.Clamp(NotificationMode,0,2);NotificationHeight=Limit(NotificationHeight,40,120,55);
         NotificationIconSize=Limit(NotificationIconSize,18,Width,38);NotificationIconGap=Limit(NotificationIconGap,0,20,6);
         NotificationSoundVolume=Limit(NotificationSoundVolume,0,100,10);NotificationSoundKey??="none";NotificationSoundPath??="";

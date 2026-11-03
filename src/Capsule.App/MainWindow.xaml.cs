@@ -152,7 +152,7 @@ public partial class MainWindow : Window
         var coverSize = IsMediaExpanded ? 38 : Math.Clamp(settings.CompactHeight - 10, 22, 40);
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
-        var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(104, SystemParameters.WorkArea.Width - 16)) : 104;
+        var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(80, SystemParameters.WorkArea.Width - 16)) : Math.Min(104,settings.Width);
         if(Clock.Visibility==Visibility.Visible && !showMedia && !showOverview && (HardwarePanel.Visibility==Visibility.Visible || settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);

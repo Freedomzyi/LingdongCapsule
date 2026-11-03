@@ -55,7 +55,7 @@ public sealed class SettingsWindow : Window
         AddSelection(panel,"字体",()=>{var options=new Dictionary<string,string>{{"","系统默认（恢复默认）"}};foreach(var font in Fonts.SystemFontFamilies.OrderBy(font=>font.Source))options.TryAdd(font.Source,font.Source);return options;},settings.FontName,value=>{settings.FontName=value;Design.ApplyFont(value);FontFamily=Design.UserFont;},"选择本机字体；不打包或分发字体文件，找不到字形时由系统回退。");
         AddSelection(panel,"界面主题",()=>new Dictionary<string,string>{{"0","深色"},{"1","浅色"},{"2","跟随系统"}},settings.ThemeMode.ToString(),value=>{settings.ThemeMode=int.Parse(value);Design.ApplyTheme(settings.ThemeMode);foreach(var tab in tabs)if(tab.Value.Background!=Brushes.Transparent)tab.Value.SetResourceReference(Control.BackgroundProperty,"ButtonFill");},"设置、引导和弹窗即时切换；岛体材质主题仍在单独对齐。");
         var appearance = new StackPanel();
-        AddSlider(appearance, "播放与通知宽度", 220, 480, settings.Width, v => settings.Width = v, "逻辑像素；播放固定宽度，通知不会超过此值。");
+        AddSlider(appearance, "*全局上限／播放宽度", 80, 300, settings.Width, v => settings.Width = v, "逻辑像素；播放固定宽度，时钟、通知和详情均不超过此上限。较窄时内容会裁切。",5);
         AddSlider(appearance, "折叠高度", 32, 60, settings.CompactHeight, v => settings.CompactHeight = v, "逻辑像素；默认 35，控制时钟与紧凑媒体高度，不压缩展开内容。", 1);
         AddSlider(appearance, "收放时长", 150, 900, settings.MotionMs, v => settings.MotionMs = (int)v, "毫秒；统一控制展开和收起，数值越大越舒缓。");
         panel.Children.Add(Design.Card(appearance));

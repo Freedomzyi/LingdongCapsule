@@ -70,6 +70,10 @@ internal static class ShortcutTests
             island.SetStandby(true);if(((FrameworkElement)island.FindName("HardwarePanel")).Visibility!=Visibility.Collapsed || clock.Visibility!=Visibility.Visible)throw new Exception("Time standby did not isolate clock component");
             islandSettings.StandbyScene=2;island.SetStandby(true);if(clock.Visibility!=Visibility.Collapsed)throw new Exception("Blank standby still shows clock");
             island.SetStandby(false);if(((FrameworkElement)island.FindName("HardwarePanel")).Visibility!=Visibility.Visible)throw new Exception("Leaving standby did not restore component choice");
+            islandSettings.Width=80;island.SetStandby(false);
+            for(var attempt=0;attempt<30 && island.ActualWidth>80.5;attempt++)await Task.Delay(100);
+            if(island.ActualWidth>80.5)throw new Exception("Compact components exceeded configured global width");
+            islandSettings.Width=280;island.SetStandby(false);
             if(island.CompactHardwareSample is not{Cpu:>=0 and <=100,Memory:>=0 and <=100} || ((FrameworkElement)island.FindName("HardwarePanel")).Visibility!=Visibility.Visible)throw new Exception("Compact hardware component did not receive valid real readings");
             island.SetIslandHidden(true);
             for(var attempt=0;attempt<30 && ((FrameworkElement)island.FindName("IslandSurface")).Opacity>0.001;attempt++)await Task.Delay(100);
