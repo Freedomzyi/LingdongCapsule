@@ -15,9 +15,14 @@ public partial class MainWindow
     private bool noticeSwiped;
     private readonly NotificationSound notificationSound=new();
     private readonly NoticeImages noticeImages=new();
+    private readonly ToastImageStore toastImages=new();
     private CancellationTokenSource noticeImageRequest=new();
     internal int NoticeSoundPlayCount=>notificationSound.PlayCount;
     private readonly BitmapImage defaultNoticeIcon=new(new Uri("pack://application:,,,/LingdongCapsule;component/Assets/icon.png"));
+    private NoticeImages.Image? NoticeArtwork(Notice notice)
+    {
+        var image=noticeImages.Get(notice);return image?.System==true && (!settings.SystemNotificationImagesEnabled || !notifications.HasAccess) ? null : image;
+    }
     internal bool AcceptNotification(Notice notice,DateTimeOffset now)
     {
         if(!notifications.Sources.ContainsKey(notice.SourceId) && notifications.Sources.Count<256){notifications.Sources[notice.SourceId]=notice.App;notifications.PersistSourceNames();}
@@ -31,7 +36,14 @@ public partial class MainWindow
     {
         noticeImageRequest.Cancel();noticeImageRequest.Dispose();noticeImageRequest=new();
         var publish=settings.MspPublishEvents;var generation=msp.Generation;
-        var image=await noticeImages.ResolveAsync(notice,noticeImageRequest.Token);
+        var token=noticeImageRequest.Token;ToastImageStore.Image? supplied=null;
+        if(settings.SystemNotificationImagesEnabled && notifications.HasAccess && notice.Avatar==null)
+        {
+            try{supplied=await toastImages.FindAsync(notice,token);}catch(OperationCanceledException) when(token.IsCancellationRequested){ }
+        }
+        if(!settings.SystemNotificationImagesEnabled || !notifications.HasAccess)supplied=null;
+        var image=await noticeImages.ResolveAsync(notice,token,supplied?.Avatar==true ? supplied.Source : null,supplied?.Avatar==false ? supplied.Source : null);
+        if(image?.System==true && (!settings.SystemNotificationImagesEnabled || !notifications.HasAccess))image=null;
         if(!closing && publish && settings.MspPublishEvents && generation==msp.Generation)msp.PublishNotice(notice,settings.PrivatePreview,image ?? (notifications.Logo(notice.SourceId) is {} logo ? new NoticeImages.Image(logo,false) : null));
         if(!closing && ReferenceEquals(state.Notification,notice))Render();
     }
@@ -80,7 +92,7 @@ public partial class MainWindow
         var textWidth=Math.Max(Measure(title,13),Measure(notice.Body,11));
         if(settings.NotificationMode==2)textWidth=Math.Max(textWidth,Measure(notice.App,11));
         var side=settings.NotificationMode==1 ? Math.Min(64,Math.Max(Measure(notice.App,10),Measure("现在",10)))+7 : settings.NotificationMode==2 ? 36 : 0;
-        var imageSize=settings.NotificationIconSize+(noticeImages.Get(notice)?.Avatar==true ? 5 : 0);
+        var imageSize=settings.NotificationIconSize+(NoticeArtwork(notice)?.Avatar==true ? 5 : 0);
         return state.Expanded ? cap : Math.Min(cap,Math.Max(104,textWidth+Math.Min(imageSize,Math.Max(1,cap-64))+settings.NotificationIconGap+30+side));
     }
     private double RenderNotification(double width)
@@ -110,7 +122,7 @@ public partial class MainWindow
         NoticeBody.LineHeight=state.Expanded ? 18 : double.NaN;
         NoticeBodyScroll.VerticalScrollBarVisibility=state.Expanded ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
         NoticeBodyScroll.Margin=new Thickness(0,state.Expanded ? 6 : 3,0,0);
-        var supplied=noticeImages.Get(notice);
+        var supplied=NoticeArtwork(notice);
         NoticeIcon.Source=supplied?.Bitmap ?? notifications.Logo(notice.SourceId) ?? defaultNoticeIcon;
         NoticeIcon.Stretch=Stretch.UniformToFill;
         var size=Math.Min(settings.NotificationIconSize+(supplied?.Avatar==true ? 5 : 0),Math.Max(1,width-64));

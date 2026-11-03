@@ -258,6 +258,7 @@ public partial class MainWindow : Window
         media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
         if(!settings.MediaEnabled)state.UpdateMedia(new("","",false,false));
         if(!settings.NotificationsEnabled)state.Dismiss();
+        if(!settings.SystemNotificationImagesEnabled && state.Notification is {} currentNotice && currentNotice.CreatedAt!=default)noticeImageRequest.Cancel();
         shortcuts.Apply();
         ApplyCapture();UpdateLyrics(state.Media);UpdateCovers(state.Media);Render();CenterOnMonitor();_=RefreshAsync();
     }

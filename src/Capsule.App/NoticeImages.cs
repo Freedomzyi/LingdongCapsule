@@ -8,18 +8,18 @@ namespace Capsule.App;
 
 internal sealed class NoticeImages : IDisposable
 {
-    internal sealed record Image(BitmapSource Bitmap,bool Avatar);
+    internal sealed record Image(BitmapSource Bitmap,bool Avatar,bool System=false);
     private readonly ConditionalWeakTable<Notice,Image> images=new();
     private readonly CancellationTokenSource lifetime=new();
     private readonly HttpClient client;
     private bool disposed;
     internal NoticeImages(HttpClient? http=null)=>client=http ?? new(new HttpClientHandler{AllowAutoRedirect=false,UseCookies=false,Credentials=null}){Timeout=TimeSpan.FromSeconds(3)};
     internal Image? Get(Notice notice)=>images.TryGetValue(notice,out var result) ? result : null;
-    internal async Task<Image?> ResolveAsync(Notice notice,CancellationToken cancellationToken=default)
+    internal async Task<Image?> ResolveAsync(Notice notice,CancellationToken cancellationToken=default,string? systemAvatar=null,string? systemIcon=null)
     {
         if(disposed)return null;
         if(Get(notice) is {} cached)return cached;
-        foreach(var (spec,avatar) in new[]{(notice.Avatar,true),(notice.Icon,false)})
+        foreach(var (spec,avatar,system) in new[]{(notice.Avatar ?? systemAvatar,true,notice.Avatar==null && systemAvatar!=null),(notice.Icon ?? systemIcon,false,notice.Icon==null && systemIcon!=null)})
         {
             if(string.IsNullOrWhiteSpace(spec))continue;
             try
@@ -28,7 +28,7 @@ internal sealed class NoticeImages : IDisposable
                 using var timeout=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token,cancellationToken);timeout.CancelAfter(TimeSpan.FromSeconds(3));
                 var bytes=await ReadAsync(spec,timeout.Token);if(bytes==null || disposed || timeout.IsCancellationRequested)continue;
                 var bitmap=await Task.Run(()=>Decode(bytes),timeout.Token);if(bitmap==null || disposed || timeout.IsCancellationRequested)continue;
-                var result=new Image(bitmap,avatar);images.Remove(notice);images.Add(notice,result);return result;
+                var result=new Image(bitmap,avatar,system);images.Remove(notice);images.Add(notice,result);return result;
             }
             catch(Exception){ /* Invalid images fall through without dropping the notification. */ }
         }

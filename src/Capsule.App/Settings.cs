@@ -41,6 +41,7 @@ public sealed partial class Settings
     public bool ShowInCapture { get; set; } = true;
     public bool PrivatePreview { get; set; } = true;
     public bool NotificationsEnabled { get; set; } = true;
+    public bool SystemNotificationImagesEnabled{get;set;}
     public int NotificationMode{get;set;}
     public double NotificationHeight{get;set;}=55;
     public double NotificationIconSize{get;set;}=38;

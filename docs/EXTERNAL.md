@@ -26,4 +26,4 @@ MSP 默认关闭，开启后以 `lingdongcapsule` 节点提供 `ping`、`notify`
 
 系统应用图标先取 WinRT Logo，失败后后台查询 Shell 图标，最后使用本程序图标。Shell 提取限制两项并发，释放返回的 HBITMAP 和 COM 对象；失败缓存五分钟，避免通知密集时反复提取。图标缓存最多 48 项。实现依据 [Microsoft IShellItemImageFactory 文档](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellitemimagefactory-getimage)，真实来源覆盖仍待实测。
 
-只启用可信本机节点：图片消息可引发本机文件读取或外部图片请求，只使用消息明确提供的地址，不扫描聊天目录。系统通知头像提取、特殊来源图标回退和真实第三方发送端兼容性仍待完成，MSP 图片接入不代替系统通知头像验收。
+只启用可信本机节点：图片消息可引发本机文件读取或外部图片请求，只使用消息明确提供的地址，不扫描聊天目录。系统通知图片另有默认关闭的只读取证入口，见 NOTIFICATIONS.md；真实头像、特殊来源图标回退和真实第三方发送端兼容性仍待验收，MSP 图片接入不代替系统通知头像验收。

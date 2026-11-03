@@ -63,6 +63,7 @@ public sealed class NotificationService : IDisposable
     private UserNotificationListener? listener;
     private bool baseline;
     private bool subscribed, eventAvailable, hadAccess;
+    internal bool HasAccess=>hadAccess && !disposed;
     private int dirty = 1;
     private DateTimeOffset lastPoll;
     private void OnChanged(UserNotificationListener sender, UserNotificationChangedEventArgs args) => Interlocked.Exchange(ref dirty, 1);

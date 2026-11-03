@@ -15,6 +15,7 @@ internal static class NotificationTests
     public static async Task RunAsync(string[] args)
     {
         var index=Array.IndexOf(args,"--notification-test");var output=index+1<args.Length ? Path.GetFullPath(args[index+1]) : throw new Exception("Provide an output directory");Directory.CreateDirectory(output);
+        await ToastImageTests.RunAsync(Path.Combine(output,"toast-images"));
         var ownExecutable=Environment.ProcessPath ?? throw new Exception("Missing owned executable");
         using(var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(15)))
         using(var process=System.Diagnostics.Process.GetCurrentProcess())

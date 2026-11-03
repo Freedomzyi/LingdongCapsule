@@ -138,6 +138,7 @@ public sealed class SettingsWindow : Window
         AddCheck(switches, "截图中显示胶囊", settings.ShowInCapture, v => settings.ShowInCapture = v, "关闭后请求 Windows 从兼容截图和录屏中排除主岛体；设置窗口不在此范围。");
         AddCheck(switches, "通知隐私预览", settings.PrivatePreview, v => settings.PrivatePreview = v, "展开前仅显示应用名与新消息提示，通知正文不写入磁盘。");
         notificationsCheck = AddCheck(switches, "系统通知", settings.NotificationsEnabled, v => settings.NotificationsEnabled = v, "只接收 Windows 通知中心可提供的通知，不修改系统横幅策略。");
+        AddCheck(switches,"*系统通知头像",settings.SystemNotificationImagesEnabled,v=>settings.SystemNotificationImagesEnabled=v,"默认关闭。需已授权系统通知；只读 Windows 通知存储中与当前通知 ID、应用、时间和正文匹配的图片，可读取指定本地图片或请求 HTTPS 图片。不开聊天数据库、不扫描历史、不保存正文；失败回退应用图标。");
         AddCheck(switches, "开机启动", StartupService.IsEnabled, startup, "登录当前 Windows 用户后自动启动，只驻留系统托盘；不需要管理员权限。");
         panel.Children.Add(Design.Card(switches));
         var publishing=new StackPanel();AddCheck(publishing,"MSP 事件广播",settings.MspPublishEvents,value=>settings.MspPublishEvents=value,"默认关闭，需同时开启 MSP 接入。向已连接本机节点发送媒体变化和通知事件；隐私预览开启时不发送通知标题与正文。接收的 MSP 通知不会回广播。");panel.Children.Add(Design.Card(publishing));
