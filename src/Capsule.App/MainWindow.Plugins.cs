@@ -12,12 +12,14 @@ public partial class MainWindow
     private readonly Dictionary<string,string> pluginPaths=new(StringComparer.OrdinalIgnoreCase);
     private uint pluginNoticeId;
     private bool persistPluginState;
+    private readonly Action writePluginSettings;
+    private int pluginMutationDepth;
     private void InitializePlugins(bool persist)
     {
         persistPluginState=persist;
         plugins=new(settings,()=>new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing),
-            (id,name,title,body)=>Dispatcher.InvokeAsync(()=>!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)).Task,
-            ()=>{if(persist)settings.Save();});
+            (id,name,title,body)=>pluginMutationDepth>0 ? Task.FromResult(false) : Dispatcher.InvokeAsync(()=>!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)).Task,
+            ()=>{if(persist && pluginMutationDepth==0)writePluginSettings();});
         plugins.View.Margin=new Thickness(12,0,0,0);plugins.View.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty,"IslandInk");Clock.Children.Add(plugins.View);
         Loaded+=(_,_)=>
         {
@@ -38,30 +40,66 @@ public partial class MainWindow
     }
     internal void LoadPlugin(string file,bool save=true)
     {
+        var oldFiles=settings.PluginFiles.ToList();var oldPaths=new Dictionary<string,string>(pluginPaths,StringComparer.OrdinalIgnoreCase);
+        var oldFailures=new Dictionary<string,string>(settings.PluginFailures);var oldPending=settings.PendingPluginRemovals.ToList();
+        var oldPreferences=settings.PluginPreferences.ToDictionary(item=>item.Key,item=>new Dictionary<string,string>(item.Value));
         var path=Path.GetFullPath(file);PluginPackageInfo? expected=null;
-        if(path.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){var installed=PluginPackage.Install(path,pluginDirectory);path=installed.EntryFile;expected=installed.Info;}
-        string? previousPath=null;var previousIndex=-1;
-        if(expected!=null && pluginPaths.TryGetValue(expected.Id,out previousPath)){previousIndex=plugins.ActiveIds.ToList().IndexOf(expected.Id);plugins.Disable(expected.Id);}
-        string id;
+        string? previousPath=null,enabledId=null;var previousIndex=-1;var oldDisabled=false;var installedPackage=false;
+        pluginMutationDepth++;
         try
         {
-            id=plugins.Enable(path);
+            if(path.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){var installed=PluginPackage.Install(path,pluginDirectory);path=installed.EntryFile;expected=installed.Info;installedPackage=true;}
+            if(expected!=null && pluginPaths.TryGetValue(expected.Id,out previousPath)){previousIndex=plugins.ActiveIds.ToList().IndexOf(expected.Id);plugins.Disable(expected.Id);oldDisabled=true;}
+            var id=plugins.Enable(path);enabledId=id;
             if(expected!=null)
             {
                 static Version NormalizeVersion(string value){var v=Version.Parse(value);return new(v.Major,v.Minor,Math.Max(0,v.Build),Math.Max(0,v.Revision));}
-                if(id!=expected.Id || NormalizeVersion(plugins.Identity(id).Version)!=NormalizeVersion(expected.Version)){plugins.Disable(id);throw new InvalidDataException("清单与插件实际 ID 或版本不一致，未启用。");}
+                if(id!=expected.Id || NormalizeVersion(plugins.Identity(id).Version)!=NormalizeVersion(expected.Version))throw new InvalidDataException("清单与插件实际 ID 或版本不一致，未启用。");
             }
+            pluginPaths[id]=path;
+            if(previousPath!=null){settings.PluginFiles.RemoveAll(file=>string.Equals(file,previousPath,StringComparison.OrdinalIgnoreCase));for(var index=plugins.ActiveIds.Count-1;index>previousIndex;index--)plugins.Move(id,-1);}
+            settings.PluginFailures.Remove(id);settings.PluginFailures.Remove(path);
+            settings.PluginFiles=plugins.ActiveIds.Select(item=>pluginPaths[item]).ToList();
+            // Persist obsolete-package cleanup before deleting anything. If the
+            // second persistence fails, startup can still finish the cleanup.
+            if(previousPath!=null && PluginPackage.ManagedDirectory(previousPath,pluginDirectory)!=null && !settings.PendingPluginRemovals.Contains(previousPath,StringComparer.OrdinalIgnoreCase))settings.PendingPluginRemovals.Add(previousPath);
+            if(save)writePluginSettings();
         }
-        catch
+        catch(Exception failure)
         {
-            if(previousPath!=null){plugins.Enable(previousPath);for(var index=plugins.ActiveIds.Count-1;index>previousIndex;index--)plugins.Move(expected!.Id,-1);}
+            if(enabledId!=null)plugins.Disable(enabledId);
+            settings.PluginFiles=oldFiles;settings.PluginFailures=oldFailures;settings.PendingPluginRemovals=oldPending;settings.PluginPreferences=oldPreferences.ToDictionary(item=>item.Key,item=>new Dictionary<string,string>(item.Value));
+            pluginPaths.Clear();foreach(var item in oldPaths)pluginPaths[item.Key]=item.Value;
+            Exception? restoreError=null;
+            if(oldDisabled && previousPath!=null)
+            {
+                try{plugins.Enable(previousPath);for(var index=plugins.ActiveIds.Count-1;index>previousIndex;index--)plugins.Move(expected!.Id,-1);}
+                catch(Exception error){restoreError=error;pluginPaths.Remove(expected!.Id);settings.PluginFiles.RemoveAll(item=>string.Equals(item,previousPath,StringComparison.OrdinalIgnoreCase));settings.PluginFailures[expected.Id]="旧插件恢复失败："+error.GetType().Name;}
+            }
+            // A restored plugin may initialize preferences; rollback restores
+            // the exact prior preference map, including removed/added keys.
+            settings.PluginPreferences=oldPreferences.ToDictionary(item=>item.Key,item=>new Dictionary<string,string>(item.Value));
+            if(installedPackage)CleanupPluginPackage(path,save);
+            Render();
+            if(restoreError!=null){if(save)SavePluginRecovery();throw new AggregateException("安装失败，且旧插件未能恢复；已停用故障项。",failure,restoreError);}
             throw;
         }
-        if(previousPath!=null){settings.PluginFiles.RemoveAll(file=>string.Equals(file,previousPath,StringComparison.OrdinalIgnoreCase));for(var index=plugins.ActiveIds.Count-1;index>previousIndex;index--)plugins.Move(id,-1);}
-        pluginPaths[id]=path;
-        settings.PluginFailures.Remove(id);settings.PluginFailures.Remove(path);
-        if(!settings.PluginFiles.Contains(path,StringComparer.OrdinalIgnoreCase))settings.PluginFiles.Add(path);
-        if(save)SaveAndApplySettings();else Render();
+        finally{pluginMutationDepth--;}
+        if(previousPath!=null)CleanupPluginPackage(previousPath,save);
+        Render();
+    }
+    private void CleanupPluginPackage(string path,bool save)
+    {
+        try
+        {
+            PluginPackage.Uninstall(path,pluginDirectory);settings.PendingPluginRemovals.RemoveAll(item=>string.Equals(item,path,StringComparison.OrdinalIgnoreCase));settings.PluginFailures.Remove(path);
+        }
+        catch(Exception error) when(error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
+        {
+            if(!settings.PendingPluginRemovals.Contains(path,StringComparer.OrdinalIgnoreCase))settings.PendingPluginRemovals.Add(path);
+            settings.PluginFailures[path]="包清理待重试："+error.GetType().Name;
+        }
+        if(save && persistPluginState)SavePluginRecovery();
     }
     private void QuarantineFailedPlugins()
     {
@@ -76,24 +114,36 @@ public partial class MainWindow
     private void SavePluginRecovery()
     {
         if(!persistPluginState)return;
-        try{settings.Save();}catch(Exception error) when(error is IOException or UnauthorizedAccessException){plugins.Errors["settings"]="插件停用状态未能保存，请检查配置目录权限。";}
+        try{writePluginSettings();}catch(Exception error) when(error is IOException or UnauthorizedAccessException){plugins.Errors["settings"]="插件停用状态未能保存，请检查配置目录权限。";}
     }
-    private void DisablePlugin(string id)
+    internal void DisablePlugin(string id)
     {
-        plugins.Disable(id);if(pluginPaths.Remove(id,out var path))settings.PluginFiles.RemoveAll(file=>string.Equals(file,path,StringComparison.OrdinalIgnoreCase));SaveAndApplySettings();
+        if(!pluginPaths.TryGetValue(id,out var path))return;var old=settings.PluginFiles.ToList();
+        settings.PluginFiles.RemoveAll(file=>string.Equals(file,path,StringComparison.OrdinalIgnoreCase));
+        try{writePluginSettings();}catch{settings.PluginFiles=old;throw;}
+        plugins.Disable(id);pluginPaths.Remove(id);Render();
     }
-    private void MovePlugin(string id,int direction)
+    internal void MovePlugin(string id,int direction)
     {
+        var oldIds=plugins.ActiveIds.ToArray();var oldFiles=settings.PluginFiles.ToList();
         if(!plugins.Move(id,direction))return;
-        settings.PluginFiles=plugins.ActiveIds.Select(item=>pluginPaths[item]).Concat(settings.PluginFiles).Distinct(StringComparer.OrdinalIgnoreCase).ToList();SaveAndApplySettings();
+        settings.PluginFiles=plugins.ActiveIds.Select(item=>pluginPaths[item]).ToList();
+        try{writePluginSettings();}
+        catch
+        {
+            settings.PluginFiles=oldFiles;
+            for(var index=0;index<oldIds.Length;index++)while(plugins.ActiveIds.ToList().IndexOf(oldIds[index])>index)plugins.Move(oldIds[index],-1);
+            Render();throw;
+        }
+        Render();
     }
     internal void UninstallPlugin(string id)
     {
         if(!pluginPaths.TryGetValue(id,out var path))return;
-        plugins.Disable(id);
-        settings.PluginFiles.RemoveAll(file=>string.Equals(file,path,StringComparison.OrdinalIgnoreCase));pluginPaths.Remove(id);
-        SaveAndApplySettings();
-        try{PluginPackage.Uninstall(path,pluginDirectory);}
-        catch(IOException){settings.PendingPluginRemovals.Add(path);SavePluginRecovery();Design.PresentMessage("插件已停用","文件仍被占用，将在下次启动时完成删除。个人插件设置继续保留。");}
+        var oldFiles=settings.PluginFiles.ToList();var oldPending=settings.PendingPluginRemovals.ToList();
+        settings.PluginFiles.RemoveAll(file=>string.Equals(file,path,StringComparison.OrdinalIgnoreCase));
+        if(PluginPackage.ManagedDirectory(path,pluginDirectory)!=null && !settings.PendingPluginRemovals.Contains(path,StringComparer.OrdinalIgnoreCase))settings.PendingPluginRemovals.Add(path);
+        try{writePluginSettings();}catch{settings.PluginFiles=oldFiles;settings.PendingPluginRemovals=oldPending;throw;}
+        plugins.Disable(id);pluginPaths.Remove(id);CleanupPluginPackage(path,true);Render();
     }
 }

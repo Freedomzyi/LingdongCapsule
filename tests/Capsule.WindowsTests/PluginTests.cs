@@ -11,7 +11,7 @@ public sealed class FixturePlugin : ICapsulePlugin
     public bool Disposed{get;private set;}
     private readonly TextBlock view=new();
     private ICapsulePluginHost? host;
-    public FrameworkElement CreateWidget(ICapsulePluginHost host){this.host=host;view.Text=host.ReadSetting("label","Test");return view;}
+    public FrameworkElement CreateWidget(ICapsulePluginHost host){this.host=host;view.Text=host.ReadSetting("label","Test");host.WriteSetting("initializations",(int.Parse(host.ReadSetting("initializations","0"))+1).ToString());return view;}
     public void Update(PluginFrame frame){if(frame.Media.Title=="throw" || host?.ReadSetting("fail")=="true")throw new InvalidOperationException("Fixture callback error");view.Text=frame.Now.ToString("HH:mm");}
     public void Dispose()=>Disposed=true;
 }
@@ -63,7 +63,8 @@ internal static class PluginTests
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
         var windowSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false};
         var missing=Path.Combine(packageRoot,"missing.dll");windowSettings.PluginFiles.Add(missing);
-        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:windowSettings,localPluginDirectory:Path.Combine(packageRoot,"window-installed"));
+        var failSave=false;var saved="";var writes=0;
+        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:windowSettings,localPluginDirectory:Path.Combine(packageRoot,"window-installed"),pluginSettingsWriter:()=>{writes++;if(failSave)throw new IOException("Owned simulated save failure");saved=System.Text.Json.JsonSerializer.Serialize(windowSettings);});
         try
         {
             window.Show();await Task.Delay(300);window.LoadPlugin(valid,save:false);
@@ -77,6 +78,30 @@ internal static class PluginTests
             using(var zip=ZipFile.Open(mismatch,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.clock\",\"name\":\"Test\",\"version\":\"0.2.0\",\"entry\":\"fixture.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture.dll");}
             var mismatchRejected=false;try{window.LoadPlugin(mismatch,save:false);}catch(InvalidDataException){mismatchRejected=true;}
             if(!mismatchRejected || window.LivePluginView.Children.Count!=1 || windowSettings.PluginFiles.Single()!=retained)throw new Exception("Failed plugin upgrade did not restore previous entry");
+            var preferences=System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences);
+            failSave=true;var failed=false;try{window.LoadPlugin(valid);}catch(IOException){failed=true;}
+            if(!failed || windowSettings.PluginFiles.Single()!=retained || window.LivePluginView.Children.Count!=1 || System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences)!=preferences || saved.Length!=0 || writes!=1)throw new Exception("Save failure did not restore old plugin, restart path and preferences");
+            failed=false;try{window.DisablePlugin("fixture.clock");}catch(IOException){failed=true;}
+            if(!failed || windowSettings.PluginFiles.Single()!=retained || window.LivePluginView.Children.Count!=1)throw new Exception("Failed disable changed live plugin");
+            var pending=windowSettings.PendingPluginRemovals.ToArray();failed=false;try{window.UninstallPlugin("fixture.clock");}catch(IOException){failed=true;}
+            if(!failed || windowSettings.PluginFiles.Single()!=retained || window.LivePluginView.Children.Count!=1 || !windowSettings.PendingPluginRemovals.SequenceEqual(pending) || !File.Exists(retained))throw new Exception("Failed uninstall changed live plugin or removed files");
+            failSave=false;window.LoadPlugin(valid);retained=windowSettings.PluginFiles.Single();
+            var persisted=System.Text.Json.JsonSerializer.Deserialize<Settings>(saved)!;
+            if(persisted.PluginFiles.Single()!=retained || window.LivePluginView.Children.Count!=1 || !File.Exists(retained))throw new Exception("Successful upgrade did not commit live and saved entry together");
+            var secondPackage=Path.Combine(packageRoot,"second-valid.zip");
+            using(var zip=ZipFile.Open(secondPackage,ZipArchiveMode.Create)){using(var writer=new StreamWriter(zip.CreateEntry("plugin.json").Open()))writer.Write("{\"id\":\"fixture.second\",\"name\":\"Second\",\"version\":\"0.1.0\",\"entry\":\"fixture-second.dll\"}");zip.CreateEntryFromFile(typeof(FixturePlugin).Assembly.Location,"fixture-second.dll");}
+            preferences=System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences);failSave=true;failed=false;
+            try{window.LoadPlugin(secondPackage);}catch(IOException){failed=true;}
+            if(!failed || window.LivePluginView.Children.Count!=1 || windowSettings.PluginFiles.Single()!=retained || System.Text.Json.JsonSerializer.Serialize(windowSettings.PluginPreferences)!=preferences)throw new Exception("First install save failure retained new widget or preferences");
+            failSave=false;window.LoadPlugin(secondPackage);var filesBeforeMove=windowSettings.PluginFiles.ToArray();var childrenBeforeMove=window.LivePluginView.Children.Cast<UIElement>().ToArray();
+            failSave=true;failed=false;try{window.MovePlugin("fixture.second",-1);}catch(IOException){failed=true;}
+            if(!failed || !windowSettings.PluginFiles.SequenceEqual(filesBeforeMove) || !window.LivePluginView.Children.Cast<UIElement>().SequenceEqual(childrenBeforeMove))throw new Exception("Failed reorder did not restore view and saved order");
+            failSave=false;window.MovePlugin("fixture.second",-1);persisted=System.Text.Json.JsonSerializer.Deserialize<Settings>(saved)!;
+            if(window.LivePluginView.Children[0]!=childrenBeforeMove[1] || !persisted.PluginFiles.SequenceEqual(filesBeforeMove.Reverse()))throw new Exception("Reorder did not commit view and restart order");
+            var stopped=windowSettings.PluginFiles[0];window.DisablePlugin("fixture.second");
+            if(window.LivePluginView.Children.Count!=1 || windowSettings.PluginFiles.Single()!=retained || !File.Exists(stopped))throw new Exception("Stop removed package files or retained active widget");
+            Console.WriteLine("PASS Save-failed upgrade restores old widget/path/preferences; failed stop/uninstall preserve live state; successful upgrade commits");
+            Console.WriteLine("PASS First-install failure leaves no widget/preferences; reorder failure restores live order; successful move/stop persist");
             windowSettings.PluginPreferences["fixture.clock"]=new(){["fail"]="true"};
             for(var attempt=0;attempt<30 && window.LivePluginView.Children.Count!=0;attempt++)await Task.Delay(100);
             if(window.LivePluginView.Children.Count!=0 || windowSettings.PluginFiles.Count!=0 || !windowSettings.PluginFailures.ContainsKey("fixture.clock"))throw new Exception("Faulted plugin was not removed from restart list");

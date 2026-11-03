@@ -34,10 +34,11 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer panelCollapse=new();
     internal OverviewView LiveOverview=>overview;
     [DllImport("user32.dll")] private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
-    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null,string? localMspDirectory=null,string? localPluginDirectory=null)
+    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null,string? localMspDirectory=null,string? localPluginDirectory=null,Action? pluginSettingsWriter=null)
     {
         settings=initialSettings ?? Settings.Load();
         pluginDirectory=localPluginDirectory ?? System.IO.Path.Combine(Settings.Folder,"Plugins");
+        writePluginSettings=pluginSettingsWriter ?? settings.Save;
         notifications=new NotificationService(persistSources:initialSettings==null);
         mspDirectory=localMspDirectory ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".msp","nodes");
         solo=new SoloConnection(localSoloEndpoint);
