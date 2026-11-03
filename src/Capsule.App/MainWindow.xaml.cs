@@ -15,7 +15,7 @@ public partial class MainWindow : Window
     private readonly IslandState state = new();
     internal IslandState LiveState => state;
     private readonly MediaService media = new();
-    private readonly NotificationService notifications = new();
+    private readonly NotificationService notifications;
     private readonly Settings settings;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private Forms.NotifyIcon? tray;
@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null,string? localMspDirectory=null)
     {
         settings=initialSettings ?? Settings.Load();
+        notifications=new NotificationService(persistSources:initialSettings==null);
         mspDirectory=localMspDirectory ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".msp","nodes");
         solo=new SoloConnection(localSoloEndpoint);
         Design.ApplyTheme(settings.ThemeMode);

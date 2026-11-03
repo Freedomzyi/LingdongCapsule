@@ -15,6 +15,7 @@ internal static class MspTests
         var client=new MspNode("capsule-test-peer",nodesDir:directory);
         try
         {
+            client.DeclareSignal("notify.capsule.fixture");
             client.Start();string? ping=null;
             for(var attempt=0;attempt<30;attempt++)
             {
@@ -24,6 +25,9 @@ internal static class MspTests
             if(ping==null || !ping.Contains("lingdongcapsule"))throw new Exception("MSP peers did not exchange ping");
             await client.CallAsync("lingdongcapsule","notify",new{title="MSP test",body="Independent local fixture"});
             if(received?.Title!="MSP test")throw new Exception("MSP notification did not reach adapter");
+            client.Publish("notify.capsule.fixture",new{title="Subscribed fixture",body="Broadcast test only"});
+            for(var attempt=0;attempt<30 && received?.Title!="Subscribed fixture";attempt++)await Task.Delay(100);
+            if(received?.Title!="Subscribed fixture" || received.SourceId!="msp:capsule-test-peer")throw new Exception("MSP subscription source identity was lost");
             await client.CallAsync("lingdongcapsule","media_control",new{action="prev"});if(command!="previous")throw new Exception("Media alias not normalized");
             command=null;await client.CallAsync("lingdongcapsule","media_control",new{action="invalid"});if(command!=null)throw new Exception("Unlisted media command reached controller");
             var status=JsonSerializer.Serialize((await client.CallAsync("lingdongcapsule","media_status",new{})).Unwrap());if(!status.Contains("Test track"))throw new Exception("Media status missing");

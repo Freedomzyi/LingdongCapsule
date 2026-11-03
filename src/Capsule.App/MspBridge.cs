@@ -1,5 +1,6 @@
 using Capsule.Core;
 using Msp.Core;
+using System.Text.Json;
 
 namespace Capsule.App;
 
@@ -20,6 +21,11 @@ internal sealed class MspBridge : IDisposable
         var candidate=new MspNode("lingdongcapsule",role,directory);
         try
         {
+            candidate.On("notify.**",signal=>
+            {
+                if(signal.Source=="lingdongcapsule")return;
+                _=ReceiveSignalAsync(signal.Source ?? "MSP",signal.Payload.Clone());
+            });
             candidate.Tool("ping",()=>new{node="lingdongcapsule",active=true},"胶囊节点健康检查");
             candidate.Tool("notify",(Func<string,string,Task<object>>)(async(title,body)=>
             {
@@ -36,6 +42,18 @@ internal sealed class MspBridge : IDisposable
             candidate.Start();node=candidate;Error="";return true;
         }
         catch(Exception error){try{candidate.Stop();}catch{ }Error="MSP 启动失败："+error.GetType().Name;return false;}
+    }
+    private async Task ReceiveSignalAsync(string peer,JsonElement payload)
+    {
+        try
+        {
+            if(payload.ValueKind!=JsonValueKind.Object)return;
+            string Read(params string[] names){foreach(var name in names)if(payload.TryGetProperty(name,out var value) && value.ValueKind==JsonValueKind.String)return value.GetString() ?? "";return "";}
+            var title=Read("title","Title","name");var body=Read("body","Body","text","message");
+            if(title.Length==0 && body.Length==0 || title.Length>4096 || body.Length>16384 || peer.Length>128)return;
+            await notify(new("msp:"+peer,peer,title.Length>0 ? title : body,body,unchecked((uint)Interlocked.Increment(ref noticeSequence))));
+        }
+        catch(Exception){ /* A stale UI dispatcher or invalid peer message must not stop the node. */ }
     }
     public void Dispose(){var active=node;node=null;try{active?.Stop();}catch(Exception error){Error="MSP 停止失败："+error.GetType().Name;}}
 }

@@ -18,6 +18,7 @@ public partial class MainWindow
     private readonly BitmapImage defaultNoticeIcon=new(new Uri("pack://application:,,,/LingdongCapsule;component/Assets/icon.png"));
     internal bool AcceptNotification(Notice notice,DateTimeOffset now)
     {
+        if(!notifications.Sources.ContainsKey(notice.SourceId) && notifications.Sources.Count<256){notifications.Sources[notice.SourceId]=notice.App;notifications.PersistSourceNames();}
         state.GroupNotifications=settings.GroupNotifications;
         state.SetQuietUntil(settings.QuietUntil,now);
         if(!settings.NotificationsEnabled || settings.MutedSources.Contains(notice.SourceId) || !state.Show(notice,now))return false;
