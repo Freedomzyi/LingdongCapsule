@@ -2,27 +2,70 @@ using Capsule.Core;
 using Windows.Media.Control;
 using Windows.UI.Notifications;
 using Windows.UI.Notifications.Management;
+using System.IO;
+using System.Windows.Media.Imaging;
 namespace Capsule.App;
 
-public sealed class MediaService
+public sealed class MediaService : IDisposable
 {
     private GlobalSystemMediaTransportControlsSessionManager? manager;
     private GlobalSystemMediaTransportControlsSession? session;
+    private string coverKey = "";
+    private volatile bool metadataDirty=true;
+    private GlobalSystemMediaTransportControlsSessionMediaProperties? cachedProperties;
+    private DateTimeOffset propertiesReadAt;
+    public BitmapImage? Cover { get; private set; }
+    public string SourceId => session?.SourceAppUserModelId ?? "";
+    private void OnPlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) { }
+    private void OnPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) { metadataDirty=true; }
+    private void Attach(GlobalSystemMediaTransportControlsSession? next)
+    {
+        if (ReferenceEquals(session,next)) return;
+        if (session is not null) { session.PlaybackInfoChanged-=OnPlaybackChanged; session.MediaPropertiesChanged-=OnPropertiesChanged; }
+        session=next;
+        metadataDirty=true;cachedProperties=null;
+        if (session is not null) { session.PlaybackInfoChanged+=OnPlaybackChanged; session.MediaPropertiesChanged+=OnPropertiesChanged; }
+    }
+    public void Dispose() { Attach(null); manager=null; }
     public string Status { get; private set; } = "媒体尚未连接";
     public async Task<MediaSnapshot> ReadAsync()
     {
         try
         {
-            manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-            session = manager.GetCurrentSession();
-            if (session is null) { Status = "未发现系统媒体会话"; return new("", "", false, false); }
+            manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Attach(manager.GetCurrentSession());
+            if (session is null) { Status = "未发现系统媒体会话"; Cover=null; coverKey=""; return new("", "", false, false); }
             var target = session;
-            var props = await target.TryGetMediaPropertiesAsync();
+            if(metadataDirty || cachedProperties is null || DateTimeOffset.UtcNow-propertiesReadAt>TimeSpan.FromSeconds(10))
+            {
+                metadataDirty=false;
+                cachedProperties=await target.TryGetMediaPropertiesAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                propertiesReadAt=DateTimeOffset.UtcNow;
+            }
+            var props=cachedProperties;
             var playing = target.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            var key = target.SourceAppUserModelId + "|" + props.Title + "|" + props.Artist;
+            if (key != coverKey)
+            {
+                coverKey=key; Cover=null;
+                try
+                {
+                    if (props.Thumbnail is not null)
+                    {
+                        using var data = await props.Thumbnail.OpenReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+                        if (data.Size <= 8 * 1024 * 1024)
+                        {
+                            using var stream = data.AsStreamForRead();
+                            var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption=BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth=96; bitmap.StreamSource=stream; bitmap.EndInit(); bitmap.Freeze(); Cover=bitmap;
+                        }
+                    }
+                }
+                catch { /* Missing or malformed cover art does not invalidate a media session. */ }
+            }
             Status = "系统媒体已连接";
             return new(string.IsNullOrWhiteSpace(props.Title) ? "未知曲目" : props.Title, props.Artist, playing, true);
         }
-        catch (Exception e) { Status = "媒体暂不可用（" + e.GetType().Name + "）"; manager = null; session = null; return new("", "", false, false); }
+        catch (Exception e) { Status = "媒体暂不可用（" + e.GetType().Name + "）"; Dispose(); Cover=null; coverKey=""; return new("", "", false, false); }
     }
     public async Task<bool> ControlAsync(string action)
     {
@@ -30,17 +73,35 @@ public sealed class MediaService
         {
             var current = manager?.GetCurrentSession();
             if (current is null) return false;
-            return action switch { "previous" => await current.TrySkipPreviousAsync(), "next" => await current.TrySkipNextAsync(), _ => await current.TryTogglePlayPauseAsync() };
+            if (action == "previous") return await current.TrySkipPreviousAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            if (action == "next") return await current.TrySkipNextAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            var shouldPlay = current.GetPlaybackInfo().PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            // Some players reject a command while switching tracks. Retry the same explicit
+            // intent, never toggle again (which could undo an already completed operation).
+            for (var attempt=0;attempt<3;attempt++)
+            {
+                var operation=shouldPlay ? current.TryPlayAsync() : current.TryPauseAsync();
+                await operation.AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                await Task.Delay(400);
+                var nowPlaying=current.GetPlaybackInfo().PlaybackStatus==GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                if (nowPlaying==shouldPlay) return true;
+            }
+            return false;
         }
         catch { return false; }
     }
 }
 
-public sealed class NotificationService
+public sealed class NotificationService : IDisposable
 {
     private readonly Dictionary<string, DateTimeOffset> seen = [];
     private UserNotificationListener? listener;
     private bool baseline;
+    private bool subscribed,eventAvailable,hadAccess;
+    private int dirty=1;
+    private DateTimeOffset lastPoll;
+    private void OnChanged(UserNotificationListener sender,UserNotificationChangedEventArgs args)=>Interlocked.Exchange(ref dirty,1);
+    public void Dispose(){if(subscribed && eventAvailable && listener is not null)listener.NotificationChanged-=OnChanged;}
     public string Status { get; private set; } = "通知监听未启用";
     public Dictionary<string, string> Sources { get; } = [];
     public async Task<bool> RequestAsync()
@@ -61,8 +122,17 @@ public sealed class NotificationService
         try
         {
             listener ??= UserNotificationListener.Current;
-            if (listener.GetAccessStatus() != UserNotificationListenerAccessStatus.Allowed) { Status = "通知未获授权"; return notices; }
-            var items = await listener.GetNotificationsAsync(NotificationKinds.Toast);
+            if (listener.GetAccessStatus() != UserNotificationListenerAccessStatus.Allowed) { hadAccess=false;Status = "通知未获授权"; return notices; }
+            if(!hadAccess){ResetBaseline();hadAccess=true;}
+            if(!subscribed)
+            {
+                subscribed=true;
+                try{listener.NotificationChanged+=OnChanged;eventAvailable=true;}catch{eventAvailable=false;}
+            }
+            var changed=Interlocked.Exchange(ref dirty,0)!=0;
+            if(baseline && !changed && DateTimeOffset.UtcNow-lastPoll<TimeSpan.FromSeconds(eventAvailable ? 15 : 2))return notices;
+            lastPoll=DateTimeOffset.UtcNow;
+            var items = await listener.GetNotificationsAsync(NotificationKinds.Toast).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             var live = new HashSet<string>();
             foreach (var n in items.OrderBy(n => n.CreationTime))
             {
@@ -86,5 +156,5 @@ public sealed class NotificationService
         catch (Exception e) { Status = "通知读取失败（" + e.GetType().Name + "）"; }
         return notices;
     }
-    public void ResetBaseline() { baseline = false; seen.Clear(); }
+    public void ResetBaseline() { baseline = false; seen.Clear();Interlocked.Exchange(ref dirty,1); }
 }

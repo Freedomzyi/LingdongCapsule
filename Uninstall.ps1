@@ -1,0 +1,20 @@
+$ErrorActionPreference='Stop'
+$target=(Resolve-Path -LiteralPath $PSScriptRoot).Path.TrimEnd('\')
+$manifest=Join-Path $target 'installed-files.json'
+if(-not(Test-Path -LiteralPath $manifest) -or -not(Test-Path -LiteralPath (Join-Path $target 'LingdongCapsule.exe'))){throw '没有找到本程序的安装清单，停止卸载。便携版可退出后手动移除解压目录。'}
+$exe=Join-Path $target 'LingdongCapsule.exe'
+$paths=@(Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json)
+$checked=@($paths | ForEach-Object {$path=[IO.Path]::GetFullPath((Join-Path $target $_));if(-not $path.StartsWith($target+'\',[StringComparison]::OrdinalIgnoreCase)){throw '安装清单含越界路径，停止卸载。'};$path})
+Get-Process LingdongCapsule -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe} | Stop-Process
+$run='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$startup=(Get-ItemProperty -Path $run -Name LingdongCapsule -ErrorAction SilentlyContinue).LingdongCapsule
+if($startup -and $startup.Contains($exe)){Remove-ItemProperty -Path $run -Name LingdongCapsule}
+$link=Join-Path ([Environment]::GetFolderPath('Programs')) '灵动胶囊.lnk'
+if(Test-Path -LiteralPath $link){$shell=New-Object -ComObject WScript.Shell;if($shell.CreateShortcut($link).TargetPath -eq $exe){Remove-Item -LiteralPath $link}}
+$uninstall='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LingdongCapsule'
+if((Get-ItemProperty -Path $uninstall -ErrorAction SilentlyContinue).InstallLocation -eq $target){Remove-Item -LiteralPath $uninstall}
+foreach($path in $checked){if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -Force}}
+Remove-Item -LiteralPath $manifest
+Get-ChildItem -LiteralPath $target -Directory -Recurse | Sort-Object FullName -Descending | ForEach-Object {if(-not(Get-ChildItem -LiteralPath $_.FullName -Force)){Remove-Item -LiteralPath $_.FullName}}
+if(-not(Get-ChildItem -LiteralPath $target -Force)){Remove-Item -LiteralPath $target}
+Write-Host '灵动胶囊已卸载。个人设置已保留在 LocalAppData\LingdongCapsule。'

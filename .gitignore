@@ -5,3 +5,5 @@ artifacts/
 *.user
 *.pfx
 *.cer
+installed-files.json
+**/__pycache__/
