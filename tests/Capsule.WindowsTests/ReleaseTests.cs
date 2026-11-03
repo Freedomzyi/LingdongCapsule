@@ -32,5 +32,6 @@ internal static class ReleaseTests
         using var current=new HttpClient(new Handler(HttpStatusCode.OK,"{\"tag_name\":\"v0.1.0\"}"));
         if((await ReleaseChecker.CheckAsync(current,new(0,1,0))).Link!=null)throw new Exception("Current release was offered as upgrade");
         Console.WriteLine("PASS Release absence, version comparison and repository-bound download link");
+        await InstallWindowTests.RunAsync();
     }
 }

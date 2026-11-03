@@ -321,3 +321,9 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 本机通知权限已为 Allowed，没有请求或修改权限。新增可选 --native-toast-test，以随机独立 AUMID/快捷方式发送静音自建 Windows toast；从真实 NotificationService 到系统通知数据库精确 ID/身份/时间/文本匹配，再解码自建头像，全部通过：artifacts/native-toast-tests/f234305dbef14d9ca7b4114fa65046ee。日志只记录结果，不记录其他通知正文。结束撤销自己的 toast、快捷方式与身份登记，不触碰日用应用登记。
 - 首次测试发现系统保留的部分通知 AppInfo 返回 NotImplementedException；测试枚举已像生产适配器一样跳过无法解析身份的项目。此链路通过不等于真实微信头像、WPF 显示或物理交互通过。没有控制真实播放器。
 - 顺序整合脚本以 -IncludeNativeToast 显式启用此真实系统测试；默认无测试通知，也不向 CI 请求通知权限。
+
+## 安装入口受限视口
+
+- 安装窗口按当前工作区限制宽高，说明区域可滚动，安装/取消操作独立固定在底部。实际 WPF 420×600、320×240、240×200 逻辑视口检查通过：两个操作完整可见、受限说明可滚动、取消关闭自己的窗口；未执行安装。窗口内的限制测试不能替代真实更改 DPI/多屏。
+- 发行维护专项已加入上述界面回归，包含现有配置迁移/损坏恢复/未来版本保护、通知来源持久化和更新检查。证据 artifacts/install-viewport-test.log；artifacts/install-viewport-tests 下默认及受限截图已检查。
+- ba370a6 的公开构建 run 41740034337 已核验成功；真实系统通知测试为可选本机专项，没有在无权限 CI 中伪造通过。
