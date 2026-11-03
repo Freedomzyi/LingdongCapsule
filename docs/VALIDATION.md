@@ -337,3 +337,9 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 
 - 1dac10907f4ab7538f1f7b6140fa921645ce3a94 的干净本地发行构建与 PS5 解压安装入口通过，SHA256 6070E9082F41212B478DDBCBE878A6BDF06839B12F3C539E915AAEF9B60A3B8B，证据 artifacts/published-tests/66ec41e19861487fb413feabfd583f6c；公开构建 run 41741095896 成功。
 - 同一实现的二十一组顺序整合（含显式真实自建系统通知）全部通过：artifacts/verification/20261103-234214-8412/results.json。此次设置同步证据 settings-sync-tests/8188e9f4b1fc47d3ab5cfe6e6eb40d5c；真实系统图片证据 native-toast-tests/b87340f26a634d12be4b0da2a70baa82。源码测试后仅有通知说明文档更新；不将这些结果扩大成物理操作或第三方软件验收。
+
+## 真实系统通知图片进入实际岛体
+
+- 扩展可选真实系统专项：由真实 NotificationService 得到自建 toast 的 Notice，交给实际 MainWindow 的正常图片解析器；不注入位图。实际窗口显示自建纯色圆形头像，关闭系统图片后回退非头像图标，重新开启恢复头像，隐私预览隐藏头像。自建来源、图片和内容截图已检查，证据 artifacts/native-toast-tests/bcf29e52bade4febb86c0349be89a718。
+- 首次扩展测试误把解码后头像宽度写死为原图 32；实际解码器按既定 96 像素缩略图策略输出。已改为检查实际中心像素颜色和圆形裁切，专项通过。没有以调整生产解码器迎合错误断言。
+- 该证据连通真实系统存储和实际岛体呈现；没有验证真实第三方头像、权限撤销、物理点击或通知横幅策略。只为自建身份创建临时登记，结束后关闭自己的窗口并撤销自建 toast/快捷方式/登记。

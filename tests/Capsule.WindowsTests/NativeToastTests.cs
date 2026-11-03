@@ -1,5 +1,7 @@
 using System.IO;
 using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Capsule.App;
@@ -51,8 +53,37 @@ internal static class NativeToastTests
             if(image==null || !image.Avatar || Path.GetFullPath(image.Source)!=imagePath)throw new Exception("Own system toast image row did not match identity/id/time/text");
             using var images=new NoticeImages();var decoded=await images.ResolveAsync(found,systemAvatar:image.Source);
             if(decoded==null || !decoded.Avatar)throw new Exception("Own native avatar failed bounded image decode");
-            File.WriteAllText(Path.Combine(root,"result.json"),JsonSerializer.Serialize(new{passed=true,notificationAdapter=true,systemImageRow=true,avatarDecoded=true,scope="Own generated toast only; no physical interaction or third-party notification acceptance"}));
-            Console.WriteLine("PASS native Windows toast -> adapter -> exact system image row -> avatar decode; evidence: "+root);
+            var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            var settings=new Settings{MediaEnabled=false,NotificationsEnabled=true,SystemNotificationImagesEnabled=true,PrivatePreview=false,NotificationSoundEnabled=false,MotionMs=150,MutedSources=await MutedAsync()};
+            var window=new MainWindow(suppressOnboarding:true,initialSettings:settings,localPluginDirectory:Path.Combine(root,"plugins"),pluginSettingsWriter:()=>{}){ShowActivated=false};
+            try
+            {
+                window.Show();await Task.Delay(1000);
+                // The same accepted real Notice enters the normal resolver; no bitmap is injected.
+                if(!window.AcceptNotification(found,DateTimeOffset.Now))throw new Exception("Own native notice was rejected by island");
+                var icon=(System.Windows.Controls.Image)window.FindName("NoticeIcon");
+                var frame=(Border)window.FindName("NoticeIconFrame");
+                bool HasAvatar()
+                {
+                    if(icon.Clip is not RectangleGeometry clip || clip.RadiusX<=10 || icon.Source is not BitmapSource pixels)return false;
+                    var converted=new FormatConvertedBitmap(pixels,PixelFormats.Bgra32,null,0);var pixel=new byte[4];converted.CopyPixels(new Int32Rect(converted.PixelWidth/2,converted.PixelHeight/2,1,1),pixel,4,0);
+                    return pixel[0]==220 && pixel[1]==100 && pixel[2]==40 && pixel[3]==255;
+                }
+                for(var i=0;i<30 && !HasAvatar();i++)await Task.Delay(100);
+                if(window.LiveState.Notification?.SourceId!=id || !HasAvatar() || frame.Visibility!=Visibility.Visible)throw new Exception("Real system avatar did not reach actual island");
+                var rendered=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth),(int)Math.Ceiling(window.ActualHeight),96,96,PixelFormats.Pbgra32);rendered.Render(window);
+                var screenshot=new PngBitmapEncoder();screenshot.Frames.Add(BitmapFrame.Create(rendered));using(var output=File.Create(Path.Combine(root,"own-native-island.png")))screenshot.Save(output);
+                var render=typeof(MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
+                settings.SystemNotificationImagesEnabled=false;render.Invoke(window,null);
+                if(HasAvatar() || icon.Clip is not RectangleGeometry fallback || fallback.RadiusX!=4)throw new Exception("Disabled system image retained avatar");
+                settings.SystemNotificationImagesEnabled=true;render.Invoke(window,null);
+                if(!HasAvatar())throw new Exception("System avatar did not recover after re-enable");
+                settings.PrivatePreview=true;render.Invoke(window,null);
+                if(frame.Visibility!=Visibility.Collapsed)throw new Exception("Private preview exposed native avatar");
+            }
+            finally{window.Close();}
+            File.WriteAllText(Path.Combine(root,"result.json"),JsonSerializer.Serialize(new{passed=true,notificationAdapter=true,systemImageRow=true,avatarDecoded=true,actualIsland=true,disableFallback=true,privatePreview=true,scope="Own generated toast only; real adapter Notice supplied to actual island resolver; no physical interaction or third-party notification acceptance"}));
+            Console.WriteLine("PASS native Windows toast -> adapter -> exact system image row -> actual island avatar, disable fallback and private preview; evidence: "+root);
         }
         finally
         {
