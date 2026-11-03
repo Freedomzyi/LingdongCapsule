@@ -23,7 +23,7 @@ public sealed class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin)
     {
         this.settings = settings; this.save = save;
         Closed+=(_,_)=>soundPreview.Dispose();
@@ -42,7 +42,7 @@ public sealed class SettingsWindow : Window
         var content=new Grid();content.ColumnDefinitions.Add(new(){Width=new GridLength(154)});content.ColumnDefinitions.Add(new());Grid.SetRow(content,1);layout.Children.Add(content);
         var navigation=new StackPanel {Margin=new Thickness(12,12,6,12)};content.Children.Add(navigation);
         Grid.SetColumn(pageHost,1);content.Children.Add(pageHost);
-        foreach(var name in new[]{"个性化中心","通用设置","显示设置","媒体设置","交互设置","关于软件"})
+        foreach(var name in new[]{"个性化中心","通用设置","显示设置","媒体设置","交互设置","我的插件","关于软件"})
         {
             var page=new StackPanel {Margin=new Thickness(16,0,24,20)};pages[name]=page;
             pageViews[name]=new ScrollViewer {Content=page,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};
@@ -50,6 +50,23 @@ public sealed class SettingsWindow : Window
             button.Click+=(_,_)=>SelectPage(name);tabs[name]=button;navigation.Children.Add(button);
         }
         SelectPage("个性化中心");
+        var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();
+        void RefreshPlugins()
+        {
+            pluginRows.Children.Clear();foreach(var id in activePlugins())
+            {
+                var row=new DockPanel{Margin=new Thickness(0,5,0,5)};var disable=new Button{Content="停用",Padding=new Thickness(10,6,10,6)};DockPanel.SetDock(disable,Dock.Right);disable.Click+=(_,_)=>{disablePlugin(id);RefreshPlugins();};row.Children.Add(disable);row.Children.Add(new TextBlock{Text=id,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});pluginRows.Children.Add(row);
+            }
+            if(pluginRows.Children.Count==0)pluginRows.Children.Add(new TextBlock{Text="尚未加载外部插件。",Margin=new Thickness(0,8,0,8)});
+        }
+        var pluginLoad=new Button{Content="加载本地插件 DLL…",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,12,0,12)};
+        pluginLoad.Click+=(_,_)=>
+        {
+            var picker=new Microsoft.Win32.OpenFileDialog{Filter="灵动胶囊插件|*.dll",CheckFileExists=true};if(picker.ShowDialog(this)!=true)return;
+            if(CardDialog.Show("加载此插件？","插件代码会在本程序中运行，请仅加载信任的插件。插件及依赖保留在原目录，需要实现灵动胶囊 PluginApi。","加载")==null)return;
+            try{loadPlugin(picker.FileName);RefreshPlugins();}catch(Exception error){Design.PresentMessage("插件未能加载",error.Message);}
+        };
+        pluginPage.Children.Add(pluginLoad);pluginPage.Children.Add(Design.Card(pluginRows));RefreshPlugins();
         var panel=pages["个性化中心"];
 
         Heading(panel, "外观与动效");

@@ -56,6 +56,7 @@ public partial class MainWindow : Window
             {islandClickDelay.Stop();skipIslandRelease=true;SetStandby(!settings.StandbyActive);SaveAndApplySettings();args.Handled=true;}
         };
         overview=new OverviewView(settings,SaveAndApplySettings);OverviewHost.Content=overview;
+        InitializePlugins(initialSettings==null);
         MouseEnter+=(_,_)=>panelCollapse.Stop();
         MouseLeave+=(_,_)=>{if(overviewOpen || controlsOpen){panelCollapse.Interval=TimeSpan.FromMilliseconds(overviewOpen ? 900 : 3000);panelCollapse.Start();}};
         panelCollapse.Tick+=(_,_)=>{if(overview.DialogOpen || seeking)return;panelCollapse.Stop();if(!IsMouseOver){overviewOpen=false;controlsOpen=false;Render();}};
@@ -125,6 +126,7 @@ public partial class MainWindow : Window
             if (settings.NotificationsEnabled) foreach (var n in await notifications.ReadAsync(settings.MutedSources)) AcceptNotification(n,DateTimeOffset.Now);
             if (closing) return;
             state.Tick(DateTimeOffset.Now); Render();
+            if(Clock.Visibility==Visibility.Visible && !visibilityResult.PassThrough)plugins.Update(new(DateTimeOffset.Now,Design.IsDark,new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing)));
             if(overviewOpen)await overview.TickAsync();
             var mediaStatus=!settings.MediaEnabled ? "媒体已关闭" : SoloSelected ? solo.Snapshot().Connected ? "Just Solo 本机已连接" : "等待 Just Solo 本机服务（127.0.0.1:47290）" : media.Status;
             var lyricStatus=!settings.LyricsEnabled ? "歌词已关闭" : SoloSelected ? "歌词由 Just Solo 本机服务提供" : lyricsClient.Status;
@@ -140,7 +142,7 @@ public partial class MainWindow : Window
         ClockDate.Visibility=settings.ClockEnabled && settings.ClockLayout==1 ? Visibility.Visible : Visibility.Collapsed;
         HardwarePanel.Visibility=settings.HardwareEnabled && !settings.StandbyActive ? Visibility.Visible : Visibility.Collapsed;
         var hardwareIndex=Clock.Children.IndexOf(HardwarePanel);
-        var targetIndex=settings.HardwareFirst ? 0 : Clock.Children.Count-1;
+        var targetIndex=settings.HardwareFirst ? 0 : 2;
         if(hardwareIndex!=targetIndex){Clock.Children.Remove(HardwarePanel);Clock.Children.Insert(targetIndex,HardwarePanel);}
         HardwarePanel.Margin=new Thickness(!settings.HardwareFirst && settings.ClockEnabled ? 12 : 0,0,settings.HardwareFirst && settings.ClockEnabled ? 12 : 0,0);
         state.MediaClockSwitch=settings.MediaClockSwitch;
@@ -169,7 +171,8 @@ public partial class MainWindow : Window
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
         var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(80, SystemParameters.WorkArea.Width - 16)) : Math.Min(104,settings.Width);
-        if(Clock.Visibility==Visibility.Visible && !showMedia && !showOverview && (HardwarePanel.Visibility==Visibility.Visible || settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
+        plugins.View.Visibility=settings.StandbyActive ? Visibility.Collapsed : Visibility.Visible;
+        if(Clock.Visibility==Visibility.Visible && !showMedia && !showOverview && (plugins.ActiveIds.Count>0 || HardwarePanel.Visibility==Visibility.Visible || settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);
         var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? settings.ShowTomorrow ? 278 : 258 : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;
@@ -228,7 +231,7 @@ public partial class MainWindow : Window
     private void OpenSettings()
     {
         if (settingsWindow is not null) { settingsWindow.Activate(); return; }
-        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts);
+        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin);
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
     }
