@@ -192,6 +192,18 @@ public sealed class SettingsWindow : Window
         var about=new StackPanel();
         var description=new TextBlock {Text="独立 Windows 桌面交互胶囊。\n\n正在完整对齐本机 NotchPeninsula 定制版的功能与交互；当前为开发版本。",TextWrapping=TextWrapping.Wrap,LineHeight=22,Margin=new Thickness(0,8,0,14)};about.Children.Add(description);
         var repository=new Button {Content="GitHub 源码与进度",Padding=new Thickness(12,10,12,10)};repository.Click+=(_,_)=>System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/Freedomzyi/LingdongCapsule"){UseShellExecute=true});about.Children.Add(repository);
+        var updateStatus=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,8,0,8)};Design.Bind(updateStatus,TextBlock.ForegroundProperty,"TextSecondary");
+        var update=new Button{Content="检查更新",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,8,0,0)};
+        var download=new Button{Content="查看新版本",Visibility=Visibility.Collapsed,Padding=new Thickness(12,10,12,10)};Uri? releaseLink=null;
+        download.Click+=(_,_)=>{if(releaseLink!=null)System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(releaseLink.AbsoluteUri){UseShellExecute=true});};
+        var updateCancellation=new CancellationTokenSource();Closed+=(_,_)=>{updateCancellation.Cancel();updateCancellation.Dispose();};
+        update.Click+=async(_,_)=>
+        {
+            update.IsEnabled=false;download.Visibility=Visibility.Collapsed;updateStatus.Text="正在检查…";
+            try{using var client=new System.Net.Http.HttpClient{Timeout=TimeSpan.FromSeconds(12)};var result=await ReleaseChecker.CheckAsync(client,typeof(SettingsWindow).Assembly.GetName().Version ?? new Version(0,1,0),updateCancellation.Token);if(updateCancellation.IsCancellationRequested)return;updateStatus.Text=result.Message;releaseLink=result.Link;download.Visibility=releaseLink==null ? Visibility.Collapsed : Visibility.Visible;}
+            finally{update.IsEnabled=true;}
+        };
+        about.Children.Add(update);about.Children.Add(updateStatus);about.Children.Add(download);
         panel.Children.Add(Design.Card(about));
         var footer = new TextBlock { Text = "0.1.0 开发版  ·  MIT License", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new(0, 6, 0, 0) }; Design.Bind(footer, TextBlock.ForegroundProperty, "TextSecondary"); panel.Children.Add(footer);
         Loaded += (_, _) => BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
