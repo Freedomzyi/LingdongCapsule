@@ -10,6 +10,7 @@ internal static class ReleaseTests
     }
     internal static async Task RunAsync()
     {
+        SettingsStoreTests.Run();
         var narrow=new Settings{Width=20};narrow.Normalize();if(narrow.Width!=80)throw new Exception("Global width lower boundary is incorrect");
         var wide=new Settings{Width=500};wide.Normalize();if(wide.Width!=300)throw new Exception("Global width upper boundary is incorrect");
         var cache=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"capsule-source-test-"+Guid.NewGuid().ToString("N")+".json");

@@ -3,7 +3,7 @@ using System.Text.Json;
 using Capsule.Core;
 namespace Capsule.App;
 
-public sealed class Settings
+public sealed partial class Settings
 {
     public Dictionary<string,Dictionary<string,string>> PluginPreferences{get;set;}=[];
     public List<string> PluginFiles{get;set;}=[];
@@ -79,8 +79,7 @@ public sealed class Settings
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LingdongCapsule");
     public static Settings Load()
     {
-        try { var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new(); s.Normalize();return s; }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return new(); }
+        return LoadFrom(Path.Combine(Folder,"settings.json"));
     }
     internal void Normalize()
     {
@@ -111,9 +110,6 @@ public sealed class Settings
     }
     public void Save()
     {
-        Directory.CreateDirectory(Folder);
-        var path = Path.Combine(Folder, "settings.json");
-        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(path + ".tmp", path, true);
+        SaveTo(Path.Combine(Folder,"settings.json"));
     }
 }

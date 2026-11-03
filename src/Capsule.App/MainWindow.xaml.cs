@@ -79,6 +79,7 @@ public partial class MainWindow : Window
             tray = new Forms.NotifyIcon { Icon = trayIcon, Text = "灵动胶囊", Visible = true };
             tray.MouseUp += (_, e) => { if (e.Button == Forms.MouseButtons.Right) Dispatcher.Invoke(ShowTrayMenu); };
             tray.DoubleClick += (_, _) => Dispatcher.Invoke(OpenSettings);
+            if(settings.RecoveryMessage.Length>0)tray.ShowBalloonTip(8000,"设置恢复提示",settings.RecoveryMessage,Forms.ToolTipIcon.Warning);
             SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
             SystemEvents.UserPreferenceChanged+=OnThemePreferenceChanged;
             SystemEvents.PowerModeChanged += OnPowerChanged;

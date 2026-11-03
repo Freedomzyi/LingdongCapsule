@@ -51,6 +51,10 @@ public sealed class SettingsWindow : Window
             button.Click+=(_,_)=>SelectPage(name);tabs[name]=button;navigation.Children.Add(button);
         }
         SelectPage("个性化中心");
+        if(settings.RecoveryMessage.Length>0)
+        {
+            var recovery=new TextBlock{Text=settings.RecoveryMessage,TextWrapping=TextWrapping.Wrap,FontSize=12,LineHeight=19};Design.Bind(recovery,TextBlock.ForegroundProperty,"TextSecondary");pages["通用设置"].Children.Add(Design.Card(recovery));
+        }
         var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();var installedRows=new StackPanel();Action refreshDisplayOrder=()=>{};
         void RefreshPlugins()
         {
