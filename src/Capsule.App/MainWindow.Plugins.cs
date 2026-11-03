@@ -14,6 +14,7 @@ public partial class MainWindow
     private bool persistPluginState;
     private readonly Action writePluginSettings;
     private int pluginMutationDepth;
+    internal PluginCatalogEntry[] InstalledPlugins()=>PluginCatalog.Read(pluginDirectory,settings.PluginFiles,settings.PendingPluginRemovals);
     private void InitializePlugins(bool persist)
     {
         persistPluginState=persist;
@@ -27,7 +28,7 @@ public partial class MainWindow
             foreach(var entry in settings.PendingPluginRemovals.ToArray())
             {
                 try{PluginPackage.Uninstall(entry,pluginDirectory);settings.PendingPluginRemovals.Remove(entry);failed=true;}
-                catch(Exception error) when(error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException){settings.PluginFailures[entry]="待删除插件仍未清理："+error.GetType().Name;}
+                catch(Exception error) when(error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException or ArgumentException){settings.PluginFailures[entry]="待删除插件仍未清理："+error.GetType().Name;}
             }
             foreach(var file in settings.PluginFiles.ToArray())try{LoadPlugin(file,false);}catch(Exception error)
             {
@@ -49,6 +50,13 @@ public partial class MainWindow
         try
         {
             if(path.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){var installed=PluginPackage.Install(path,pluginDirectory);path=installed.EntryFile;expected=installed.Info;installedPackage=true;}
+            else if(path.StartsWith(Path.GetFullPath(pluginDirectory).TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
+            {
+                var installed=PluginCatalog.Inspect(path,pluginDirectory);
+                if(!string.Equals(installed.EntryFile,path,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("选择的文件不是安装清单指定入口。");
+                if(settings.PendingPluginRemovals.Contains(path,StringComparer.OrdinalIgnoreCase))throw new InvalidOperationException("此安装包正在等待清理，请重新安装可信包。");
+                expected=installed.Info;
+            }
             if(expected!=null && pluginPaths.TryGetValue(expected.Id,out previousPath)){previousIndex=plugins.ActiveIds.ToList().IndexOf(expected.Id);plugins.Disable(expected.Id);oldDisabled=true;}
             var id=plugins.Enable(path);enabledId=id;
             if(expected!=null)
@@ -145,5 +153,15 @@ public partial class MainWindow
         if(PluginPackage.ManagedDirectory(path,pluginDirectory)!=null && !settings.PendingPluginRemovals.Contains(path,StringComparer.OrdinalIgnoreCase))settings.PendingPluginRemovals.Add(path);
         try{writePluginSettings();}catch{settings.PluginFiles=oldFiles;settings.PendingPluginRemovals=oldPending;throw;}
         plugins.Disable(id);pluginPaths.Remove(id);CleanupPluginPackage(path,true);Render();
+    }
+    internal void RemoveInstalledPlugin(string entry)
+    {
+        var active=pluginPaths.FirstOrDefault(item=>string.Equals(item.Value,entry,StringComparison.OrdinalIgnoreCase));
+        if(active.Key!=null){UninstallPlugin(active.Key);return;}
+        if(PluginPackage.ManagedDirectory(entry,pluginDirectory)==null)throw new InvalidDataException("不能删除没有匹配安装凭据的目录。");
+        var old=settings.PendingPluginRemovals.ToList();
+        if(!settings.PendingPluginRemovals.Contains(entry,StringComparer.OrdinalIgnoreCase))settings.PendingPluginRemovals.Add(entry);
+        try{writePluginSettings();}catch{settings.PendingPluginRemovals=old;throw;}
+        CleanupPluginPackage(entry,true);Render();
     }
 }

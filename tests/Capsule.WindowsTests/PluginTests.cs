@@ -100,6 +100,31 @@ internal static class PluginTests
             if(window.LivePluginView.Children[0]!=childrenBeforeMove[1] || !persisted.PluginFiles.SequenceEqual(filesBeforeMove.Reverse()))throw new Exception("Reorder did not commit view and restart order");
             var stopped=windowSettings.PluginFiles[0];window.DisablePlugin("fixture.second");
             if(window.LivePluginView.Children.Count!=1 || windowSettings.PluginFiles.Single()!=retained || !File.Exists(stopped))throw new Exception("Stop removed package files or retained active widget");
+            var catalog=window.InstalledPlugins();var stoppedRow=catalog.Single(item=>item.EntryFile==stopped);
+            if(!stoppedRow.CanEnable || stoppedRow.Name!="Second" || catalog.Single(item=>item.EntryFile==retained).CanEnable)throw new Exception("Installed catalog active/stopped state failed");
+            window.LoadPlugin(stopped);if(window.LivePluginView.Children.Count!=2 || !windowSettings.PluginFiles.Contains(stopped))throw new Exception("Stopped installed package could not be re-enabled by entry");
+            window.DisablePlugin("fixture.second");var pendingBeforeRemoval=windowSettings.PendingPluginRemovals.ToArray();failSave=true;failed=false;
+            var stoppedManifest=Path.Combine(Path.GetDirectoryName(stopped)!,"plugin.json");var originalManifest=File.ReadAllText(stoppedManifest);
+            File.WriteAllText(stoppedManifest,originalManifest.Replace("0.1.0","0.2.0"));var wrongVersion=false;
+            try{window.LoadPlugin(stopped);}catch(InvalidDataException){wrongVersion=true;}
+            if(!wrongVersion || window.LivePluginView.Children.Count!=1 || !File.Exists(stopped))throw new Exception("Installed DLL activation bypassed manifest/version validation");
+            File.WriteAllText(stoppedManifest,originalManifest);
+            typeof(Capsule.App.MainWindow).GetMethod("OpenSettings",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(window,null);
+            await Task.Delay(150);var settingsWindow=Application.Current.Windows.OfType<SettingsWindow>().Single();
+            var navigation=Descendants<Button>(settingsWindow).Single(button=>button.Content as string=="我的插件");navigation.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(100);settingsWindow.UpdateLayout();
+            if(!Descendants<Button>(settingsWindow).Any(button=>button.Content as string=="启用") || !Descendants<TextBlock>(settingsWindow).Any(text=>text.Text=="已安装但未启用"))throw new Exception("Installed package actions missing from actual settings page");
+            var settingsImage=new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(settingsWindow.ActualWidth),(int)Math.Ceiling(settingsWindow.ActualHeight),96,96,System.Windows.Media.PixelFormats.Pbgra32);settingsImage.Render(settingsWindow);
+            var imageFolder=Path.Combine("artifacts","verification","plugins");Directory.CreateDirectory(imageFolder);var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(settingsImage));using(var file=File.Create(Path.Combine(imageFolder,"installed-page.png")))encoder.Save(file);
+            settingsWindow.Close();
+            try{window.RemoveInstalledPlugin(stopped);}catch(IOException){failed=true;}
+            if(!failed || !File.Exists(stopped) || !windowSettings.PendingPluginRemovals.SequenceEqual(pendingBeforeRemoval))throw new Exception("Failed inactive deletion removed files or changed cleanup queue");
+            failSave=false;window.RemoveInstalledPlugin(stopped);
+            if(File.Exists(stopped) && !windowSettings.PendingPluginRemovals.Contains(stopped))throw new Exception("Inactive package neither deleted nor queued");
+            var corrupt=PluginPackage.Install(valid,Path.Combine(packageRoot,"window-installed"));File.WriteAllText(Path.Combine(corrupt.Directory,"plugin.json"),"{broken");
+            var corruptRow=window.InstalledPlugins().Single(item=>item.EntryFile==Path.Combine(corrupt.Directory,"plugin.json"));
+            if(corruptRow.CanEnable || corruptRow.Error.Length==0)throw new Exception("Corrupt package was presented as executable");
+            window.RemoveInstalledPlugin(corruptRow.EntryFile);if(Directory.Exists(corrupt.Directory))throw new Exception("Owned corrupt package could not be removed safely");
+            Console.WriteLine("PASS Installed catalog, stopped-package re-enable, save-failed deletion and corrupt-manifest cleanup");
             Console.WriteLine("PASS Save-failed upgrade restores old widget/path/preferences; failed stop/uninstall preserve live state; successful upgrade commits");
             Console.WriteLine("PASS First-install failure leaves no widget/preferences; reorder failure restores live order; successful move/stop persist");
             windowSettings.PluginPreferences["fixture.clock"]=new(){["fail"]="true"};
@@ -108,5 +133,13 @@ internal static class PluginTests
             Console.WriteLine("PASS Actual island hosts and updates an independently loaded plugin widget");
         }
         finally{window.Close();}
+    }
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T:DependencyObject
+    {
+        for(var index=0;index<System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);index++)
+        {
+            var child=System.Windows.Media.VisualTreeHelper.GetChild(parent,index);if(child is T found)yield return found;
+            foreach(var nested in Descendants<T>(child))yield return nested;
+        }
     }
 }

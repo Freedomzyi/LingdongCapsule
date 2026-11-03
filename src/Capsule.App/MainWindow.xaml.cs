@@ -241,7 +241,7 @@ public partial class MainWindow : Window
     private void OpenSettings()
     {
         if (settingsWindow is not null) { settingsWindow.Activate(); return; }
-        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,MovePlugin,UninstallPlugin);
+        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,MovePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin);
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
     }

@@ -87,6 +87,8 @@ public sealed class Settings
         PluginFiles??=[];
         PendingPluginRemovals??=[];
         PluginFailures??=[];
+        PluginFiles=PluginFiles.Where(path=>!string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        PendingPluginRemovals=PendingPluginRemovals.Where(path=>!string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         foreach(var key in PluginPreferences.Keys.ToArray())PluginPreferences[key]??=[];
         ThemeMode=Math.Clamp(ThemeMode,0,2);
         FontName??="";

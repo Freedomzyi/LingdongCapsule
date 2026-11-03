@@ -24,7 +24,7 @@ public sealed class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string,int> movePlugin,Action<string> uninstallPlugin)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string,int> movePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin)
     {
         this.settings = settings; this.save = save;
         Closed+=(_,_)=>soundPreview.Dispose();
@@ -51,7 +51,7 @@ public sealed class SettingsWindow : Window
             button.Click+=(_,_)=>SelectPage(name);tabs[name]=button;navigation.Children.Add(button);
         }
         SelectPage("个性化中心");
-        var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();
+        var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();var installedRows=new StackPanel();
         void RefreshPlugins()
         {
             pluginRows.Children.Clear();foreach(var id in activePlugins())
@@ -59,6 +59,18 @@ public sealed class SettingsWindow : Window
                 var row=new DockPanel{Margin=new Thickness(0,5,0,5)};foreach(var direction in new[]{1,-1}){var step=direction;var move=new Button{Content=step<0 ? "↑" : "↓",Padding=new Thickness(8,6,8,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(move,Dock.Right);move.Click+=(_,_)=>{try{movePlugin(id,step);RefreshPlugins();}catch(Exception error){Design.PresentMessage("排序未能保存",error.Message);}};row.Children.Add(move);}var remove=new Button{Content="卸载",Padding=new Thickness(10,6,10,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(remove,Dock.Right);remove.Click+=(_,_)=>{if(CardDialog.Show("卸载插件？","胶囊安装的包将删除；外部 DLL 只移出列表，原文件和个人设置保留。","卸载",destructive:true)==null)return;try{uninstallPlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("卸载未完成",error.Message);}};row.Children.Add(remove);var disable=new Button{Content="停用",Padding=new Thickness(10,6,10,6)};DockPanel.SetDock(disable,Dock.Right);disable.Click+=(_,_)=>{try{disablePlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("停用未能保存",error.Message);}};row.Children.Add(disable);row.Children.Add(new TextBlock{Text=id,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});pluginRows.Children.Add(row);
             }
             if(pluginRows.Children.Count==0)pluginRows.Children.Add(new TextBlock{Text="尚未加载外部插件。",Margin=new Thickness(0,8,0,8)});
+            installedRows.Children.Clear();
+            foreach(var entry in installedPlugins().Where(item=>!item.Enabled))
+            {
+                var row=new StackPanel{Margin=new Thickness(0,6,0,10)};
+                row.Children.Add(new TextBlock{Text=entry.Name+(entry.Version.Length>0 ? " · "+entry.Version : ""),FontSize=14,FontWeight=FontWeights.Medium,TextWrapping=TextWrapping.Wrap});
+                var detail=new TextBlock{Text=entry.PendingRemoval ? "待清理，下次启动会重试" : entry.Error.Length>0 ? entry.Error : entry.Id+" · 已停用",FontSize=12,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,4,0,7)};Design.Bind(detail,TextBlock.ForegroundProperty,"TextSecondary");row.Children.Add(detail);
+                var actions=new StackPanel{Orientation=Orientation.Horizontal};
+                if(entry.CanEnable){var enable=new Button{Content="启用",Padding=new Thickness(12,7,12,7),Margin=new Thickness(0,0,8,0)};enable.Click+=(_,_)=>{try{loadPlugin(entry.EntryFile);RefreshPlugins();}catch(Exception error){Design.PresentMessage("启用未完成",error.Message);}};actions.Children.Add(enable);}
+                if(entry.EntryFile.Length>0){var remove=new Button{Content=entry.PendingRemoval ? "重试清理" : "删除安装包",Padding=new Thickness(12,7,12,7)};remove.Click+=(_,_)=>{if(CardDialog.Show("删除此安装包？","只删除胶囊管理的这个安装目录，个人插件设置继续保留。","删除",destructive:true)==null)return;try{removeInstalledPlugin(entry.EntryFile);RefreshPlugins();}catch(Exception error){Design.PresentMessage("删除未完成",error.Message);}};actions.Children.Add(remove);}
+                row.Children.Add(actions);installedRows.Children.Add(row);
+            }
+            if(installedRows.Children.Count==0)installedRows.Children.Add(new TextBlock{Text="没有停用或待清理的安装包。",FontSize=12,Margin=new Thickness(0,6,0,6)});
         }
         var pluginLoad=new Button{Content="安装插件包／加载 DLL…",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,12,0,12)};
         pluginLoad.Click+=(_,_)=>
@@ -68,6 +80,7 @@ public sealed class SettingsWindow : Window
             try{loadPlugin(picker.FileName);RefreshPlugins();}catch(Exception error){Design.PresentMessage("插件未能加载",error.Message);}
         };
         pluginPage.Children.Add(pluginLoad);pluginPage.Children.Add(Design.Card(pluginRows));RefreshPlugins();
+        Heading(pluginPage,"已安装但未启用");var refreshInstalled=new Button{Content="刷新已安装组件",Padding=new Thickness(12,8,12,8),Margin=new Thickness(0,0,0,10)};refreshInstalled.Click+=(_,_)=>RefreshPlugins();pluginPage.Children.Add(refreshInstalled);pluginPage.Children.Add(Design.Card(installedRows));
         var pluginErrors=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,10,0,0)};Design.Bind(pluginErrors,TextBlock.ForegroundProperty,"TextSecondary");pluginPage.Children.Add(pluginErrors);
         var priorPlugins=string.Join("|",activePlugins());var pluginTimer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};pluginTimer.Tick+=(_,_)=>{var current=string.Join("|",activePlugins());if(current!=priorPlugins){priorPlugins=current;RefreshPlugins();}pluginErrors.Text=string.Join("\n",settings.PluginFailures.Values);};pluginTimer.Start();Closed+=(_,_)=>pluginTimer.Stop();
         var panel=pages["个性化中心"];
