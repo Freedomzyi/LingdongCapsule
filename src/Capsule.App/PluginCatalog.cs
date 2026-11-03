@@ -66,5 +66,5 @@ internal static class PluginCatalog
         catch(Exception error) when(IsMetadataFailure(error)){rows.Add(new("","插件目录不可读","","",false,false,error.GetType().Name));}
         return rows.OrderBy(row=>row.Name,StringComparer.CurrentCulture).ThenBy(row=>row.Version).ToArray();
     }
-    private static bool IsMetadataFailure(Exception error)=>error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or KeyNotFoundException or ArgumentException;
+    private static bool IsMetadataFailure(Exception error)=>error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException or KeyNotFoundException or ArgumentException;
 }

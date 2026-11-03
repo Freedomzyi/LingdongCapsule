@@ -64,7 +64,7 @@ internal static class PluginPackage
             {
                 if(!Uninstall(Path.Combine(target,entryPath),basePath) && Path.GetFullPath(target).StartsWith(basePath+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) && !File.GetAttributes(target).HasFlag(FileAttributes.ReparsePoint))Directory.Delete(target,false);
             }
-            catch(Exception cleanupError) when(cleanupError is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
+            catch(Exception cleanupError) when(cleanupError is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
             {throw new AggregateException("安装失败，残留包未能清理；可在已安装目录中检查。",installError,cleanupError);}
             throw;
         }

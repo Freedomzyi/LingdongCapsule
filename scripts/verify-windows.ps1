@@ -10,6 +10,7 @@ try {
     & (Join-Path $PSScriptRoot 'build-plugins.ps1') -Dotnet $Dotnet
     $suites=@(
         @{Name='core';Project='tests/Capsule.Tests';Args=@()},
+        @{Name='lyrics';Project='tests/Capsule.WindowsTests';Args=@('--lyrics-test')},
         @{Name='materials';Project='tests/Capsule.WindowsTests';Args=@('--material-test')},
         @{Name='plugins';Project='tests/Capsule.WindowsTests';Args=@('--plugin-test')},
         @{Name='market';Project='tests/Capsule.WindowsTests';Args=@('--market-test')},

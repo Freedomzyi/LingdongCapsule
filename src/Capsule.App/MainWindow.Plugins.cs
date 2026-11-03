@@ -55,7 +55,7 @@ public partial class MainWindow
             foreach(var entry in settings.PendingPluginRemovals.ToArray())
             {
                 try{PluginPackage.Uninstall(entry,pluginDirectory);settings.PendingPluginRemovals.Remove(entry);failed=true;}
-                catch(Exception error) when(error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException or ArgumentException){settings.PluginFailures[entry]="待删除插件仍未清理："+error.GetType().Name;}
+                catch(Exception error) when(error is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException or ArgumentException){settings.PluginFailures[entry]="待删除插件仍未清理："+error.GetType().Name;}
             }
             foreach(var file in settings.PluginFiles.ToArray())try{LoadPlugin(file,false);}catch(Exception error)
             {
@@ -139,7 +139,7 @@ public partial class MainWindow
         {
             PluginPackage.Uninstall(path,pluginDirectory);settings.PendingPluginRemovals.RemoveAll(item=>string.Equals(item,path,StringComparison.OrdinalIgnoreCase));settings.PluginFailures.Remove(path);
         }
-        catch(Exception error) when(error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
+        catch(Exception error) when(error is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
         {
             if(!settings.PendingPluginRemovals.Contains(path,StringComparer.OrdinalIgnoreCase))settings.PendingPluginRemovals.Add(path);
             settings.PluginFailures[path]="包清理待重试："+error.GetType().Name;

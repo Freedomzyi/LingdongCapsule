@@ -57,7 +57,7 @@ internal sealed class PluginMarketWindow : Window
     {
         if(working || closed)return;working=true;refresh.IsEnabled=false;status.Text="正在读取官方目录…";Render();
         try{packages=await market.ReadAsync(lifetime.Token);if(closed)return;status.Text=packages.Length==0 ? "官方目录暂未上架组件；可从“我的插件”安装随程序提供的本地包。" : $"官方目录 · {packages.Length} 个组件";}
-        catch(Exception error) when(error is HttpRequestException or OperationCanceledException or IOException or System.Text.Json.JsonException or InvalidOperationException){if(!closed)status.Text="目录未能刷新，保留本次已有列表。请检查网络或稍后重试。";}
+        catch(Exception error) when(error is HttpRequestException or OperationCanceledException or IOException or InvalidDataException or System.Text.Json.JsonException or InvalidOperationException){if(!closed)status.Text="目录未能刷新，保留本次已有列表。请检查网络或稍后重试。";}
         finally{working=false;if(!closed){refresh.IsEnabled=true;Render();}}
     }
     private void Render()

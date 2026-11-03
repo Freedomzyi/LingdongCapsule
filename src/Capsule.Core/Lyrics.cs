@@ -41,7 +41,7 @@ public sealed class LyricsDocument
     {
         List<(double, string)> result = [];
         var offsetMatch = Regex.Match(text, @"\[offset:([+-]?\d+)\]", RegexOptions.IgnoreCase);
-        var offset = offsetMatch.Success ? double.Parse(offsetMatch.Groups[1].Value, CultureInfo.InvariantCulture) : 0;
+        var offset=0d;if(offsetMatch.Success && !FiniteNumber(offsetMatch.Groups[1].Value,out offset))return result;
         foreach (var raw in text.Split('\n'))
         {
             var tags = TimeTag.Matches(raw);
@@ -49,8 +49,9 @@ public sealed class LyricsDocument
             var content = raw[(tags[^1].Index + tags[^1].Length)..].Trim();
             foreach (Match tag in tags)
             {
-                var ms = double.Parse(tag.Groups[1].Value, CultureInfo.InvariantCulture) * 60000 + double.Parse(tag.Groups[2].Value, CultureInfo.InvariantCulture) * 1000 - offset;
-                result.Add((ms, content));
+                if(!FiniteNumber(tag.Groups[1].Value,out var minutes) || !FiniteNumber(tag.Groups[2].Value,out var seconds))continue;
+                var ms=minutes*60000+seconds*1000-offset;
+                if(double.IsFinite(ms))result.Add((ms, content));
             }
         }
         return result;
@@ -63,23 +64,23 @@ public sealed class LyricsDocument
         {
             var header = WordHeader.Match(raw.Trim());
             if (!header.Success) continue;
-            var start = double.Parse(header.Groups[1].Value, CultureInfo.InvariantCulture);
-            var duration = double.Parse(header.Groups[2].Value, CultureInfo.InvariantCulture);
+            if(!FiniteNumber(header.Groups[1].Value,out var start) || !FiniteNumber(header.Groups[2].Value,out var duration))continue;
             var body = header.Groups[3].Value;
             var prefix = body.StartsWith('(');
             List<LyricWord> words = [];
             foreach (Match token in (prefix ? PrefixWord : SuffixWord).Matches(body))
             {
                 var word = token.Groups[prefix ? 3 : 1].Value;
-                var at = double.Parse(token.Groups[prefix ? 1 : 2].Value, CultureInfo.InvariantCulture);
-                var length = double.Parse(token.Groups[prefix ? 2 : 3].Value, CultureInfo.InvariantCulture);
+                if(!FiniteNumber(token.Groups[prefix ? 1 : 2].Value,out var at) || !FiniteNumber(token.Groups[prefix ? 2 : 3].Value,out var length)){words.Clear();break;}
                 if (at < start && at < duration) at += start;
+                if(!double.IsFinite(at) || !double.IsFinite(at+length)){words.Clear();break;}
                 words.Add(new(at, Math.Max(1, length), word));
             }
             if (words.Count > 0) result.Add(new(start, string.Concat(words.Select(word => word.Text)), "", words));
         }
         return result;
     }
+    private static bool FiniteNumber(string text,out double number)=>double.TryParse(text,NumberStyles.Float,CultureInfo.InvariantCulture,out number) && double.IsFinite(number);
 
     public LyricFrame At(TimeSpan position, double offsetSeconds = 0)
     {

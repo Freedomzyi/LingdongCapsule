@@ -105,6 +105,9 @@ internal static class MarketTests
             }
             finally{island.Close();if(installFile!=null)File.Delete(installFile);}
             Console.WriteLine("PASS Market search/update/enabled UI states and verified ZIP installation into actual island");
+            catalog=JsonSerializer.Serialize(new MarketCatalog(99,[package]));await window.RefreshAsync();
+            if(!Descendants<System.Windows.Controls.TextBlock>(window).Any(text=>text.Text.Contains("目录未能刷新")) || !Descendants<System.Windows.Controls.Button>(window).Any(button=>button.Content as string=="已启用"))throw new Exception("Invalid catalog interrupted the window or replaced its last usable list");
+            Console.WriteLine("PASS Invalid catalog schema preserves live window and previous usable list");
         }
         finally{window.Close();}
     }

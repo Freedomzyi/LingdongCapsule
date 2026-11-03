@@ -154,6 +154,10 @@ internal static class PluginTests
             var corruptRow=window.InstalledPlugins().Single(item=>item.EntryFile==Path.Combine(corrupt.Directory,"plugin.json"));
             if(corruptRow.CanEnable || corruptRow.Error.Length==0)throw new Exception("Corrupt package was presented as executable");
             window.RemoveInstalledPlugin(corruptRow.EntryFile);if(Directory.Exists(corrupt.Directory))throw new Exception("Owned corrupt package could not be removed safely");
+            var invalidIdentity=PluginPackage.Install(valid,Path.Combine(packageRoot,"window-installed"));File.WriteAllText(Path.Combine(invalidIdentity.Directory,"plugin.json"),"{\"id\":\"../invalid\",\"name\":\"Bad\",\"version\":\"0.1.0\",\"entry\":\"fixture.dll\"}");
+            var invalidRow=window.InstalledPlugins().Single(item=>item.EntryFile==Path.Combine(invalidIdentity.Directory,"plugin.json"));
+            if(invalidRow.CanEnable || invalidRow.Error.Length==0)throw new Exception("Semantically invalid manifest escaped catalog isolation");
+            window.RemoveInstalledPlugin(invalidRow.EntryFile);
             Console.WriteLine("PASS Installed catalog, stopped-package re-enable, save-failed deletion and corrupt-manifest cleanup");
             Console.WriteLine("PASS Save-failed upgrade restores old widget/path/preferences; failed stop/uninstall preserve live state; successful upgrade commits");
             Console.WriteLine("PASS First-install failure leaves no widget/preferences; reorder failure restores live order; successful move/stop persist");

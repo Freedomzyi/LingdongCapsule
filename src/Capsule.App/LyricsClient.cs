@@ -7,33 +7,37 @@ using Capsule.Core;
 
 namespace Capsule.App;
 
-public sealed class LyricsClient : IDisposable
+public sealed partial class LyricsClient : IDisposable
 {
-    private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(5) };
-    public LyricsClient() => http.DefaultRequestHeaders.UserAgent.ParseAdd("LingdongCapsule/0.1 (+https://github.com/Freedomzyi/LingdongCapsule)");
-    public void Dispose() => http.Dispose();
+    private readonly HttpClient http;
+    private readonly bool ownsHttp;
+    public LyricsClient(HttpClient? client=null){ownsHttp=client==null;http=client ?? new HttpClient{Timeout=TimeSpan.FromSeconds(5)};}
+    public void Dispose(){if(ownsHttp)http.Dispose();}
     public string Status { get; private set; } = "等待音乐";
 
     public async Task<LyricsDocument> FetchAsync(MediaSnapshot track, CancellationToken cancellation)
     {
-        if (!track.Available || string.IsNullOrWhiteSpace(track.Artist) || track.Title == "未知曲目") return LyricsDocument.Empty;
+        if (!track.Available || string.IsNullOrWhiteSpace(track.Artist) || track.Title == "未知曲目" || Normalize(track.Title).Length==0 || Normalize(track.Artist).Length==0){Status="等待音乐";return LyricsDocument.Empty;}
         Status = "正在获取歌词";
-        var first = track.SourceId.Contains("netease", StringComparison.OrdinalIgnoreCase) || track.SourceId.Contains("cloudmusic", StringComparison.OrdinalIgnoreCase) ? "netease" : "tencent";
-        foreach (var provider in new[] { first, first == "netease" ? "tencent" : "netease", "netease-official", "lrclib" })
+        var netease=track.SourceId.Contains("netease",StringComparison.OrdinalIgnoreCase) || track.SourceId.Contains("cloudmusic",StringComparison.OrdinalIgnoreCase);
+        var order=netease ? new[]{"netease","netease-official","tencent","qq-official","lrclib"} : new[]{"tencent","qq-official","netease","netease-official","lrclib"};
+        var qqMid="";
+        foreach (var provider in order)
         {
             cancellation.ThrowIfCancellationRequested();
             try
             {
                 var document = provider switch
                 {
-                    "tencent" or "netease" => await RelayAsync(provider, track, cancellation),
+                    "tencent" or "netease" => await RelayAsync(provider,track,cancellation,mid=>qqMid=mid),
+                    "qq-official"=>await QqOfficialAsync(track,qqMid,cancellation),
                     "netease-official" => await NeteaseAsync(track, cancellation),
                     _ => await LrclibAsync(track, cancellation)
                 };
-                if (document.Lines.Count > 0) { Status = "歌词已连接 · " + document.Source; return document; }
+                if (document.Lines.Any(line=>!string.IsNullOrWhiteSpace(line.Text))) { Status = "歌词已连接 · " + document.Source; return document; }
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { throw; }
-            catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException or FormatException)
+            catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException or FormatException or System.IO.IOException or System.IO.InvalidDataException or KeyNotFoundException)
             { Status = "歌词源暂不可用，正在尝试其他来源"; }
         }
         Status = "未找到匹配歌词";
@@ -42,13 +46,24 @@ public sealed class LyricsClient : IDisposable
 
     private async Task<JsonDocument> GetAsync(string url, CancellationToken cancellation)
     {
-        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellation);
+        using var request=new HttpRequestMessage(HttpMethod.Get,url);
+        if(request.RequestUri!.Host=="c.y.qq.com")request.Headers.Referrer=new Uri("https://y.qq.com/");
+        if(request.RequestUri.Host=="music.163.com")request.Headers.Referrer=new Uri("https://music.163.com/");
+        return await SendJsonAsync(request,cancellation);
+    }
+    private async Task<JsonDocument> SendJsonAsync(HttpRequestMessage request,CancellationToken cancellation)
+    {
+        request.Headers.UserAgent.ParseAdd("LingdongCapsule/0.1 (+https://github.com/Freedomzyi/LingdongCapsule)");
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellation);
         response.EnsureSuccessStatusCode();
+        if(response.Content.Headers.ContentLength>2*1024*1024)throw new System.IO.InvalidDataException("歌词响应体积超限。");
         await using var stream = await response.Content.ReadAsStreamAsync(cancellation);
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellation);
+        using var buffer=new System.IO.MemoryStream();var block=new byte[8192];int count;
+        while((count=await stream.ReadAsync(block,cancellation))>0){if(buffer.Length+count>2*1024*1024)throw new System.IO.InvalidDataException("歌词响应实际体积超限。");buffer.Write(block,0,count);}
+        return JsonDocument.Parse(buffer.ToArray());
     }
 
-    private async Task<LyricsDocument> RelayAsync(string provider, MediaSnapshot track, CancellationToken cancellation)
+    private async Task<LyricsDocument> RelayAsync(string provider, MediaSnapshot track, CancellationToken cancellation,Action<string> rememberMid)
     {
         var query = Uri.EscapeDataString(track.Title + " " + track.Artist);
         var search = provider == "tencent" ? $"https://api.vkeys.cn/v2/music/tencent/search/song?word={query}" : $"https://api.vkeys.cn/v2/music/netease?word={query}";
@@ -57,6 +72,7 @@ public sealed class LyricsClient : IDisposable
         var selected = Select(data, track, false);
         if (selected is null) return LyricsDocument.Empty;
         var id = selected.Value.GetProperty("id").ToString();
+        if(provider=="tencent" && ValidMid(Text(selected.Value,"mid")))rememberMid(Text(selected.Value,"mid"));
         using var lyric = await GetAsync($"https://api.vkeys.cn/v2/music/{provider}/lyric?id={Uri.EscapeDataString(id)}", cancellation);
         if (!lyric.RootElement.TryGetProperty("data", out var payload) || payload.ValueKind != JsonValueKind.Object) return LyricsDocument.Empty;
         return LyricsDocument.Parse(Text(payload, "lrc") is { Length: > 0 } lrc ? lrc : Text(payload, "rc"), Text(payload, "trans"), Text(payload, "yrc"), provider == "tencent" ? "落月 QQ" : "落月网易云");
@@ -64,9 +80,8 @@ public sealed class LyricsClient : IDisposable
 
     private async Task<LyricsDocument> NeteaseAsync(MediaSnapshot track, CancellationToken cancellation)
     {
-        using var response = await http.PostAsync("https://music.163.com/api/search/get/web", new FormUrlEncodedContent(new Dictionary<string, string> { ["s"] = track.Title + " " + track.Artist, ["type"] = "1", ["limit"] = "20" }), cancellation);
-        response.EnsureSuccessStatusCode();
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellation));
+        using var request=new HttpRequestMessage(HttpMethod.Post,"https://music.163.com/api/search/get/web"){Content=new FormUrlEncodedContent(new Dictionary<string,string>{["s"]=track.Title+" "+track.Artist,["type"]="1",["limit"]="20"})};request.Headers.Referrer=new Uri("https://music.163.com/");
+        using var json=await SendJsonAsync(request,cancellation);
         if (!json.RootElement.TryGetProperty("result", out var result) || !result.TryGetProperty("songs", out var list)) return LyricsDocument.Empty;
         var selected = Select(list, track, true);
         if (selected is null) return LyricsDocument.Empty;
@@ -85,22 +100,25 @@ public sealed class LyricsClient : IDisposable
 
     private static JsonElement? Select(JsonElement list, MediaSnapshot track, bool official)
     {
+        if(list.ValueKind!=JsonValueKind.Array)return null;
         var target = Normalize(track.Title);
         var artists = Regex.Split(track.Artist, @"[/、&,，;；|]").Select(Normalize).Where(name => name.Length > 0).ToArray();
+        if(artists.Length==0 || target.Length==0)return null;
         JsonElement? best = null;
         var bestScore = 0;
         foreach (var song in list.EnumerateArray())
         {
             if(song.ValueKind!=JsonValueKind.Object)continue;
+            if(!song.TryGetProperty("id",out var identifier) || identifier.ValueKind is not(JsonValueKind.String or JsonValueKind.Number) || identifier.ToString().Length is <1 or >80)continue;
             var name = Text(song, official ? "name" : "song");
             var full = name + Text(song, "subtitle");
             var score = Normalize(name) == target || Normalize(full) == target ? 100 : 0;
             if (score == 0) continue;
             var singer = Text(song, "singer");
-            if (official && song.TryGetProperty("artists", out var singers)) singer = string.Join("/", singers.EnumerateArray().Select(item => Text(item, "name")));
+            if (official && song.TryGetProperty("artists", out var singers) && singers.ValueKind==JsonValueKind.Array) singer = string.Join("/", singers.EnumerateArray().Select(item => Text(item, "name")));
             var normalizedSinger = Normalize(singer);
             if (artists.Length > 0 && !artists.Any(normalizedSinger.Contains)) continue;
-            var duration = official && song.TryGetProperty("duration", out var milliseconds) ? milliseconds.GetDouble() / 1000 : Duration(Text(song, "interval"));
+            var duration = official && song.TryGetProperty("duration", out var milliseconds) && milliseconds.ValueKind==JsonValueKind.Number && milliseconds.TryGetDouble(out var ms) ? ms/1000 : Duration(Text(song, "interval"));
             if (duration > 0 && track.Duration > TimeSpan.Zero && Math.Abs(duration - track.Duration.TotalSeconds) > 4) continue;
             score += artists.Count(normalizedSinger.Contains) * 10;
             if (score > bestScore) { bestScore = score; best = song; }
@@ -111,9 +129,11 @@ public sealed class LyricsClient : IDisposable
     private static double Duration(string value)
     {
         var parts = value.Split(':');
-        if (parts.Length == 2 && double.TryParse(parts[0], out var minutes) && double.TryParse(parts[1], out var seconds)) return minutes * 60 + seconds;
-        return double.TryParse(value, out var number) ? number : 0;
+        if (parts.Length == 2 && double.TryParse(parts[0],NumberStyles.Float,CultureInfo.InvariantCulture,out var minutes) && double.TryParse(parts[1],NumberStyles.Float,CultureInfo.InvariantCulture,out var seconds)) return minutes * 60 + seconds;
+        var chinese=Regex.Match(value,@"^(?:(\d+)分)?(?:(\d+)秒)?$");
+        if(chinese.Success && value.Length>0){double.TryParse(chinese.Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out var minutePart);double.TryParse(chinese.Groups[2].Value,NumberStyles.None,CultureInfo.InvariantCulture,out var secondPart);var total=minutePart*60+secondPart;return double.IsFinite(total) ? total : 0;}
+        return double.TryParse(value,NumberStyles.Float,CultureInfo.InvariantCulture,out var number) && double.IsFinite(number) ? number : 0;
     }
     private static string Normalize(string value) => Regex.Replace(WebUtility.HtmlDecode(value), @"[^\p{L}\p{N}]", "").ToLowerInvariant();
-    private static string Text(JsonElement item, string key) => item.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? WebUtility.HtmlDecode(value.GetString() ?? "") : "";
+    private static string Text(JsonElement item, string key) => item.ValueKind==JsonValueKind.Object && item.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? WebUtility.HtmlDecode(value.GetString() ?? "") : "";
 }
