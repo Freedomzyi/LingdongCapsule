@@ -28,7 +28,7 @@ internal static class NotificationTests
             if(await sound.PlayAsync(config) || sound.PlayCount!=1)throw new Exception("Quiet preference allowed sound playback");
         }
         Console.WriteLine("PASS 14 original WAV chimes, duration rejection and real media playback at zero volume");
-        var app=new Capsule.App.App();app.InitializeComponent();Design.ApplySystemTheme();
+        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
         var settings=new Settings{MediaEnabled=false,PrivatePreview=false,NotificationSoundEnabled=true,NotificationSoundKey="custom",NotificationSoundPath=soundFile,NotificationSoundVolume=0};
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:settings);
         try

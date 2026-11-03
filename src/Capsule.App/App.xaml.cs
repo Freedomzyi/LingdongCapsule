@@ -6,8 +6,10 @@ namespace Capsule.App;
 public partial class App : System.Windows.Application
 {
     private Mutex? mutex;
+    internal bool SuppressStartupForTests{get;set;}
     protected override void OnStartup(StartupEventArgs e)
     {
+        if(SuppressStartupForTests){base.OnStartup(e);return;}
         if (e.Args.Contains("--install"))
         {
             base.OnStartup(e);

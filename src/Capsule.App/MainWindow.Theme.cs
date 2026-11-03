@@ -9,7 +9,7 @@ public partial class MainWindow
     private bool? appliedIslandDark;
     private void ApplyIslandTheme()
     {
-        var dark=Design.IsDark || overviewOpen;
+        var dark=Design.IsDark;
         if(appliedIslandDark==dark)return;appliedIslandDark=dark;
         Shell.Background=new SolidColorBrush(dark ? Color.FromArgb(245,16,16,18) : Color.FromArgb(245,245,245,247));
         Shell.BorderBrush=new SolidColorBrush(dark ? Color.FromRgb(51,51,56) : Color.FromRgb(210,210,216));

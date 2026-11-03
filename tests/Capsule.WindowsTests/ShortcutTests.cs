@@ -48,7 +48,7 @@ internal static class ShortcutTests
         }
         if(!RegisterHotKey(other.Handle,0x6D04,free[1].Modifiers|0x4000,(uint)free[1].Key))throw new Exception("Disposal leaked registration");UnregisterHotKey(other.Handle,0x6D04);
         Console.WriteLine("PASS Native registration, conflict rollback, recording suspension, independent switches, dispatch and cleanup");
-        var app=new Capsule.App.App();app.InitializeComponent();Design.ApplySystemTheme();
+        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
         var themedCard=Design.Card(new TextBlock());var themeWindow=new Window{Content=themedCard,Width=100,Height=100,ShowActivated=false,ShowInTaskbar=false};themeWindow.Show();Design.ApplyTheme(0);await Task.Delay(50);
         var dark=((System.Windows.Media.SolidColorBrush)themedCard.Background).Color;
         Design.ApplyTheme(1);await Task.Delay(50);var light=((System.Windows.Media.SolidColorBrush)themedCard.Background).Color;

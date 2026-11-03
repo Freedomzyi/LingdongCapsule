@@ -21,6 +21,7 @@ internal static class Design
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
         var dark=mode==0 || mode==2 && key?.GetValue("AppsUseLightTheme") is int value && value==0;
         IsDark=dark;Set("IslandInk",dark ? "#FFFFFF" : "#1D1D1F");Set("IslandTrack",dark ? "#38FFFFFF" : "#33000000");
+        Set("OverviewTile",dark ? "#17FFFFFF" : "#10000000");
         Set("PageFill",dark ? "#1C1C1E" : "#F5F5F7");Set("CardFill",dark ? "#2C2C2E" : "#FFFFFF");Set("TextPrimary",dark ? "#F5F5F7" : "#1D1D1F");Set("TextSecondary",dark ? "#A1A1AA" : "#7A7A82");Set("ButtonFill",dark ? "#3A3A3C" : "#E9E9EF");
     }
     private static void Set(string name,string color)

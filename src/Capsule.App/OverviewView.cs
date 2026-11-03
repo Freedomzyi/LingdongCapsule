@@ -35,11 +35,14 @@ internal sealed class OverviewView : Grid,IDisposable
         var net=Tile("实时网速",new[]{("下载",download),("上传",upload),("状态",network)});net.Margin=new Thickness(0,0,3,0);columns.Children.Add(net);
         var hardware=Tile("运行状态",new[]{("内存",ram),("CPU",cpu),("电池",battery)});hardware.Margin=new Thickness(3,0,0,0);Grid.SetColumn(hardware,1);columns.Children.Add(hardware);root.Children.Add(columns);
         var label=Text(11,true);label.Text="内存排行";label.Margin=new Thickness(0,4,0,5);root.Children.Add(label);
-        root.Children.Add(new Border{Background=new SolidColorBrush(Color.FromArgb(20,255,255,255)),CornerRadius=new CornerRadius(12),Child=processes});
+        var ranking=new Border{CornerRadius=new CornerRadius(12),Child=processes};Design.Bind(ranking,Border.BackgroundProperty,"OverviewTile");root.Children.Add(ranking);
         weather.Changed+=RenderWeather;weather.SelectCity(settings.WeatherCity);RenderWeather();
         MouseLeftButtonUp+=(_,args)=>args.Handled=true;
     }
-    private static TextBlock Text(double size,bool muted=false)=>new(){FontSize=size,Foreground=new SolidColorBrush(muted ? Color.FromRgb(164,164,174) : Colors.White),HorizontalAlignment=HorizontalAlignment.Stretch,TextAlignment=TextAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis,VerticalAlignment=VerticalAlignment.Center};
+    private static TextBlock Text(double size,bool muted=false)
+    {
+        var text=new TextBlock{FontSize=size,HorizontalAlignment=HorizontalAlignment.Stretch,TextAlignment=TextAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis,VerticalAlignment=VerticalAlignment.Center};Design.Bind(text,TextBlock.ForegroundProperty,muted ? "TextSecondary" : "IslandInk");return text;
+    }
     private static Border Tile(string title,(string Label,TextBlock Value)[] rows)
     {
         var content=new StackPanel{Margin=new Thickness(8,5,8,5)};var caption=Text(13);caption.Text=title;caption.Height=18;caption.Margin=new Thickness(0,0,0,2);content.Children.Add(caption);
@@ -48,7 +51,7 @@ internal sealed class OverviewView : Grid,IDisposable
             var line=new Grid{Height=19};line.ColumnDefinitions.Add(new(){Width=GridLength.Auto});line.ColumnDefinitions.Add(new());
             var name=Text(10,true);name.Text=row.Label;line.Children.Add(name);row.Value.Text="—";row.Value.TextAlignment=TextAlignment.Right;Grid.SetColumn(row.Value,1);line.Children.Add(row.Value);content.Children.Add(line);
         }
-        return new Border{CornerRadius=new CornerRadius(11),Background=new SolidColorBrush(Color.FromArgb(23,255,255,255)),Child=content};
+        var tile=new Border{CornerRadius=new CornerRadius(11),Child=content};Design.Bind(tile,Border.BackgroundProperty,"OverviewTile");return tile;
     }
     internal void EditCity()
     {
@@ -63,7 +66,7 @@ internal sealed class OverviewView : Grid,IDisposable
         weather.SelectCity(settings.WeatherCity);RenderWeather();_=weather.RefreshIfDueAsync();
         var sample=sampler.Sample();CurrentSample=sample;
         ram.Text=sample.Memory is {} memory ? $"{memory}%" : "—";cpu.Text=sample.Cpu is {} cpuValue ? $"{cpuValue:0}%" : "—";battery.Text=sample.Battery;
-        battery.Foreground=new SolidColorBrush(sample.LowBattery ? Color.FromRgb(237,151,65) : Colors.White);
+        if(sample.LowBattery)battery.Foreground=new SolidColorBrush(Color.FromRgb(237,151,65));else Design.Bind(battery,TextBlock.ForegroundProperty,"IslandInk");
         download.Text=Rate(sample.Download);upload.Text=Rate(sample.Upload);network.Text=sample.Network;
         network.Foreground=new SolidColorBrush(sample.Network=="健康" ? Color.FromRgb(72,189,127) : sample.Network=="欠佳" ? Color.FromRgb(237,151,65) : Color.FromRgb(164,164,174));
         if(reading || Environment.TickCount64<nextProcesses)return;
@@ -113,7 +116,7 @@ internal sealed class OverviewView : Grid,IDisposable
             var name=Text(12);name.Text=group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase) ? "微信" : group.Name;name.TextAlignment=TextAlignment.Left;Grid.SetColumn(name,1);row.Children.Add(name);
             var amount=Text(11,true);amount.Text=group.Bytes>=1073741824 ? $"{group.Bytes/1073741824d:0.0} GB" : $"{group.Bytes/1048576d:0} MB";Grid.SetColumn(amount,2);row.Children.Add(amount);
             var end=new Button{Content="×",Background=Brushes.Transparent,Foreground=new SolidColorBrush(Color.FromRgb(164,164,174)),FontSize=15,ToolTip="结束此进程组",IsEnabled=!group.Processes.Any(process=>process.Id==Environment.ProcessId)};
-            Grid.SetColumn(end,3);end.Click+=(_,args)=>{args.Handled=true;ConfirmEnd(group);};row.Children.Add(end);processes.Children.Add(row);
+            Design.Bind(end,Control.ForegroundProperty,"TextSecondary");Grid.SetColumn(end,3);end.Click+=(_,args)=>{args.Handled=true;ConfirmEnd(group);};row.Children.Add(end);processes.Children.Add(row);
         }
         if(CurrentProcesses.Count==0){var empty=Text(12,true);empty.Text="暂无可读取的进程";empty.Height=75;processes.Children.Add(empty);}
     }

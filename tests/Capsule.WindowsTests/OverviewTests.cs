@@ -72,11 +72,12 @@ internal static class OverviewTests
             if(weather.Data==null || weather.Cached)throw new Exception("Live weather request failed: "+weather.Status);
             Console.WriteLine("PASS Public weather service returned current and two daily forecasts");
         }
-        var app=new Capsule.App.App();app.InitializeComponent();Design.ApplySystemTheme();
-        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:new Settings{NotificationsEnabled=false,MediaEnabled=false});
+        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
+        var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:new Settings{NotificationsEnabled=false,MediaEnabled=false,ThemeMode=1});
         try
         {
             window.Show();await Task.Delay(500);window.OpenOverview();await Task.Delay(600);
+            if(Design.IsDark || ((SolidColorBrush)((System.Windows.Controls.Border)window.FindName("Shell")).Background).Color.R<200)throw new Exception("Light overview theme was not applied");
             window.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice,0){RoutedEvent=System.Windows.UIElement.MouseEnterEvent});
             await Task.Delay(1100);
             if(window.LiveOverview.CurrentSample?.Cpu==null || window.LiveOverview.CurrentProcesses.Count==0 || window.ActualHeight<250)throw new Exception("Actual island overview did not update");

@@ -66,7 +66,7 @@ internal static class Program
             var renderAt=Array.IndexOf(args,"--render-media");
             var directory=renderAt+1<args.Length ? Path.GetFullPath(args[renderAt+1]) : throw new Exception("A render output directory is required");
             Directory.CreateDirectory(directory);
-            var app=new Capsule.App.App();app.InitializeComponent();Design.ApplySystemTheme();
+            var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
             var window=new Capsule.App.MainWindow(suppressOnboarding:true);
             var initial=await media.ReadAsync();var initialPosition=media.Position;var changedPlayback=false;var changedPosition=false;
             try
@@ -140,7 +140,7 @@ internal static class Program
             Capsule.App.MainWindow? window = null;
             if (args.Contains("--window-scenario"))
             {
-                var app = new Capsule.App.App(); app.InitializeComponent();
+                var app = new Capsule.App.App{SuppressStartupForTests=true}; app.InitializeComponent();
                 window = new Capsule.App.MainWindow(suppressOnboarding: true); window.Show();
                 await Task.Delay(1600);
             }
