@@ -15,33 +15,44 @@ public sealed partial class LyricsClient : IDisposable
     public void Dispose(){if(ownsHttp)http.Dispose();}
     public string Status { get; private set; } = "等待音乐";
 
-    public async Task<LyricsDocument> FetchAsync(MediaSnapshot track, CancellationToken cancellation)
+    public async Task<LyricsDocument> FetchAsync(MediaSnapshot track, CancellationToken cancellation,bool enrich=false,Action<LyricsDocument>? progress=null)
     {
         if (!track.Available || track.IsVideo || string.IsNullOrWhiteSpace(track.Artist) || track.Title == "未知曲目" || Normalize(track.Title).Length==0 || Normalize(track.Artist).Length==0){Status="等待音乐";return LyricsDocument.Empty;}
         Status = "正在获取歌词";
         var netease=track.SourceId.Contains("netease",StringComparison.OrdinalIgnoreCase) || track.SourceId.Contains("cloudmusic",StringComparison.OrdinalIgnoreCase);
         var order=netease ? new[]{"netease","netease-official","tencent","qq-official","lrclib"} : new[]{"tencent","qq-official","netease","netease-official","lrclib"};
         var qqMid="";
+        var result=LyricsDocument.Empty;
+        using var enrichment=CancellationTokenSource.CreateLinkedTokenSource(cancellation);
         foreach (var provider in order)
         {
             cancellation.ThrowIfCancellationRequested();
+            if(result.Lines.Count>0 && (provider=="lrclib" || enrichment.IsCancellationRequested))break;
+            var token=result.Lines.Count>0 ? enrichment.Token : cancellation;
             try
             {
                 var document = provider switch
                 {
-                    "tencent" or "netease" => await RelayAsync(provider,track,cancellation,mid=>qqMid=mid),
-                    "qq-official"=>await QqOfficialAsync(track,qqMid,cancellation),
-                    "netease-official" => await NeteaseAsync(track, cancellation),
-                    _ => await LrclibAsync(track, cancellation)
+                    "tencent" or "netease" => await RelayAsync(provider,track,token,mid=>qqMid=mid),
+                    "qq-official"=>await QqOfficialAsync(track,qqMid,token),
+                    "netease-official" => await NeteaseAsync(track, token),
+                    _ => await LrclibAsync(track, token)
                 };
-                if (document.Lines.Any(line=>!string.IsNullOrWhiteSpace(line.Text))) { Status = "歌词已连接 · " + document.Source; return document; }
+                if (document.Lines.Any(line=>!string.IsNullOrWhiteSpace(line.Text)))
+                {
+                    if(result.Lines.Count==0){result=document;enrichment.CancelAfter(TimeSpan.FromSeconds(6));progress?.Invoke(result);}
+                    else{var merged=result.Supplement(document);if(!ReferenceEquals(merged,result)){result=merged;progress?.Invoke(result);}}
+                    if(!enrich || result.HasWordTiming && result.Lines.Any(line=>line.Translation.Length>0))break;
+                }
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { throw; }
+            catch (OperationCanceledException) when (enrichment.IsCancellationRequested) { break; }
             catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException or FormatException or System.IO.IOException or System.IO.InvalidDataException or KeyNotFoundException)
             { Status = "歌词源暂不可用，正在尝试其他来源"; }
         }
-        Status = "未找到匹配歌词";
-        return LyricsDocument.Empty;
+        cancellation.ThrowIfCancellationRequested();
+        Status = result.Lines.Count>0 ? "歌词已连接 · "+result.Source : "未找到匹配歌词";
+        return result;
     }
 
     private async Task<JsonDocument> GetAsync(string url, CancellationToken cancellation)

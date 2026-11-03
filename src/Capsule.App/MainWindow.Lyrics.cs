@@ -36,7 +36,11 @@ public partial class MainWindow
         {
             for(var attempt=0;attempt<3;attempt++)
             {
-                var result=await lyricsClient.FetchAsync(track,cancellation);
+                var result=await lyricsClient.FetchAsync(track,cancellation,enrich:true,progress:partial=>
+                {
+                    if(closing || key!=lyricKey || cancellation.IsCancellationRequested)return;
+                    lyrics=partial;Render();
+                });
                 if(closing || key!=lyricKey || cancellation.IsCancellationRequested)return;
                 if(result.Lines.Count>0)
                 {

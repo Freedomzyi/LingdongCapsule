@@ -18,10 +18,46 @@ internal static class LyricsTests
         internal TaskCompletionSource Started{get;}=new();internal int Requests;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token){Requests++;Started.TrySetResult();await Task.Delay(30000,token);return Json(new{});}
     }
+    private sealed class EnrichmentTimeoutHandler : HttpMessageHandler
+    {
+        internal int Requests;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
+        {
+            Requests++;
+            if(Requests==1)return Json(new{data=new[]{new{id=1,song="Test song",singer="Test artist",interval="269"}}});
+            if(Requests==2)return Json(new{data=new{lrc=Lrc}});
+            await Task.Delay(Timeout.Infinite,token);return Json(new{});
+        }
+    }
     private static HttpResponseMessage Json(object data)=>new(HttpStatusCode.OK){Content=new StringContent(JsonSerializer.Serialize(data))};
     internal static async Task RunAsync()
     {
         var track=new MediaSnapshot("Test song","Test artist",true,true,Duration:TimeSpan.FromSeconds(269),SourceId:"qqmusic.exe");
+        using(var handler=new EnrichmentTimeoutHandler())using(var http=new HttpClient(handler))using(var lyrics=new LyricsClient(http))
+        {
+            var partials=new List<LyricsDocument>();var result=await lyrics.FetchAsync(track,default,enrich:true,progress:partials.Add).WaitAsync(TimeSpan.FromSeconds(9));
+            if(result.Lines.Count!=2 || partials.Count!=1 || handler.Requests!=3 || !lyrics.Status.Contains("已连接"))throw new Exception("Slow enrichment discarded the available base or continued after its deadline");
+        }
+        using(var handler=new EnrichmentTimeoutHandler())using(var http=new HttpClient(handler))using(var lyrics=new LyricsClient(http))using(var cancel=new CancellationTokenSource())
+        {
+            var canceled=false;try{await lyrics.FetchAsync(track,cancel.Token,enrich:true,progress:_=>cancel.Cancel());}catch(OperationCanceledException){canceled=true;}
+            if(!canceled || handler.Requests!=2)throw new Exception("Cancel after first lyric continued supplementary requests");
+        }
+        using(var handler=new Handler(request=>
+        {
+            var path=request.RequestUri!.AbsolutePath;
+            if(path.EndsWith("search/song"))return Json(new{data=new[]{new{id=1,song="Test song",singer="Test artist",interval="4分29秒",mid="TestMid0001"}}});
+            if(path.Contains("/tencent/lyric"))return Json(new{data=new{lrc=Lrc}});
+            if(path.Contains("query_lyric"))return Json(new{code=0,lyric=Lrc,trans="[00:01.00]第一句\n[00:03.00]第二句"});
+            if(path.EndsWith("/netease"))return Json(new{data=new[]{new{id=2,song="Test song",singer="Test artist",interval="4分29秒"}}});
+            if(path.Contains("/netease/lyric"))return Json(new{data=new{lrc=Lrc,yrc="[1000,1800](1000,1800,0)Own first test line\n[3000,1800](3000,1800,0)Own second test line"}});
+            throw new Exception("Enrichment made an unnecessary provider request: "+path);
+        }))
+        using(var http=new HttpClient(handler))using(var lyrics=new LyricsClient(http))
+        {
+            var partials=new List<LyricsDocument>();var result=await lyrics.FetchAsync(track,default,enrich:true,progress:partials.Add);
+            if(partials.Count!=3 || partials[0].HasWordTiming || partials[0].Lines[0].Translation.Length!=0 || !result.HasWordTiming || result.Lines[0].Translation!="第一句" || handler.Paths.Count!=5 || !lyrics.Status.Contains("已连接"))throw new Exception("Progressive cross-source enrichment lost base text or supplementary data");
+        }
         using(var handler=new Handler(request=>
         {
             var path=request.RequestUri!.AbsolutePath;

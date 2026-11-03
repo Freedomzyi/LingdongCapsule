@@ -8,6 +8,12 @@ if(solo.Position(5000)!=1500 || solo.Apply("{broken",0))throw new Exception("Sol
 Console.WriteLine("PASS Solo lyrics, progress extrapolation, pause and malformed-message isolation");
 var s = new IslandState();
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); Console.WriteLine("PASS " + message); }
+var supplementBase=LyricsDocument.Parse("[00:01.00]First line\n[00:03.00]Second line",source:"Base");
+var supplementOther=LyricsDocument.Parse("[00:01.10]First line\n[00:03.10]Second line","[00:01.10]第一句\n[00:03.10]第二句","[1100,1500](1100,1500,0)First line\n[3100,1500](3100,1500,0)Second line","Extra");
+var supplemented=supplementBase.Supplement(supplementOther);
+Check(supplemented.HasWordTiming && supplemented.Lines[0].Translation=="第一句" && supplemented.Lines[0].StartMs==1000 && supplemented.Lines[0].Text=="First line","Cross-source supplement preserves base text/timing and adds matched translation/words");
+Check(ReferenceEquals(supplementBase,supplementBase.Supplement(LyricsDocument.Parse("[00:02.00]First line\n[00:04.00]Second line","[00:02.00]错版"))) && ReferenceEquals(supplementBase,supplementBase.Supplement(LyricsDocument.Parse("[00:01.00]First line\n[00:03.00]Different line","[00:01.00]错版"))),"Shifted recording and insufficient shared text cannot supplement lyrics");
+Check(ReferenceEquals(supplemented,supplemented.Supplement(supplementOther)),"Supplement preserves existing translation and timing without repeated source tags");
 Check(ComponentOrder.Normalize(null,hardwareFirst:true,mediaFirst:true).SequenceEqual(new[]{"media","hardware","clock"}),"Legacy component order migrates without losing media/hardware placement");
 Check(ComponentOrder.Normalize(new[]{"bad","plugin:fixture.clock","plugin:fixture.clock","media"}).SequenceEqual(new[]{"plugin:fixture.clock","media","clock","hardware"}),"Unified order removes invalid/duplicate IDs and restores native slots");
 Check(ComponentOrder.Effective(new[]{"plugin:stopped.clock","hardware","media","clock"},new[]{"fixture.clock"}).SequenceEqual(new[]{"plugin:stopped.clock","hardware","media","clock","plugin:fixture.clock"}),"Inactive plugin positions survive while new components append");

@@ -18,6 +18,38 @@ public sealed class LyricsDocument
     public string Source { get; }
     public bool HasWordTiming => Lines.Any(line => line.Words.Count > 0);
 
+    public LyricsDocument Supplement(LyricsDocument candidate)
+    {
+        var original=Lines.Where(line=>Normalize(line.Text).Length>0).ToArray();
+        var other=candidate.Lines.Where(line=>Normalize(line.Text).Length>0).ToArray();
+        if(original.Length<2 || other.Length<2 || original.Length>4000 || other.Length>4000)return this;
+        var normalized=other.Select(line=>Normalize(line.Text)).ToArray();var used=new HashSet<int>();var matches=new Dictionary<LyricLine,LyricLine>();var first=0;
+        foreach(var line in original)
+        {
+            while(first<other.Length && other[first].StartMs<line.StartMs-250)first++;
+            var key=Normalize(line.Text);var best=-1;var distance=251d;
+            for(var index=first;index<other.Length && other[index].StartMs<=line.StartMs+250;index++)
+                if(!used.Contains(index) && normalized[index]==key && Math.Abs(other[index].StartMs-line.StartMs)<distance){best=index;distance=Math.Abs(other[index].StartMs-line.StartMs);}
+            if(best>=0){used.Add(best);matches[line]=other[best];}
+        }
+        // A title match or one repeated chorus is insufficient to mix different recordings.
+        if(matches.Count<Math.Min(3,original.Length) || matches.Count<Math.Max(original.Length,other.Length)*.8)return this;
+        var changed=false;var merged=new List<LyricLine>();
+        for(var index=0;index<Lines.Count;index++)
+        {
+            var line=Lines[index];var next=line;
+            if(matches.TryGetValue(line,out var source))
+            {
+                if(string.IsNullOrWhiteSpace(line.Translation) && !string.IsNullOrWhiteSpace(source.Translation) && Normalize(source.Translation)!=Normalize(line.Text))next=next with{Translation=source.Translation};
+                var words=source.Words;
+                var end=index+1<Lines.Count ? Lines[index+1].StartMs+250 : double.MaxValue;
+                if(line.Words.Count==0 && words.Count>0 && Math.Abs(words[0].StartMs-line.StartMs)<=250 && Normalize(string.Concat(words.Select(word=>word.Text)))==Normalize(line.Text) && words.Zip(words.Skip(1)).All(pair=>pair.First.StartMs<=pair.Second.StartMs) && words.All(word=>double.IsFinite(word.StartMs) && double.IsFinite(word.DurationMs) && word.DurationMs>0 && word.StartMs>=0 && word.StartMs+word.DurationMs<=end))next=next with{Words=words};
+            }
+            changed|=!ReferenceEquals(next,line);merged.Add(next);
+        }
+        return changed ? new(merged,Source+" + "+candidate.Source) : this;
+    }
+
     private LyricsDocument(IReadOnlyList<LyricLine> lines, string source) { Lines = lines; Source = source; }
     public static LyricsDocument FromTimedLines(IEnumerable<LyricLine> lines,string source)=>new(lines.Where(line=>double.IsFinite(line.StartMs) && line.StartMs>=0).OrderBy(line=>line.StartMs).ToArray(),source);
 
