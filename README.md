@@ -2,7 +2,7 @@
 
 Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部，以少量操作完成日常查看和控制。
 
-**0.1.0 预览版 · Windows 11 x64。** 当前验证与已知限制见 [验证记录](docs/VALIDATION.md)。预览版不代表全机型兼容性已验收。
+**开发中 · Windows 11 x64。目标已明确为本机 NotchPeninsula 定制版的全部功能与交互 1:1 对齐。当前基础原型尚不完整，不构成最终交付，也没有正式 Release。** 完整差距见 [对齐清单](docs/PARITY.md)，已完成部分的证据见 [验证记录](docs/VALIDATION.md)。
 
 ## 使用
 
@@ -51,4 +51,4 @@ dotnet run --project tests/Capsule.WindowsTests
 
 核心状态逻辑在 `src/Capsule.Core`；Windows 接入及 WPF 界面在 `src/Capsule.App`。不依赖旧版 NotchPeninsula 的源码、DLL 或资源。[开发方案](docs/PLAN.md) · [来源与第三方声明](THIRD-PARTY-NOTICES.md) · [MIT 许可证](LICENSE)
 
-目前不含歌词、天气、插件市场、进程清理和自动更新。播放器未提供信息时显示降级状态；系统媒体会话并不保证歌词、封面或所有控制指令可用。
+歌词、天气、插件体系、进程管理等均已纳入完整对齐范围，正在开发。播放器和接口未提供的信息不推测补齐，具体进度以对齐清单为准。
