@@ -25,6 +25,9 @@ public partial class MainWindow : Window
     private double desiredWidth = 104, desiredHeight = 35;
     private SettingsWindow? settingsWindow;
     private readonly OverviewView overview;
+    private readonly OverviewService compactHardware=new();
+    private long nextHardwareSample;
+    internal OverviewSample? CompactHardwareSample{get;private set;}
     private bool overviewOpen;
     private readonly DispatcherTimer panelCollapse=new();
     internal OverviewView LiveOverview=>overview;
@@ -108,6 +111,8 @@ public partial class MainWindow : Window
         ClockTime.Text=settings.ClockEnabled ? clockNow.ToString("HH:mm") : "";
         ClockDate.Text=clockNow.ToString("MM/dd");
         ClockDate.Visibility=settings.ClockEnabled && settings.ClockLayout==1 ? Visibility.Visible : Visibility.Collapsed;
+        HardwarePanel.Visibility=settings.HardwareEnabled ? Visibility.Visible : Visibility.Collapsed;
+        HardwarePanel.Margin=new Thickness(settings.ClockEnabled ? 12 : 0,0,0,0);
         state.MediaClockSwitch=settings.MediaClockSwitch;
         state.SetQuietUntil(settings.QuietUntil,DateTimeOffset.Now);
         if(!settings.NotificationsEnabled || !settings.NotificationSoundEnabled || state.IsQuiet(DateTimeOffset.Now))notificationSound.StopPlayback();
@@ -117,6 +122,12 @@ public partial class MainWindow : Window
         var showMedia = !showOverview && (mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available));
         OverviewHost.Visibility=showOverview ? Visibility.Visible : Visibility.Collapsed;
         Clock.Visibility = mode == IslandMode.Clock && !showMedia && !showOverview ? Visibility.Visible : Visibility.Collapsed;
+        if(settings.HardwareEnabled && Clock.Visibility==Visibility.Visible && !visibilityResult.PassThrough && Environment.TickCount64>=nextHardwareSample)
+        {
+            nextHardwareSample=Environment.TickCount64+1000;var sample=compactHardware.Sample();CompactHardwareSample=sample;
+            CpuUsage.Text=sample.Cpu is {} cpu ? $"CPU {cpu:0}%" : "CPU —";RamUsage.Text=sample.Memory is {} ram ? $"RAM {ram}%" : "RAM —";
+            CpuBar.Value=sample.Cpu ?? 0;RamBar.Value=sample.Memory ?? 0;
+        }
         MediaPanel.Visibility = showMedia ? Visibility.Visible : Visibility.Collapsed;
         NoticePanel.Visibility = mode == IslandMode.Notification ? Visibility.Visible : Visibility.Collapsed;
         Track.Text = state.Media.Title; Artist.Text = state.Media.Artist;
@@ -126,7 +137,7 @@ public partial class MainWindow : Window
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
         var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(104, SystemParameters.WorkArea.Width - 16)) : 104;
-        if(mode==IslandMode.Clock && !showMedia && !showOverview && settings.ClockEnabled && settings.ClockLayout==1){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
+        if(mode==IslandMode.Clock && !showMedia && !showOverview && (settings.HardwareEnabled || settings.ClockEnabled && settings.ClockLayout==1)){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);
         var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? settings.ShowTomorrow ? 278 : 258 : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;

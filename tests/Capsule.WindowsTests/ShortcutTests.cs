@@ -54,7 +54,7 @@ internal static class ShortcutTests
         Design.ApplyTheme(1);await Task.Delay(50);var light=((System.Windows.Media.SolidColorBrush)themedCard.Background).Color;
         if(dark.R>=light.R || light.R!=255)throw new Exception("Existing theme card did not update dynamically");
         themeWindow.Hide();Design.ApplySystemTheme();Console.WriteLine("PASS Existing card resources switch from dark to light without recreating controls");
-        var islandSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,AutoHide=true,FocusAutoHide=true,IslandShortcutEnabled=true,ClockLayout=1};islandSettings.Shortcuts[ShortcutAction.ToggleIsland]=free[5];
+        var islandSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,AutoHide=true,FocusAutoHide=true,IslandShortcutEnabled=true,ClockLayout=1,HardwareEnabled=true};islandSettings.Shortcuts[ShortcutAction.ToggleIsland]=free[5];
         var island=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:islandSettings);
         try
         {
@@ -64,6 +64,8 @@ internal static class ShortcutTests
             if(!island.LiveVisibility.Hidden || ((Button)island.FindName("WakeButton")).Visibility!=Visibility.Visible)throw new Exception("Idle auto-hide did not retain wake button");
             ((Button)island.FindName("WakeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(100);
             if(island.LiveVisibility.Hidden)throw new Exception("Wake button did not reveal island");
+            await Task.Delay(1300);
+            if(island.CompactHardwareSample is not{Cpu:>=0 and <=100,Memory:>=0 and <=100} || ((FrameworkElement)island.FindName("HardwarePanel")).Visibility!=Visibility.Visible)throw new Exception("Compact hardware component did not receive valid real readings");
             island.SetIslandHidden(true);await Task.Delay(500);
             if(!island.ManuallyHidden || ((Button)island.FindName("WakeButton")).Visibility!=Visibility.Collapsed || ((FrameworkElement)island.FindName("IslandSurface")).Opacity>0.001)throw new Exception("Manual hide left visible island UI");
             var window=new WindowInteropHelper(island).Handle;var point=island.PointToScreen(new Point(10,10));var coordinates=new IntPtr(((long)(ushort)(short)point.Y<<16)|(ushort)(short)point.X);

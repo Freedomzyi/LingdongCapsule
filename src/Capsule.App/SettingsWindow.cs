@@ -116,6 +116,7 @@ public sealed class SettingsWindow : Window
         var clockOptions=new StackPanel();
         AddSelection(clockOptions,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟对应当前定制组件；时间与日期按 HH:mm 与 MM/dd 显示，并根据内容收窄。");
         AddCheck(clockOptions,"显示时间日期",settings.ClockEnabled,value=>settings.ClockEnabled=value,"关闭后不显示时钟文本；仍保留空闲面板点击入口，不影响播放和通知。");
+        AddCheck(clockOptions,"显示硬件占用",settings.HardwareEnabled,value=>settings.HardwareEnabled=value,"空闲折叠态每秒采样真实 CPU 与内存；无有效数据时显示横线，不显示虚构数值。媒体组合与排序仍在对齐中。");
         panel.Children.Add(Design.Card(clockOptions));
         var positionOptions=new StackPanel();
         AddSelection(positionOptions,"目标显示器",MonitorPlacement.Options,settings.MonitorId,v=>settings.MonitorId=v,"显示器断开时回到主屏，不修改其他软件设置。");

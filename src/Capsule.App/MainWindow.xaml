@@ -12,7 +12,12 @@
  <Grid x:Name="IslandSurface">
  <Border x:Name="Shell" Background="#F5101012" BorderBrush="#333338" BorderThickness="1" CornerRadius="20" Padding="14,7" ClipToBounds="True" MouseLeftButtonUp="OnIslandClick" MouseRightButtonUp="OnRightClick">
   <Grid ClipToBounds="True">
-   <StackPanel x:Name="Clock" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock x:Name="ClockTime" Foreground="White" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="ClockDate" Foreground="#ADADB5" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"/></StackPanel>
+   <StackPanel x:Name="Clock" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock x:Name="ClockTime" Foreground="White" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/><TextBlock x:Name="ClockDate" Foreground="#ADADB5" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"/>
+    <StackPanel x:Name="HardwarePanel" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed">
+     <StackPanel Width="51"><TextBlock x:Name="CpuUsage" Text="CPU —" Foreground="White" FontSize="9" TextAlignment="Center"/><ProgressBar x:Name="CpuBar" Height="3" Margin="2,3,2,0" Maximum="100" Foreground="#B8FFFFFF" Background="#33FFFFFF" BorderThickness="0"/></StackPanel>
+     <StackPanel Width="51" Margin="7,0,0,0"><TextBlock x:Name="RamUsage" Text="RAM —" Foreground="White" FontSize="9" TextAlignment="Center"/><ProgressBar x:Name="RamBar" Height="3" Margin="2,3,2,0" Maximum="100" Foreground="#B8FFFFFF" Background="#33FFFFFF" BorderThickness="0"/></StackPanel>
+    </StackPanel>
+   </StackPanel>
    <ContentControl x:Name="OverviewHost" Visibility="Collapsed" VerticalAlignment="Top"/>
    <StackPanel x:Name="MediaPanel" Visibility="Collapsed" VerticalAlignment="Center">
     <Grid>
