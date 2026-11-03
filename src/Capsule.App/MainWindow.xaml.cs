@@ -34,9 +34,10 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer panelCollapse=new();
     internal OverviewView LiveOverview=>overview;
     [DllImport("user32.dll")] private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
-    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null)
+    public MainWindow(bool suppressOnboarding = false,Settings? initialSettings=null,Uri? localSoloEndpoint=null)
     {
         settings=initialSettings ?? Settings.Load();
+        solo=new SoloConnection(localSoloEndpoint);
         Design.ApplyTheme(settings.ThemeMode);
         shortcuts=new GlobalShortcuts(settings);
         InitializeComponent();

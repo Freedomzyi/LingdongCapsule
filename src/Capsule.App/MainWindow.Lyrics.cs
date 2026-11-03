@@ -6,7 +6,7 @@ namespace Capsule.App;
 public partial class MainWindow
 {
     private readonly LyricsClient lyricsClient=new();
-    private readonly SoloConnection solo=new();
+    private readonly SoloConnection solo;
     private bool SoloSelected=>settings.MediaSourceKind=="justsolo" && settings.ManualMediaSource.Length==0;
     private readonly Dictionary<string,LyricsDocument> lyricsCache=[];
     private LyricsDocument lyrics=LyricsDocument.Empty;
