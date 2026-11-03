@@ -104,7 +104,10 @@ public partial class MainWindow : Window
     }
     private void Render()
     {
-        Clock.Text = DateTime.Now.ToString("HH:mm");
+        var clockNow=DateTime.Now;
+        ClockTime.Text=settings.ClockEnabled ? clockNow.ToString("HH:mm") : "";
+        ClockDate.Text=clockNow.ToString("MM/dd");
+        ClockDate.Visibility=settings.ClockEnabled && settings.ClockLayout==1 ? Visibility.Visible : Visibility.Collapsed;
         state.MediaClockSwitch=settings.MediaClockSwitch;
         state.SetQuietUntil(settings.QuietUntil,DateTimeOffset.Now);
         if(!settings.NotificationsEnabled || !settings.NotificationSoundEnabled || state.IsQuiet(DateTimeOffset.Now))notificationSound.StopPlayback();
@@ -123,6 +126,7 @@ public partial class MainWindow : Window
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }
         RenderLyrics();
         var width = mode == IslandMode.Notification || showMedia || showOverview ? Math.Min(settings.Width, Math.Max(104, SystemParameters.WorkArea.Width - 16)) : 104;
+        if(mode==IslandMode.Clock && !showMedia && !showOverview && settings.ClockEnabled && settings.ClockLayout==1){Clock.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));width=Math.Min(settings.Width,Clock.DesiredSize.Width+32);}
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);
         var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? settings.ShowTomorrow ? 278 : 258 : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;

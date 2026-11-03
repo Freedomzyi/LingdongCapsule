@@ -12,7 +12,7 @@
  <Grid x:Name="IslandSurface">
  <Border x:Name="Shell" Background="#F5101012" BorderBrush="#333338" BorderThickness="1" CornerRadius="20" Padding="14,7" ClipToBounds="True" MouseLeftButtonUp="OnIslandClick" MouseRightButtonUp="OnRightClick">
   <Grid ClipToBounds="True">
-   <TextBlock x:Name="Clock" Foreground="White" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+   <StackPanel x:Name="Clock" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock x:Name="ClockTime" Foreground="White" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="ClockDate" Foreground="#ADADB5" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"/></StackPanel>
    <ContentControl x:Name="OverviewHost" Visibility="Collapsed" VerticalAlignment="Top"/>
    <StackPanel x:Name="MediaPanel" Visibility="Collapsed" VerticalAlignment="Center">
     <Grid>

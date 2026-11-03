@@ -54,11 +54,13 @@ internal static class ShortcutTests
         Design.ApplyTheme(1);await Task.Delay(50);var light=((System.Windows.Media.SolidColorBrush)themedCard.Background).Color;
         if(dark.R>=light.R || light.R!=255)throw new Exception("Existing theme card did not update dynamically");
         themeWindow.Hide();Design.ApplySystemTheme();Console.WriteLine("PASS Existing card resources switch from dark to light without recreating controls");
-        var islandSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,AutoHide=true,FocusAutoHide=true,IslandShortcutEnabled=true};islandSettings.Shortcuts[ShortcutAction.ToggleIsland]=free[5];
+        var islandSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,AutoHide=true,FocusAutoHide=true,IslandShortcutEnabled=true,ClockLayout=1};islandSettings.Shortcuts[ShortcutAction.ToggleIsland]=free[5];
         var island=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:islandSettings);
         try
         {
             island.Show();await Task.Delay(900);
+            var date=(TextBlock)island.FindName("ClockDate");var clock=(FrameworkElement)island.FindName("Clock");
+            if(date.Visibility!=Visibility.Visible || date.Text!=DateTime.Now.ToString("MM/dd") || clock.DesiredSize.Width>island.ActualWidth-24)throw new Exception("Time/date layout exceeds compact island");
             if(!island.LiveVisibility.Hidden || ((Button)island.FindName("WakeButton")).Visibility!=Visibility.Visible)throw new Exception("Idle auto-hide did not retain wake button");
             ((Button)island.FindName("WakeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(100);
             if(island.LiveVisibility.Hidden)throw new Exception("Wake button did not reveal island");

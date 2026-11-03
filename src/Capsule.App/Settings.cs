@@ -6,6 +6,8 @@ namespace Capsule.App;
 public sealed class Settings
 {
     public int ThemeMode{get;set;}=2;
+    public bool ClockEnabled{get;set;}=true;
+    public int ClockLayout{get;set;}
     public bool MediaShortcutsEnabled{get;set;}
     public bool IslandShortcutEnabled{get;set;}
     public Dictionary<ShortcutAction,ShortcutChord> Shortcuts{get;set;}=Enum.GetValues<ShortcutAction>().ToDictionary(action=>action,ShortcutChord.Default);
@@ -64,6 +66,7 @@ public sealed class Settings
     internal void Normalize()
     {
         ThemeMode=Math.Clamp(ThemeMode,0,2);
+        ClockLayout=Math.Clamp(ClockLayout,0,1);
         static double Limit(double value,double min,double max,double fallback)=>double.IsFinite(value) ? Math.Clamp(value,min,max) : fallback;
         Width=Limit(Width,220,480,280);CompactHeight=Limit(CompactHeight,32,60,35);MotionMs=Math.Clamp(MotionMs,150,900);
         NotificationMode=Math.Clamp(NotificationMode,0,2);NotificationHeight=Limit(NotificationHeight,40,120,55);

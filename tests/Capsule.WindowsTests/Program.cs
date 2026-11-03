@@ -200,7 +200,7 @@ internal static class Program
                     await Until(() => window.LiveState.Media.Playing, "WPF did not observe play");
                     if (!await media.ControlAsync("toggle")) throw new Exception("Pause failed");
                     await Until(() => !window.LiveState.Media.Playing, "WPF did not observe pause"); ClickIsland();
-                    if (window.LiveState.Mode != IslandMode.Clock || ((System.Windows.Controls.TextBlock)window.FindName("Clock")).Visibility != System.Windows.Visibility.Visible) throw new Exception("WPF did not return to visible clock");
+                    if (window.LiveState.Mode != IslandMode.Clock || ((System.Windows.FrameworkElement)window.FindName("Clock")).Visibility != System.Windows.Visibility.Visible) throw new Exception("WPF did not return to visible clock");
                     Console.WriteLine("PASS Actual WPF pause during real notification returns to visible clock");
                     if (!await media.ControlAsync("toggle")) throw new Exception("Resume original track failed");
                     toast = new ToastNotification(xml) { Tag = "capsule-next", Group = "integration" }; notifier.Show(toast);
