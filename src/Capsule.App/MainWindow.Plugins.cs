@@ -49,6 +49,7 @@ public partial class MainWindow
             (id,name,title,body)=>pluginMutationDepth>0 ? Task.FromResult(false) : Dispatcher.InvokeAsync(()=>!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)).Task,
             ()=>{if(persist && pluginMutationDepth==0)writePluginSettings();});
         plugins.View.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty,"IslandInk");
+        media.TimelineReader=plugins.ReadTimeline;
         Loaded+=(_,_)=>
         {
             var failed=false;

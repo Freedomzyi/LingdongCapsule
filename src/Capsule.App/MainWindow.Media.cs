@@ -77,7 +77,7 @@ public partial class MainWindow
             Elapsed.Text=FormatTime(media.Position);
             timelineUpdating=true;
             SeekBar.Value=media.Duration>TimeSpan.Zero ? Math.Clamp(media.Position.TotalSeconds/media.Duration.TotalSeconds,0,1) : 0;
-            SeekBar.IsEnabled=media.Duration>TimeSpan.Zero;
+            SeekBar.IsEnabled=media.CanSeek;
             timelineUpdating=false;
         }
         if(VolumeSection.Visibility==Visibility.Visible)

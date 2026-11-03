@@ -43,6 +43,7 @@ internal sealed class OwnedMediaPublisher : IDisposable
     {
         player.PlaybackSession.Position=position;Controls.UpdateTimelineProperties(new SystemMediaTransportControlsTimelineProperties{StartTime=TimeSpan.Zero,EndTime=TimeSpan.FromSeconds(30),MinSeekTime=TimeSpan.Zero,MaxSeekTime=TimeSpan.FromSeconds(30),Position=position});
     }
+    internal void ClearTimeline()=>Controls.UpdateTimelineProperties(new SystemMediaTransportControlsTimelineProperties{StartTime=TimeSpan.Zero,EndTime=TimeSpan.Zero,MinSeekTime=TimeSpan.Zero,MaxSeekTime=TimeSpan.Zero,Position=TimeSpan.Zero});
     private void OnButton(SystemMediaTransportControls sender,SystemMediaTransportControlsButtonPressedEventArgs args)
     {
         if(args.Button==SystemMediaTransportControlsButton.Play)SetPlaying(true);

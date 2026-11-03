@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.IO;
 using System.IO.Compression;
 
-public sealed class FixturePlugin : ICapsulePlugin
+public sealed class FixturePlugin : ICapsulePlugin, ICapsuleTimelineSource
 {
     public PluginIdentity Identity=>new(System.IO.Path.GetFileName(typeof(FixturePlugin).Assembly.Location).Contains("second",StringComparison.OrdinalIgnoreCase) ? "fixture.second" : "fixture.clock","Test clock","0.1.0");
     public bool Disposed{get;private set;}
@@ -14,6 +14,13 @@ public sealed class FixturePlugin : ICapsulePlugin
     public FrameworkElement CreateWidget(ICapsulePluginHost host){this.host=host;view.Text=host.ReadSetting("label","Test");host.WriteSetting("initializations",(int.Parse(host.ReadSetting("initializations","0"))+1).ToString());return view;}
     public void Update(PluginFrame frame){if(frame.Media.Title=="throw" || host?.ReadSetting("fail")=="true")throw new InvalidOperationException("Fixture callback error");view.Text=frame.Now.ToString("HH:mm");}
     public void Dispose()=>Disposed=true;
+    public PluginTimeline? ReadTimeline(PluginMediaSession session)
+    {
+        var mode=host?.ReadSetting("timeline-mode");
+        if(mode=="throw")throw new IOException("Owned timeline fixture failure");
+        if(mode is not("valid" or "invalid") || host?.ReadSetting("timeline-source")!=session.SourceId)return null;
+        return new("fixture:"+session.Title,TimeSpan.FromSeconds(45),mode=="invalid" ? TimeSpan.Zero : TimeSpan.FromMinutes(3),session.Playing,int.Parse(host.ReadSetting("timeline-priority","0")));
+    }
 }
 
 internal static class PluginTests

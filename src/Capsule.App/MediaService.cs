@@ -1,4 +1,5 @@
 using Capsule.Core;
+using Capsule.PluginApi;
 using System.IO;
 using System.Windows.Media.Imaging;
 using Windows.Media;
@@ -21,7 +22,11 @@ public sealed class MediaService : IDisposable
     private bool enabled=true,disposed,trackedPaused;
     private string sourceKind="other",manualSource="",coverKey="";
     private long lastRead,propertiesAt,positionAt,coverAt;
-    private TimeSpan position,duration;
+    private TimeSpan position,duration,nativeDuration;
+    private bool positionAdvancing;
+    private readonly PluginTimelineClock pluginClock=new();
+    internal Func<PluginMediaSession,PluginTimelineReading?>? TimelineReader{get;set;}
+    internal bool CanSeek=>nativeDuration>TimeSpan.Zero;
     private MediaSnapshot snapshot=new("","",false,false);
     public BitmapImage? Cover{get;private set;}
     public string SourceId=>snapshot.Available ? snapshot.SourceId : "";
@@ -39,7 +44,7 @@ public sealed class MediaService : IDisposable
     {
         get
         {
-            var extra=snapshot.Playing ? Math.Min(Math.Max(0,Environment.TickCount64-positionAt),long.MaxValue/TimeSpan.TicksPerMillisecond)*TimeSpan.TicksPerMillisecond : 0;
+            var extra=positionAdvancing ? Math.Min(Math.Max(0,Environment.TickCount64-positionAt),long.MaxValue/TimeSpan.TicksPerMillisecond)*TimeSpan.TicksPerMillisecond : 0;
             var ticks=position.Ticks>long.MaxValue-extra ? long.MaxValue : position.Ticks+extra;
             return TimeSpan.FromTicks(Math.Clamp(ticks,0,duration.Ticks>0 ? duration.Ticks : long.MaxValue));
         }
@@ -61,7 +66,7 @@ public sealed class MediaService : IDisposable
     internal void Invalidate(){if(disposed)return;Restart();}
     private void Restart()
     {
-        generation++;requests.Cancel();requests.Dispose();requests=new();metadataDirty=playbackDirty=sessionDirty=true;validity.Clear();
+        generation++;requests.Cancel();requests.Dispose();requests=new();metadataDirty=playbackDirty=sessionDirty=true;validity.Clear();pluginClock.Reset();
     }
     private static void Safe(Action action){try{action();}catch(Exception){ }}
     private void Attach(GlobalSystemMediaTransportControlsSession? next)
@@ -76,7 +81,7 @@ public sealed class MediaService : IDisposable
     private void OnTimeline(GlobalSystemMediaTransportControlsSession sender,TimelinePropertiesChangedEventArgs args){playbackDirty=true;}
     private void OnCurrent(GlobalSystemMediaTransportControlsSessionManager sender,CurrentSessionChangedEventArgs args){sessionDirty=true;Changed?.Invoke();}
     private void OnSessions(GlobalSystemMediaTransportControlsSessionManager sender,SessionsChangedEventArgs args){sessionDirty=true;Changed?.Invoke();}
-    private void ClearSnapshot(){if(!disposed)coverRequest.Cancel();snapshot=new("","",false,false);Cover=null;coverKey="";duration=position=TimeSpan.Zero;positionAt=Environment.TickCount64;}
+    private void ClearSnapshot(){if(!disposed)coverRequest.Cancel();snapshot=new("","",false,false);Cover=null;coverKey="";duration=position=nativeDuration=TimeSpan.Zero;positionAdvancing=false;pluginClock.Reset();positionAt=Environment.TickCount64;}
     private void Disconnect()
     {
         Attach(null);if(manager is {} previous){Safe(()=>previous.CurrentSessionChanged-=OnCurrent);Safe(()=>previous.SessionsChanged-=OnSessions);}manager=null;
@@ -107,7 +112,7 @@ public sealed class MediaService : IDisposable
         try
         {
             var now=Environment.TickCount64;
-            if(manager!=null && !StaleMediaSessions.Tracked(snapshot.SourceId) && !trackedPaused && !sessionDirty && !playbackDirty && !metadataDirty && now-lastRead<5000 && !(snapshot.Available && Cover==null && now-coverAt>=1000))return snapshot;
+            if(manager!=null && !(TimelineReader!=null && PluginTimelineClock.Eligible(snapshot.SourceId,nativeDuration)) && !StaleMediaSessions.Tracked(snapshot.SourceId) && !trackedPaused && !sessionDirty && !playbackDirty && !metadataDirty && now-lastRead<5000 && !(snapshot.Available && Cover==null && now-coverAt>=1000))return snapshot;
             lastRead=now;sessionDirty=playbackDirty=false;
             if(manager==null)
             {
@@ -147,10 +152,17 @@ public sealed class MediaService : IDisposable
                     if(playing && age is >=0 and <30000 && at.Ticks<long.MaxValue-(long)(age*TimeSpan.TicksPerMillisecond))at+=TimeSpan.FromMilliseconds(age);
                     if(length>TimeSpan.Zero && at>length)at=length;
                     if(disposed || lease!=generation || epoch!=metadataEpoch)return snapshot;
-                    cachedProperties=props;if(fetched)propertiesAt=now;position=at;duration=length;positionAt=Environment.TickCount64;
+                    cachedProperties=props;if(fetched)propertiesAt=now;position=at;duration=nativeDuration=length;positionAdvancing=playing;positionAt=Environment.TickCount64;
+                    if(PluginTimelineClock.Eligible(id,length) && !video && TimelineReader!=null)
+                    {
+                        var context=new PluginMediaSession(id,title,artist,playing);PluginTimelineReading? reading=null;
+                        try{reading=TimelineReader(context);}catch(Exception){ /* A provider cannot disconnect the native session. */ }
+                        if(pluginClock.Read(context,reading,positionAt) is {} external){position=external.Position;duration=external.Duration;positionAdvancing=external.Playing;}
+                    }
+                    else pluginClock.Reset();
                     var key=id+"|"+title+"|"+artist+"|"+props.AlbumTitle+"|"+length.Ticks;
                     if(key!=coverKey){coverRequest.Cancel();coverRequest.Dispose();coverRequest=CancellationTokenSource.CreateLinkedTokenSource(token);coverKey=key;Cover=null;coverAt=0;}
-                    snapshot=new(title,artist,playing,true,props.AlbumTitle,length,id,video);Status="系统媒体已连接";
+                    snapshot=new(title,artist,playing,true,props.AlbumTitle,length,id,video);Status=duration!=nativeDuration ? "系统媒体已连接 · 插件补充时间轴" : "系统媒体已连接";
                     if(titleCorrected)Cover=null;
                     if(!titleCorrected && (Cover==null && now-coverAt>=1000 || now-coverAt>=5000) && Interlocked.CompareExchange(ref coverWorking,1,0)==0){coverAt=now;_=LoadCoverAsync(props,key,lease,epoch,coverRequest.Token);}
                     return snapshot;

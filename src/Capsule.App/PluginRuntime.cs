@@ -17,6 +17,21 @@ internal sealed class PluginRuntime : IDisposable
     public IReadOnlyCollection<string> ActiveIds=>order.AsReadOnly();
     public PluginIdentity Identity(string id)=>active[id].Identity;
     public FrameworkElement Widget(string id)=>active[id].View;
+    internal PluginTimelineReading? ReadTimeline(PluginMediaSession session)
+    {
+        View.Dispatcher.VerifyAccess();PluginTimelineReading? best=null;
+        foreach(var id in order.ToArray())
+        {
+            if(!active.TryGetValue(id,out var entry) || entry.Module.Plugin is not ICapsuleTimelineSource source)continue;
+            try
+            {
+                var value=source.ReadTimeline(session);
+                if(value!=null && PluginTimelineClock.Valid(value) && (best==null || value.Priority>best.Timeline.Priority))best=new(id,value);
+            }
+            catch(Exception error){Errors[id]="插件时间轴读取失败："+error.GetType().Name;Disable(id);}
+        }
+        return best;
+    }
     public Dictionary<string,string> Errors{get;}=[];
     public PluginRuntime(Settings settings,Func<PluginMedia> media,Func<string,string,string,string,Task<bool>> notify,Action save){this.settings=settings;this.media=media;this.notify=notify;this.save=save;}
     private sealed class Host(PluginRuntime owner,PluginIdentity identity) : ICapsulePluginHost
