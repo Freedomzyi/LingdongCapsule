@@ -30,10 +30,10 @@ internal sealed class OwnedMediaPublisher : IDisposable
         }
         catch{owned.Dispose();throw;}
     }
-    internal void SetMetadata(string title,bool video)
+    internal void SetMetadata(string title,bool video,string artist="Capsule test artist",string album="Owned test album")
     {
         Title=title;var display=Controls.DisplayUpdater;display.ClearAll();display.Type=video ? MediaPlaybackType.Video : MediaPlaybackType.Music;
-        if(video)display.VideoProperties.Title=title;else{display.MusicProperties.Title=title;display.MusicProperties.Artist="Capsule test artist";display.MusicProperties.AlbumTitle="Owned test album";}display.Update();
+        if(video)display.VideoProperties.Title=title;else{display.MusicProperties.Title=title;display.MusicProperties.Artist=artist;display.MusicProperties.AlbumTitle=album;}display.Update();
     }
     internal async Task SetThumbnailAsync(string path)
     {

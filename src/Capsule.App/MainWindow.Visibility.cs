@@ -93,7 +93,7 @@ public partial class MainWindow
                 ShortcutAction.PlayPause=>await media.ControlAsync("toggle"),
                 ShortcutAction.Previous=>await media.ControlAsync("previous"),
                 ShortcutAction.Next=>await media.ControlAsync("next"),
-                _=>media.Duration>TimeSpan.Zero && await media.SeekAsync(Math.Clamp((media.Position.TotalSeconds+(action==ShortcutAction.SeekForward ? 3 : -3))/media.Duration.TotalSeconds,0,1),track.Title)
+                _=>media.Duration>TimeSpan.Zero && await media.SeekAsync(Math.Clamp((media.Position.TotalSeconds+(action==ShortcutAction.SeekForward ? 3 : -3))/media.Duration.TotalSeconds,0,1),expectedTrack:track)
             };
             if(!success)Design.PresentMessage("媒体操作未完成","播放器暂不支持此次操作，或曲目已经变化。");
             await RefreshAsync();

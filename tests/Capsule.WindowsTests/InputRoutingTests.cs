@@ -21,6 +21,20 @@ internal static class InputRoutingTests
             var render=typeof(MainWindow).GetMethod("Render",BindingFlags.Instance|BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
             var shell=(Border)window.FindName("Shell");var media=(FrameworkElement)window.FindName("MediaPanel");var controls=(FrameworkElement)window.FindName("Controls");
             void Refresh(){render.Invoke(window,null);window.UpdateLayout();}
+            var firstSeekTrack=new MediaSnapshot("Owned same title","First artist",true,true,"First album",TimeSpan.FromSeconds(30),"owned-player");
+            window.LiveState.UpdateMedia(firstSeekTrack);Refresh();
+            var seekBar=(Slider)window.FindName("SeekBar");
+            seekBar.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Left){RoutedEvent=UIElement.PreviewMouseLeftButtonDownEvent,Source=seekBar});
+            var seekField=typeof(MainWindow).GetField("seekTrack",BindingFlags.Instance|BindingFlags.NonPublic)!;
+            if(seekField.GetValue(window) is not MediaSnapshot captured || !captured.SameTrackAs(firstSeekTrack))throw new Exception("Actual seek mouse route did not capture the starting track");
+            window.LiveState.UpdateMedia(firstSeekTrack with{Artist="Second artist"});
+            var unexpectedSeekDialog=false;var dialogGuard=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(30)};
+            dialogGuard.Tick+=(_,_)=>{foreach(var dialog in app.Windows.OfType<Window>().Where(item=>item.Title=="无法定位播放进度").ToArray()){unexpectedSeekDialog=true;dialog.Close();}};
+            dialogGuard.Start();
+            try{await ((Task)typeof(MainWindow).GetMethod("CommitSeekAsync",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(window,null)!).WaitAsync(TimeSpan.FromSeconds(5));}
+            finally{dialogGuard.Stop();}
+            if(unexpectedSeekDialog || seekField.GetValue(window)!=null || (bool)typeof(MainWindow).GetField("seeking",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(window)!)throw new Exception("Same-title replacement did not cancel and release the actual WPF drag target");
+            Console.WriteLine("PASS Actual WPF seek mouse route captures full track and cancels same-title artist replacement before control dispatch");
             void MouseUp(FrameworkElement source,bool right)
             {
                 var args=new MouseButtonEventArgs(Mouse.PrimaryDevice,0,right ? MouseButton.Right : MouseButton.Left){RoutedEvent=right ? UIElement.MouseRightButtonUpEvent : UIElement.MouseLeftButtonUpEvent,Source=source};

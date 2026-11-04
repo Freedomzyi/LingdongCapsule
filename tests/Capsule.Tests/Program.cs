@@ -15,6 +15,10 @@ mergedSolo.Apply("{\"type\":\"init\"}",0);if(mergedSolo.Lyrics.Lines.Count!=0)th
 Console.WriteLine("PASS Solo merged translations, invalid row isolation, bounded time extrapolation and invalid-init cleanup");
 var s = new IslandState();
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); Console.WriteLine("PASS " + message); }
+var seekTrack=new MediaSnapshot("Same title","First artist",true,true,"First album",TimeSpan.FromSeconds(30),"first-player");
+Check(seekTrack.SameTrackAs(seekTrack with{Playing=false,Duration=TimeSpan.FromSeconds(31)}),"Pause and duration refresh preserve seek track identity");
+Check(!seekTrack.SameTrackAs(seekTrack with{Artist="Second artist"}) && !seekTrack.SameTrackAs(seekTrack with{Album="Second album"}) && !seekTrack.SameTrackAs(seekTrack with{SourceId="second-player"}),"Same-title artist, album and player changes invalidate pending seek");
+Check(!seekTrack.SameTrackAs(seekTrack with{Title="Other title"}) && !seekTrack.SameTrackAs(seekTrack with{IsVideo=true}) && !seekTrack.SameTrackAs(seekTrack with{Available=false}) && !seekTrack.SameTrackAs(null),"Replacement, video type and unavailable tracks invalidate pending seek");
 foreach(var item in new[]{(Dpi:96u,X:-1110,Y:-192),(Dpi:120u,X:-1148,Y:-190),(Dpi:144u,X:-1185,Y:-188),(Dpi:192u,X:-1260,Y:-184)})
 {
     var point=MonitorGeometry.Center(new(-1920,-200,1920,1080),(int)(300*item.Dpi/96), (int)(35*item.Dpi/96),item.Dpi,8);

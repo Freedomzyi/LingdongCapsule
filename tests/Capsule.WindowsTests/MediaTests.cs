@@ -21,12 +21,40 @@ internal static class MediaTests
         if((await media.ReadAsync()).Playing)throw new Exception("Owned pause state did not reach adapter");
         if(!await media.ControlAsync("play"))throw new Exception("Owned native play failed");
         if(!await media.SeekAsync(.5,publisher.Title))throw new Exception("Owned native seek failed");
+        var dragTrack=snapshot;
+        publisher.SetMetadata(publisher.Title,false,"Replacement artist");media.Invalidate();
+        for(var attempt=0;attempt<30;attempt++){await Task.Delay(100);snapshot=await media.ReadAsync();if(snapshot.Artist=="Replacement artist")break;}
+        if(snapshot.Artist!="Replacement artist")throw new Exception("Same-title replacement fixture did not reach native session");
+        if(await media.SeekAsync(.7,expectedTrack:dragTrack))throw new Exception("Pending drag seek targeted a same-title replacement artist");
+        if(!await media.SeekAsync(.5,expectedTrack:snapshot))throw new Exception("Current track identity prevented valid native seek");
+        var oldAlbum=snapshot;publisher.SetMetadata(publisher.Title,false,"Replacement artist","Replacement album");media.Invalidate();
+        for(var attempt=0;attempt<30;attempt++){await Task.Delay(100);snapshot=await media.ReadAsync();if(snapshot.Album=="Replacement album")break;}
+        if(snapshot.Album!="Replacement album" || await media.SeekAsync(.7,expectedTrack:oldAlbum))throw new Exception("Same-title album replacement retained old pending seek");
+        if(await media.SeekAsync(.7,expectedTrack:snapshot with{SourceId="another-player"}))throw new Exception("Pending seek accepted a different player identity");
+        Console.WriteLine("PASS Same-title artist/album/player replacement rejects old drag target while current-track native seeking remains available");
         for(var attempt=0;attempt<30;attempt++){await Task.Delay(100);await media.ReadAsync();if(Math.Abs(media.Position.TotalSeconds-15)<2)break;}
         if(Math.Abs(media.Position.TotalSeconds-15)>2)throw new Exception("Owned native seek timeline mismatch: "+media.Position.TotalSeconds);
+        var propertiesGate=new TaskCompletionSource<GlobalSystemMediaTransportControlsSessionMediaProperties>();var holdNextProperties=false;
+        using(var seekRace=new MediaService(()=>Task.FromResult(manager),target=>
+        {
+            if(holdNextProperties){holdNextProperties=false;return propertiesGate.Task;}
+            return target.TryGetMediaPropertiesAsync().AsTask();
+        },null))
+        {
+            seekRace.Configure(true,"other",own.SourceAppUserModelId);var expected=await seekRace.ReadAsync();holdNextProperties=true;
+            var pending=seekRace.SeekAsync(.8,expectedTrack:expected);
+            publisher.SetMetadata(publisher.Title,false,"Artist changed during seek","Replacement album");
+            Capsule.Core.MediaSnapshot updated=expected;
+            for(var attempt=0;attempt<30;attempt++){await Task.Delay(100);updated=await seekRace.ReadAsync();if(updated.Artist=="Artist changed during seek")break;}
+            propertiesGate.TrySetResult(await own.TryGetMediaPropertiesAsync());
+            if(updated.Artist!="Artist changed during seek" || await pending)throw new Exception("Asynchronous metadata refresh retargeted the old seek to a same-title new track");
+        }
+        Console.WriteLine("PASS Pending native property read cannot retarget seek after same-title track refresh");
         Console.WriteLine("PASS Owned silent SMTC publisher, real metadata/timeline, explicit pause/play and seek; no user playlist or master volume changed");
         publisher.SetMetadata("Capsule owned video",true);media.Invalidate();
         for(var attempt=0;attempt<30;attempt++){await Task.Delay(100);snapshot=await media.ReadAsync();if(snapshot.Title==publisher.Title && snapshot.IsVideo)break;}
         if(!snapshot.IsVideo || snapshot.Artist.Length!=0)throw new Exception("Native video metadata was classified as lyric-capable music");
+        if(!await media.SeekAsync(.5,expectedTrack:snapshot))throw new Exception("Video track identity prevented valid native seek");
         publisher.SetMetadata("Capsule owned music restored",false);media.Invalidate();
         for(var attempt=0;attempt<30;attempt++){await Task.Delay(100);snapshot=await media.ReadAsync();if(snapshot.Title==publisher.Title && !snapshot.IsVideo)break;}
         if(snapshot.IsVideo || snapshot.Artist.Length==0)throw new Exception("Native music classification did not recover");

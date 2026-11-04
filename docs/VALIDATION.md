@@ -416,6 +416,14 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 
 - 本机口径同步到当前安装/显示指南，历史验证记录保留原始范围；没有把未测环境改成通过。关于页改用实际产品用途说明，去除面向终端用户的内部开发叙述；README 以正式 Release 为发布来源，不预先宣称已交付。此处只整理使用说明与文字，不改变功能、设置或验收事实。
 
+## 同名曲目定位身份保护（2026-11-04）
+
+- 修复后的二十五组完整整合全部通过：artifacts/verification/20261104-125958-4140/results.json；包括原生 Windows 通知图片与实际岛体头像（native-toast-tests/6eff8edc8c894803b1094b49d86b593b）。整合日志 artifacts/seek-identity-full-verification.log。仍不代替物理操作、真实第三方软件及连续运行验收。
+
+- 审计发现拖动进度仅保留歌名；拖动期间换成同名但不同歌手、专辑或播放器时，旧定位可能作用到新曲目。鼠标拖动现保留来源、标题、歌手、专辑及音乐/视频类型；暂停和时长刷新保持同一曲目，结束/失去捕获释放目标。快捷键定位也传递完整曲目身份，原生属性异步读取前后均核对，避免刷新后的新快照使旧操作重新有效。
+- 核心身份边界、实际 WPF 鼠标路由/取消、真实自有 SMTC 同名歌手/专辑切换、不同播放器身份、异步属性返回时换歌，以及当前音乐/视频正常定位均已定向通过。证据 artifacts/seek-identity-core.log、artifacts/seek-identity-input.log、artifacts/seek-identity-media.log。临时移除原生身份保护后，同一用例明确失败于“Pending drag seek targeted a same-title replacement artist”；修复源码按字节哈希恢复，证据 seek-counterfactual/6fd77dbb032643ee9c99ffebc14ce455。测试播放器均为自建静音进程，不代表真实第三方播放器验收。
+- 5413de5 候选已按路径和启动时间核对后正常关闭，旧运行 a06edc15f51f45778ab562752a4b5d8f 的部分证据与 intentional-replacement.json 保留；在关闭后才运行自建媒体专项，不把测试媒体混入日用覆盖。新候选须另行计时，旧记录不累计成 24 小时。
+
 ## 公开候选源码独立构建（2026-11-04）
 
 - 从公开 GitHub 仓库浅克隆 v0.1.0-local-candidate.2，确认 HEAD 为 5413de537c41f8bec89745d681a6e197f08ab4df；在独立目录完成 scripts/build.ps1 -RequireClean，并通过 PS5 解压校验、包内运行时、安装入口与正常退出。证据 artifacts/public-candidate-build.json、artifacts/public-candidate-build.log、artifacts/public-candidate-package-test.log；独立启动证据位于 public-source/bb84a989a98e40f1bfb2bc07589b7a01/artifacts/published-tests/367e40cd7bc1422895186a3812a014b3。首次把构建日志放在克隆根目录触发未跟踪文件保护，未产生候选；移到克隆外后干净构建成功。

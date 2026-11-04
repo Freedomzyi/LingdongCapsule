@@ -1,6 +1,10 @@
 namespace Capsule.Core;
 
-public record MediaSnapshot(string Title, string Artist, bool Playing, bool Available, string Album = "", TimeSpan Duration = default, string SourceId = "",bool IsVideo=false);
+public record MediaSnapshot(string Title, string Artist, bool Playing, bool Available, string Album = "", TimeSpan Duration = default, string SourceId = "",bool IsVideo=false)
+{
+    public bool SameTrackAs(MediaSnapshot? other)=>Available && other is {Available:true} &&
+        Title==other.Title && Artist==other.Artist && Album==other.Album && SourceId==other.SourceId && IsVideo==other.IsVideo;
+}
 public record Notice(string SourceId, string App, string Title, string Body, uint Id=0,DateTimeOffset CreatedAt=default,string? Avatar=null,string? Icon=null);
 public enum IslandMode { Clock, Media, Notification }
 

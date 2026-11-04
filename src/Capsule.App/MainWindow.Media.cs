@@ -10,7 +10,7 @@ public partial class MainWindow
     private readonly AudioService audio=new();
     private readonly DispatcherTimer mediaTimer=new(){Interval=TimeSpan.FromMilliseconds(80)};
     private bool timelineUpdating,seeking,volumeUpdating;
-    private string seekTitle="";
+    private Capsule.Core.MediaSnapshot? seekTrack;
     private bool IsMediaExpanded=>controlsOpen && settings.ExpandedMediaControls;
 
     private void InitializeMediaControls()
@@ -25,10 +25,10 @@ public partial class MainWindow
             return output;
         };
         mediaTimer.Tick+=(_,_)=>UpdateTimeline();
-        SeekBar.PreviewMouseLeftButtonDown+=(_,_)=>{seeking=true;seekTitle=state.Media.Title;};
+        SeekBar.PreviewMouseLeftButtonDown+=(_,_)=>{seeking=true;seekTrack=state.Media;};
         SeekBar.PreviewMouseLeftButtonUp+=async(_,_)=>await CommitSeekAsync();
-        SeekBar.LostMouseCapture+=(_,_)=>{if(seeking){seeking=false;UpdateTimeline();}};
-        SeekBar.PreviewKeyUp+=async(_,e)=>{if(e.Key is Key.Left or Key.Right or Key.Home or Key.End or Key.PageDown or Key.PageUp){seekTitle=state.Media.Title;seeking=true;await CommitSeekAsync();}};
+        SeekBar.LostMouseCapture+=(_,_)=>{if(seeking){seeking=false;seekTrack=null;UpdateTimeline();}};
+        SeekBar.PreviewKeyUp+=async(_,e)=>{if(e.Key is Key.Left or Key.Right or Key.Home or Key.End or Key.PageDown or Key.PageUp){seekTrack=state.Media;seeking=true;await CommitSeekAsync();}};
         SeekBar.ValueChanged+=(_,_)=>{if(seeking && !timelineUpdating)Elapsed.Text=FormatTime(TimeSpan.FromSeconds(media.Duration.TotalSeconds*SeekBar.Value));};
         VolumeBar.ValueChanged+=async(_,_)=>
         {
@@ -47,8 +47,8 @@ public partial class MainWindow
     private async Task CommitSeekAsync()
     {
         if(!seeking)return;
-        seeking=false;
-        if(state.Media.Title==seekTitle && !await media.SeekAsync(SeekBar.Value,seekTitle))Design.PresentMessage("无法定位播放进度","播放器暂不支持此次定位，或当前曲目已经变化。");
+        seeking=false;var expected=seekTrack;seekTrack=null;
+        if(state.Media.SameTrackAs(expected) && !await media.SeekAsync(SeekBar.Value,expectedTrack:expected))Design.PresentMessage("无法定位播放进度","播放器暂不支持此次定位，或当前曲目已经变化。");
         await RefreshAsync();UpdateTimeline();
     }
     private void RenderMediaControls()

@@ -212,14 +212,15 @@ public sealed class MediaService : IDisposable
         catch(Exception){ }
         return false;
     }
-    public async Task<bool> SeekAsync(double ratio,string? expectedTitle=null)
+    public async Task<bool> SeekAsync(double ratio,string? expectedTitle=null,MediaSnapshot? expectedTrack=null)
     {
-        if(disposed || !enabled || !snapshot.Available || !double.IsFinite(ratio) || duration<=TimeSpan.Zero || session==null)return false;
+        if(disposed || !enabled || !snapshot.Available || !double.IsFinite(ratio) || duration<=TimeSpan.Zero || session==null || expectedTrack!=null && !snapshot.SameTrackAs(expectedTrack))return false;
         var target=session;var lease=generation;
         try
         {
             var props=await readProperties(target).WaitAsync(TimeSpan.FromSeconds(5),requests.Token);
             if(lease!=generation || disposed || !ReferenceEquals(target,session) || expectedTitle!=null && props.Title!=expectedTitle || props.Title!=snapshot.Title || props.Artist!=snapshot.Artist && !snapshot.IsVideo)return false;
+            if(expectedTrack!=null && (!snapshot.SameTrackAs(expectedTrack) || props.Title!=expectedTrack.Title || !expectedTrack.IsVideo && props.Artist!=expectedTrack.Artist || props.AlbumTitle!=expectedTrack.Album || target.SourceAppUserModelId!=expectedTrack.SourceId))return false;
             var timeline=target.GetTimelineProperties();var total=timeline.EndTime>TimeSpan.Zero ? timeline.EndTime : timeline.MaxSeekTime;if(total<=TimeSpan.Zero)return false;
             var ticks=(long)(total.Ticks*(decimal)Math.Clamp(ratio,0,1));
             var changed=await target.TryChangePlaybackPositionAsync(ticks).AsTask().WaitAsync(TimeSpan.FromSeconds(5),requests.Token);playbackDirty=true;return !disposed && enabled && lease==generation && ReferenceEquals(session,target) && changed;
