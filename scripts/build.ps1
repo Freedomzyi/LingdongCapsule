@@ -21,6 +21,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Windows PowerShell registration tests failed' }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-bundle.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'Windows PowerShell bundle tests failed' }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-soak.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Windows PowerShell soak guards failed' }
     & $Dotnet build tests/Capsule.WindowsTests -c Release
     if ($LASTEXITCODE -ne 0) { throw 'Windows integration test build failed' }
     $outputRoot=Join-Path $root 'artifacts';$stage=New-CapsulePublishStage $outputRoot

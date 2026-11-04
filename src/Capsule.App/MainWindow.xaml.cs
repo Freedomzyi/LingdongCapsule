@@ -105,7 +105,7 @@ public partial class MainWindow : Window
     }
     private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(()=>{if(!closing){Render();Position();}});
     private void OnThemePreferenceChanged(object sender,UserPreferenceChangedEventArgs e){if(!closing && settings.ThemeMode==2)Dispatcher.BeginInvoke(()=>Design.ApplyTheme(2));}
-    private void OnPowerChanged(object sender, PowerModeChangedEventArgs e) { if (e.Mode == PowerModes.Resume) Dispatcher.BeginInvoke(() => { media.Invalidate();state.Tick(DateTimeOffset.Now); notifications.ResetBaseline(); Position();_=RefreshAsync(); }); }
+    private void OnPowerChanged(object sender, PowerModeChangedEventArgs e) { (Application.Current as App)?.Diagnostics?.Power(e.Mode.ToString());if (e.Mode == PowerModes.Resume) Dispatcher.BeginInvoke(() => { media.Invalidate();state.Tick(DateTimeOffset.Now); notifications.ResetBaseline(); Position();_=RefreshAsync(); }); }
     private void OnNativeMediaChanged(){if(!closing && !Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(async()=>await RefreshAsync());}
     private void Position()
     {
@@ -140,6 +140,7 @@ public partial class MainWindow : Window
             if (settings.NotificationsEnabled) foreach (var n in await notifications.ReadAsync(settings.MutedSources)) AcceptNotification(n,DateTimeOffset.Now);
             if (closing) return;
             state.Tick(DateTimeOffset.Now); Render();
+            (Application.Current as App)?.Diagnostics?.Observe(state.Mode,visibilityResult.PassThrough,state.Media.Playing,plugins.ActiveIds.Count,media.SourceId.StartsWith("LingdongCapsule.Owned.",StringComparison.OrdinalIgnoreCase));
             if(modulesVisible && !settings.StandbyActive && !visibilityResult.PassThrough)plugins.Update(new(DateTimeOffset.Now,Design.IsDark,new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing)));
             QuarantineFailedPlugins();
             if(overviewOpen)await overview.TickAsync();

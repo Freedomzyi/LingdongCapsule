@@ -6,6 +6,7 @@ namespace Capsule.App;
 public partial class App : System.Windows.Application
 {
     private SingleInstance? instance;
+    internal AppDiagnostics? Diagnostics{get;private set;}
     internal bool SuppressStartupForTests{get;set;}
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -30,9 +31,10 @@ public partial class App : System.Windows.Application
             Shutdown(); return;
         }
         base.OnStartup(e);
+        Diagnostics=AppDiagnostics.FromArguments(e.Args);
         Design.ApplySystemTheme();
-        DispatcherUnhandledException += (_, a) => { a.Handled = true; Design.PresentMessage("灵动胶囊发生错误", a.Exception.Message); Shutdown(1); };
+        DispatcherUnhandledException += (_, a) => { Diagnostics?.Unhandled(a.Exception);a.Handled = true; Design.PresentMessage("灵动胶囊发生错误", a.Exception.Message); Shutdown(1); };
         MainWindow = new MainWindow(); MainWindow.Show();
     }
-    protected override void OnExit(ExitEventArgs e) { instance?.Dispose(); base.OnExit(e); }
+    protected override void OnExit(ExitEventArgs e) { Diagnostics?.Finish(e.ApplicationExitCode);instance?.Dispose(); base.OnExit(e); }
 }
