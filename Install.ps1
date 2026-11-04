@@ -28,7 +28,7 @@ try {
     foreach($file in $files){$relative=$file.FullName.Substring($source.Length+1);$destination=Get-CapsuleChild $stage $relative;if(Test-Path -LiteralPath $destination){throw '新程序文件与用户自有文件冲突，停止升级。'};New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null;Copy-Item -LiteralPath $file.FullName -Destination $destination -Force;if((Get-FileHash -LiteralPath $file.FullName).Hash -ne (Get-FileHash -LiteralPath $destination).Hash){throw '安装文件校验失败。'}}
     @($files | ForEach-Object {$_.FullName.Substring($source.Length+1)}) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'installed-files.json') -Encoding utf8
     $null=Read-CapsuleFiles $stage
-    Get-Process LingdongCapsule -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe} | Stop-Process
+    Stop-CapsuleExecutable $exe
     if(Test-Path -LiteralPath $target){Move-Item -LiteralPath $target -Destination $backup;$movedOld=$true}
     Move-Item -LiteralPath $stage -Destination $target;$committed=$true
 if(-not $NoRegistration){

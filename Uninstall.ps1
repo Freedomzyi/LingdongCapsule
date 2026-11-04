@@ -8,7 +8,7 @@ $exe=Join-Path $target 'LingdongCapsule.exe'
 Assert-CapsuleTree $target
 $paths=@(Read-CapsuleFiles $target)
 $checked=@($paths | ForEach-Object {Get-CapsuleChild $target $_})
-Get-Process LingdongCapsule -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe} | Stop-Process
+Stop-CapsuleExecutable $exe
 $registration=Get-CapsuleRegistration $TestRegistrationId;$run=$registration.Run;$registrationName=$registration.Name
 $startup=(Get-ItemProperty -Path $run -Name $registrationName -ErrorAction SilentlyContinue).$registrationName
 if($startup -and (Test-CapsuleStartup $startup $exe)){Remove-ItemProperty -Path $run -Name $registrationName}

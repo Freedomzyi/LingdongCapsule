@@ -21,6 +21,20 @@ function Test-CapsuleStartup([string]$Command,[string]$Exe) {
     $first=if($match.Groups[1].Success){$match.Groups[1].Value}else{$match.Groups[2].Value}
     return $first.Equals($Exe,[StringComparison]::OrdinalIgnoreCase)
 }
+function Stop-CapsuleExecutable([string]$Exe) {
+    $expected=Assert-CapsulePath $Exe
+    $self=[Diagnostics.Process]::GetCurrentProcess();try{$session=$self.SessionId}finally{$self.Dispose()}
+    foreach($owned in @(Get-Process LingdongCapsule -ErrorAction SilentlyContinue)){
+        try {
+            if($owned.HasExited -or $owned.Path -ne $expected){continue}
+            if($owned.SessionId -ne $session){throw '其他登录会话仍在运行此安装目录，请先手动退出；不会自动结束其他会话。'}
+            $closed=$false;try{$closed=$owned.CloseMainWindow()}catch [InvalidOperationException] {if(-not $owned.HasExited){throw}}
+            if($closed -and $owned.WaitForExit(3000)){continue}
+            if(-not $owned.HasExited){try{$owned.Kill()}catch [InvalidOperationException] {if(-not $owned.HasExited){throw}}}
+            if(-not $owned.WaitForExit(10000)){throw '目标程序尚未完成退出，保留原安装目录，请稍后重试。'}
+        } finally {$owned.Dispose()}
+    }
+}
 function Get-CapsuleChild([string]$Root,[string]$Relative) {
     if([string]::IsNullOrWhiteSpace($Relative) -or [IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':') -or ($Relative -split '[\\/]') -contains '..'){throw '安装清单含非法相对路径。'}
     $full=[IO.Path]::GetFullPath((Join-Path $Root $Relative))
