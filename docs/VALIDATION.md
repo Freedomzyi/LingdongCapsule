@@ -407,3 +407,9 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 核心极端偏移帧、实际 WPF 正负超三秒、0.1 步进、重载、还原、写盘拒绝和反馈均通过：artifacts/lyric-offset-core.log、artifacts/lyric-offset-ui.log、artifacts/lyric-offset-tests/6d10e08e1585477d9d7fb571cecba752。网络歌词链邻近用例一起通过。
 - 动画修正提交 8582fe829f846f737a0a34ee7f1c894d10934e2b 的二十五组完整顺序整合全部通过：artifacts/verification/20261104-003457-9047/results.json；最后真实系统头像专项 native-toast-tests/8906fb9fc0f44afaa8dac0f961380101。CI run 41747903599 成功。歌词偏移变更在此整合之后，另有上述定向证据，未混写为同一提交全部通过。
 - Owner 于 2026-11-04 明确：暂时不能接外接显示器；没有干净 Windows 11 实体机/VM，需要准备。两项维持未通过门槛，不默认为豁免。当前本机为 Windows 11 家庭中文版，31.5 GiB 内存、E 盘约 95.9 GiB 可用；未发现现成 VM 命令。HypervisorPresent=true 时不能仅凭处理器虚拟化字段为 false 推断 BIOS 虚拟化关闭。尚未改系统配置或安装虚拟机驱动。
+
+## Owner 调整本次环境验收范围
+
+- 2026-11-04 Owner 最新明确：“不需要安装配置虚拟机，本机完美运行即可视为通过”。据此停止虚拟机准备分支；本次只以当前本机 Windows 11 x64、单屏及实际使用环境验收，干净系统/其他机器/外接混合屏不再阻断交付，也不标为已测。DELIVERY_PLAN 的最新口径优先于旧环境门槛，功能、稳定性与本机试用不因环境调整自动通过。
+- 此前仅从 Oracle 官方下载并校验了 VirtualBox 安装文件，没有执行安装、配置 VM、安装驱动或改变系统功能；当前未发现 VirtualBox/VBoxSVC/VM 进程。下载助手已终止/核对为正常结束，未开展后续步骤。不需要 Owner 为虚拟机安装作裁决。
+- 歌词偏移补齐提交 f230cca4eb1358e83f18917b21ef7e14f1256c4b 的干净构建及 PS5 解压运行时/安装入口通过，ZIP SHA256 A1871BA43D47C10B5A632494E59AC7EDDCF6CA1298A751677637C5E26ADC3608；证据 published-tests/6b743450d56948b2837955d050b29a1f。该包尚未开始连续 24 小时，不宣称通过。
