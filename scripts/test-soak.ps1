@@ -8,6 +8,8 @@ $root=Join-Path $repo ('artifacts\soak-tests\'+[Guid]::NewGuid().ToString('N'));
 $id=[Guid]::NewGuid().ToString('N');$runRoot=Join-Path $root $id;New-Item -ItemType Directory -Path $runRoot | Out-Null
 $run=@{schemaVersion=1;runId=$id;pid=$PID;startedUtc=(Get-Process -Id $PID).StartTime.ToUniversalTime().ToString('o');requiredHours=24;appPath=(Join-Path $runRoot 'app\LingdongCapsule.exe');diagnosticsDirectory=(Join-Path $runRoot 'diagnostics')}
 $run | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runRoot 'run.json') -Encoding UTF8
+$roundTrip=Get-Content -LiteralPath (Join-Path $runRoot 'run.json') -Raw | ConvertFrom-Json
+if([Math]::Abs((([DateTimeOffset]$roundTrip.startedUtc).UtcDateTime-(Get-Process -Id $PID).StartTime.ToUniversalTime()).TotalMilliseconds) -gt 1){throw 'JSON process-start time lost UTC/fraction precision.'}
 & (Join-Path $PSScriptRoot 'watch-soak.ps1') -RunDirectory $runRoot -Once
 if((Get-Content -LiteralPath (Join-Path $runRoot 'status.json') -Raw | ConvertFrom-Json).state -ne 'identity-changed'){throw 'Watcher accepted an unrelated live process.'}
 $run.appPath=Join-Path $root 'outside.exe';$run | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runRoot 'run.json') -Encoding UTF8

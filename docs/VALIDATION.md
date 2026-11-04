@@ -383,3 +383,5 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - start-soak/watch-soak 准备干净构建快照、逐文件核对、实际自包含进程、分钟监测与 24 小时后审查。PS5 边界专项通过：artifacts/soak-tests/ca9fe44da3274d20b2784947a8488a28；只测试解析、无关进程身份拒绝、路径归属与脏源拒绝，未启动或停止真实应用。构建已加入 PS5 门禁。
 - 这只是取证能力，不代表 24 小时已经开始或通过。执行前还需固定提交、当前完整回归和干净发布构建；操作与数据边界见 docs/STABILITY.md。
 - 插件宿主修正提交 9f22f48 的 GitHub Actions run 41744562122 已核验成功。
+
+- 监测时间转换补充：当前 PowerShell 的 ConvertFrom-Json 会将 ISO 时间转换为 DateTime，再用 DateTime.Parse 隐式转文本会丢失 UTC 与亚秒精度，可能将真正的同一进程误判为身份变化。已改为直接 DateTimeOffset 转换，启动时间/墙钟/心跳均保持时区与精度。PS5 与 PS7 的真实进程开始时间 JSON 往返守卫通过，证据 soak-tests/48c04a7774054961a501be036578b46a 与 soak-tests/40e6fdf83ec049a09e9a0d749e4e66ce；仍未开始 24 小时运行。
