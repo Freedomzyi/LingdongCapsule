@@ -418,6 +418,10 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 
 ## 真实安装维护暴露的退出释放竞态
 
+后续回归（2026-11-04）：修复提交 5413de537c41f8bec89745d681a6e197f08ab4df 的真实安装维护测试已通过。证据 artifacts/installed-package-tests/11d3f2c17485400abd20645431a3cb64/result.json、artifacts/real-installed-lifecycle-fixed.log：真实旧包安装、运行中升级、完整旧目录回退、再次升级、包内运行时初始化及卸载共八项检查通过；独立测试登记与快捷方式已清理，非所属用户文件保留，日用设置哈希和受保护候选进程身份未变。这里是不同提交的同版本维护测试，不冒称历史正式版本升级或真实登录自启。干净构建包 SHA256 9C58CB68038A906C9381EFE904FB5982248DBD5883955F91BDDC87802AFCDC1F；PS5 包启动证据 published-tests/ed3a7ebd655d4919a6af795cb488a6d8；对应 CI 41828504870 成功，固定候选标签 v0.1.0-local-candidate.2，尚非正式 Release。
+
+依赖检查：本机 NuGet 审计服务连接出现 TLS EOF/NU1900，未将失败解释为安全通过。按已解析依赖的三个精确版本（ModelSensingProtocol 0.1.0-alpha.1、NAudio.Core 2.2.1、NAudio.Wasapi 2.2.1）查询 GitHub Advisory Database，三个请求成功且结果为空；证据 artifacts/dependency-advisories-github.json。此结果限于该数据库当时已知公告与这三个包，不覆盖未知漏洞、Windows 或 .NET 运行时。
+
 - 在本机使用真实 0b91362 旧程序与 034a545 新候选、独立 GUID 登记/快捷方式和临时安装目录进行维护测试；首次安装及真实登记通过，但运行中的旧测试程序被结束后，立即移动安装目录遇到共享占用失败。证据 artifacts/real-installed-lifecycle.log，现场 installed-package-tests/31f30272d7bb483bab06510d9650c70d 保留；此前伪程序文件专项没有覆盖这一真实运行时释放时序。
 - 新增统一停止流程：只处理精确路径且属于当前登录会话的本程序，先尝试正常关闭，必要时终止并等待进程退出后才移动/删除文件；不结束其他会话。安装与卸载共用。PS5 部署与登记/失败回退/路径近似保护回归已通过：artifacts/install-wait-deployment.log、artifacts/install-wait-registration.log；新真实包回归待构建后执行。
 - 失败测试子进程已经关闭；仅按随机测试身份、确切安装位置和快捷方式目标清理了自己的测试登记。保留文件现场，没有清理或停止正常候选。首个清理命令因没有先加载辅助函数未执行变更；更正后确认清除一个匹配的测试登记及其快捷方式。
