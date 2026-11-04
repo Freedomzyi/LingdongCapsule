@@ -418,6 +418,8 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 
 ## 同名曲目定位身份保护（2026-11-04）
 
+- 固定修复提交 0f0f5668e3edf7b52a93374930117ff7b8e9ce02，公开候选标签 v0.1.0-local-candidate.3；对应 CI 41834682269 成功。干净自包含 ZIP SHA256 5C6109A7E61ED474A9D73F36ABE41B3A0739DDE886264349BAA693B083D3BA8C，解压包证据 published-tests/2f96164d69e546de8beda76e6b8fc5d1；5413de5 → 本候选真实安装升级/回退/卸载八项检查通过，日用设置哈希不变，证据 installed-package-tests/b295192ae77049a29d5fb027f196ceac/result.json。已经从独立快照重新开始连续取证，并冻结原 ZIP 和校验和供最终发布审计；尚未达到 24 小时，也未创建正式 Release。
+
 - 修复后的二十五组完整整合全部通过：artifacts/verification/20261104-125958-4140/results.json；包括原生 Windows 通知图片与实际岛体头像（native-toast-tests/6eff8edc8c894803b1094b49d86b593b）。整合日志 artifacts/seek-identity-full-verification.log。仍不代替物理操作、真实第三方软件及连续运行验收。
 
 - 审计发现拖动进度仅保留歌名；拖动期间换成同名但不同歌手、专辑或播放器时，旧定位可能作用到新曲目。鼠标拖动现保留来源、标题、歌手、专辑及音乐/视频类型；暂停和时长刷新保持同一曲目，结束/失去捕获释放目标。快捷键定位也传递完整曲目身份，原生属性异步读取前后均核对，避免刷新后的新快照使旧操作重新有效。
