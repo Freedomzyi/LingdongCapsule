@@ -416,6 +416,12 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 
 - 本机口径同步到当前安装/显示指南，历史验证记录保留原始范围；没有把未测环境改成通过。关于页改用实际产品用途说明，去除面向终端用户的内部开发叙述；README 以正式 Release 为发布来源，不预先宣称已交付。此处只整理使用说明与文字，不改变功能、设置或验收事实。
 
+## 公开候选源码独立构建（2026-11-04）
+
+- 从公开 GitHub 仓库浅克隆 v0.1.0-local-candidate.2，确认 HEAD 为 5413de537c41f8bec89745d681a6e197f08ab4df；在独立目录完成 scripts/build.ps1 -RequireClean，并通过 PS5 解压校验、包内运行时、安装入口与正常退出。证据 artifacts/public-candidate-build.json、artifacts/public-candidate-build.log、artifacts/public-candidate-package-test.log；独立启动证据位于 public-source/bb84a989a98e40f1bfb2bc07589b7a01/artifacts/published-tests/367e40cd7bc1422895186a3812a014b3。首次把构建日志放在克隆根目录触发未跟踪文件保护，未产生候选；移到克隆外后干净构建成功。
+- 公开源码可以重新构建并启动，但尚未证明逐字节可复现：重建 DLL 为 966FED51DA0B5DF84C6A77A02FA599369E6145297BD8B0F1A2C9B96908F77235，与固定候选 D0D51A3AC224819D62C91CBD2F0BECC007FA04CE6311E0D402EF4B9FEE710C6F 不同。初始克隆 81 个源码文件中 80 个有换行字节差异，统一换行比较后内容全部相同，许可清单哈希相同；哈希差异成因未确证。原工作树含混合换行，不将修改克隆本地 Git 选项等同于已统一文件。发行继续使用已固定并逐文件取证的原候选包，不混用重建附件。证据 artifacts/public-build-comparison.json、artifacts/public-source-line-ending-comparison.json。
+- 从 Microsoft 官方 .NET 10 releases.json 核对当前 latest-runtime=10.0.14、latest-sdk=10.0.403，与本候选使用版本一致；证据 artifacts/dotnet-runtime-release-audit.json。该发布包含安全修复，不将公告列表误判成当前版本必然仍有对应漏洞，也不扩大成完整安全审计结论。
+
 ## 真实安装维护暴露的退出释放竞态
 
 后续回归（2026-11-04）：修复提交 5413de537c41f8bec89745d681a6e197f08ab4df 的真实安装维护测试已通过。证据 artifacts/installed-package-tests/11d3f2c17485400abd20645431a3cb64/result.json、artifacts/real-installed-lifecycle-fixed.log：真实旧包安装、运行中升级、完整旧目录回退、再次升级、包内运行时初始化及卸载共八项检查通过；独立测试登记与快捷方式已清理，非所属用户文件保留，日用设置哈希和受保护候选进程身份未变。这里是不同提交的同版本维护测试，不冒称历史正式版本升级或真实登录自启。干净构建包 SHA256 9C58CB68038A906C9381EFE904FB5982248DBD5883955F91BDDC87802AFCDC1F；PS5 包启动证据 published-tests/ed3a7ebd655d4919a6af795cb488a6d8；对应 CI 41828504870 成功，固定候选标签 v0.1.0-local-candidate.2，尚非正式 Release。
