@@ -6,7 +6,7 @@ namespace Capsule.App;
 
 internal sealed class PluginRuntime : IDisposable
 {
-    private sealed record Active(PluginModule Module,FrameworkElement View,PluginIdentity Identity);
+    private sealed record Active(PluginModule Module,FrameworkElement View,PluginIdentity Identity,Host Host);
     private readonly Dictionary<string,Active> active=new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> order=[];
     private readonly Settings settings;
@@ -36,33 +36,40 @@ internal sealed class PluginRuntime : IDisposable
     public PluginRuntime(Settings settings,Func<PluginMedia> media,Func<string,string,string,string,Task<bool>> notify,Action save){this.settings=settings;this.media=media;this.notify=notify;this.save=save;}
     private sealed class Host(PluginRuntime owner,PluginIdentity identity) : ICapsulePluginHost
     {
-        public PluginMedia CurrentMedia=>owner.media();
-        public string ReadSetting(string key,string fallback="")=>owner.settings.PluginPreferences.TryGetValue(identity.Id,out var values) ? values.GetValueOrDefault(key,fallback) : fallback;
+        private int closed;
+        internal void Close()=>Volatile.Write(ref closed,1);
+        private void Check(){ObjectDisposedException.ThrowIf(Volatile.Read(ref closed)!=0,this);owner.View.Dispatcher.VerifyAccess();}
+        public PluginMedia CurrentMedia{get{Check();return owner.media();}}
+        public string ReadSetting(string key,string fallback=""){Check();return owner.settings.PluginPreferences.TryGetValue(identity.Id,out var values) ? values.GetValueOrDefault(key,fallback) : fallback;}
         public void WriteSetting(string key,string value)
         {
+            Check();
             if(string.IsNullOrWhiteSpace(key) || key.Length>80 || value==null || value.Length>8192)throw new ArgumentException("Invalid plugin setting");
-            if(!owner.settings.PluginPreferences.TryGetValue(identity.Id,out var values))owner.settings.PluginPreferences[identity.Id]=values=[];
+            var created=!owner.settings.PluginPreferences.TryGetValue(identity.Id,out var values);values??=[];
             if(values.Count>=128 && !values.ContainsKey(key))throw new InvalidOperationException("Plugin setting limit reached");
-            values[key]=value;owner.save();
+            var existed=values.TryGetValue(key,out var previous);values[key]=value;if(created)owner.settings.PluginPreferences[identity.Id]=values;
+            try{owner.save();}
+            catch{if(created)owner.settings.PluginPreferences.Remove(identity.Id);else if(existed)values[key]=previous!;else values.Remove(key);throw;}
         }
         public Task<bool> NotifyAsync(string title,string body)
         {
-            if(title==null || body==null || title.Length>4096 || body.Length>16384)return Task.FromResult(false);
-            return owner.notify(identity.Id,identity.DisplayName,title,body);
+            if(Volatile.Read(ref closed)!=0 || owner.View.Dispatcher.HasShutdownStarted || title==null || body==null || title.Length>4096 || body.Length>16384)return Task.FromResult(false);
+            Task<bool> Send()=>Volatile.Read(ref closed)!=0 ? Task.FromResult(false) : owner.notify(identity.Id,identity.DisplayName,title,body);
+            return owner.View.Dispatcher.CheckAccess() ? Send() : owner.View.Dispatcher.InvokeAsync(Send).Task.Unwrap();
         }
     }
     public string Enable(string file)
     {
-        View.Dispatcher.VerifyAccess();PluginModule? module=null;
+        View.Dispatcher.VerifyAccess();PluginModule? module=null;Host? host=null;
         try
         {
             module=new(file);var plugin=module.Plugin!;var identity=plugin.Identity;
             if(active.ContainsKey(identity.Id))throw new InvalidOperationException("同一插件已经启用。");
-            var view=plugin.CreateWidget(new Host(this,identity)) ?? throw new InvalidOperationException("插件未返回组件。");
+            host=new(this,identity);var view=plugin.CreateWidget(host) ?? throw new InvalidOperationException("插件未返回组件。");
             if(view.Parent!=null)throw new InvalidOperationException("插件组件已有父级。");
-            View.Children.Add(view);active[identity.Id]=new(module,view,identity);order.Add(identity.Id);Errors.Remove(identity.Id);return identity.Id;
+            View.Children.Add(view);active[identity.Id]=new(module,view,identity,host);order.Add(identity.Id);Errors.Remove(identity.Id);return identity.Id;
         }
-        catch{module?.Dispose();throw;}
+        catch{try{module?.Dispose();}catch(Exception error){Errors[file]="加载失败后释放异常："+error.GetType().Name;}finally{host?.Close();}throw;}
     }
     public void Update(PluginFrame frame)
     {
@@ -78,6 +85,7 @@ internal sealed class PluginRuntime : IDisposable
         View.Dispatcher.VerifyAccess();if(!active.Remove(id,out var entry))return;order.Remove(id);
         if(entry.View.Parent is Panel panel)panel.Children.Remove(entry.View);else if(entry.View.Parent is Decorator decorator)decorator.Child=null;
         try{entry.Module.Dispose();}catch(Exception error){Errors[id]="插件释放失败："+error.GetType().Name;}
+        finally{entry.Host.Close();}
     }
     public bool Move(string id,int direction)
     {

@@ -17,6 +17,8 @@
 - `Identity` 提供唯一 ID、显示名和版本。ID 为小写字母开头的 3～80 位字母、数字、点或连字符；版本使用 `System.Version` 支持的格式。
 - `CreateWidget` 返回没有父级的 WPF 组件；`Update` 接收时间、主题和媒体快照，在 UI 线程更新，不应执行阻塞网络或重计算。
 - `Dispose` 释放自己的计时器、事件订阅和其他资源。回调失败时宿主移除该插件组件并记录故障，不中断其他插件更新。
+
+宿主 CurrentMedia、ReadSetting、WriteSetting 在 UI 线程使用；后台采集应先切回组件 Dispatcher。WriteSetting 写盘失败恢复先前内存偏好，新键或首次创建的偏好字典也回退。NotifyAsync 可从后台调用，投递前在 UI 线程核对该实例仍有效。停用/释放返回后，旧宿主的读写抛 ObjectDisposedException，通知返回 false；重新启用提供新的宿主，旧宿主不会复活。Dispose 中仍可同步完成最终设置保存；结束后应自行停止所有后台活动。这些检查不是同进程插件安全沙箱。
 - `ICapsulePluginHost` 提供当前媒体、按插件 ID 隔离的字符串设置及通知请求。通知仍遵守软件总开关、来源过滤、隐私和安静时段。
 
 ## 使用与限制

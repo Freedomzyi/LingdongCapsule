@@ -46,7 +46,7 @@ public partial class MainWindow
     {
         persistPluginState=persist;
         plugins=new(settings,()=>new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing),
-            (id,name,title,body)=>pluginMutationDepth>0 ? Task.FromResult(false) : Dispatcher.InvokeAsync(()=>!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)).Task,
+            (id,name,title,body)=>pluginMutationDepth>0 ? Task.FromResult(false) : Dispatcher.CheckAccess() ? Task.FromResult(!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)) : Dispatcher.InvokeAsync(()=>!closing && AcceptNotification(new("plugin:"+id,name,title,body,++pluginNoticeId),DateTimeOffset.Now)).Task,
             ()=>{if(persist && pluginMutationDepth==0)writePluginSettings();});
         plugins.View.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty,"IslandInk");
         media.TimelineReader=plugins.ReadTimeline;

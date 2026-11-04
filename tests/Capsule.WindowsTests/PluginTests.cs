@@ -11,7 +11,7 @@ public sealed class FixturePlugin : ICapsulePlugin, ICapsuleTimelineSource
     public bool Disposed{get;private set;}
     private readonly TextBlock view=new();
     private ICapsulePluginHost? host;
-    public FrameworkElement CreateWidget(ICapsulePluginHost host){this.host=host;view.Text=host.ReadSetting("label","Test");host.WriteSetting("initializations",(int.Parse(host.ReadSetting("initializations","0"))+1).ToString());return view;}
+    public FrameworkElement CreateWidget(ICapsulePluginHost host){this.host=host;view.Tag=host;view.Text=host.ReadSetting("label","Test");host.WriteSetting("initializations",(int.Parse(host.ReadSetting("initializations","0"))+1).ToString());return view;}
     public void Update(PluginFrame frame){if(frame.Media.Title=="throw" || host?.ReadSetting("fail")=="true")throw new InvalidOperationException("Fixture callback error");view.Text=frame.Now.ToString("HH:mm");}
     public void Dispose()=>Disposed=true;
     public PluginTimeline? ReadTimeline(PluginMediaSession session)
@@ -77,6 +77,33 @@ internal static class PluginTests
         runtime.Enable(typeof(FixturePlugin).Assembly.Location);runtime.Update(new(DateTimeOffset.Now,true,new("throw","",true,true)));
         if(runtime.ActiveIds.Count!=0 || !runtime.Errors.ContainsKey(id))throw new Exception("Plugin callback failure was not isolated");
         Console.WriteLine("PASS Independent plugin assembly loading, shared API, widget update and disposal");
+        var atomicSettings=new Settings();var refuse=false;var sent=0;
+        using(var atomic=new PluginRuntime(atomicSettings,()=>new("","",false,false),(_,_,_,_)=>{sent++;return Task.FromResult(true);},()=>{if(refuse)throw new IOException("Owned preference save refusal");}))
+        {
+            var atomicId=atomic.Enable(typeof(FixturePlugin).Assembly.Location);var ownedHost=(ICapsulePluginHost)atomic.Widget(atomicId).Tag;
+            ownedHost.WriteSetting("label","original");refuse=true;
+            foreach(var key in new[]{"label","new-key"}){var refused=false;try{ownedHost.WriteSetting(key,"changed");}catch(IOException){refused=true;}if(!refused || ownedHost.ReadSetting("label")!="original" || atomicSettings.PluginPreferences[atomicId].ContainsKey("new-key"))throw new Exception("Failed plugin setting write changed in-memory preferences");}
+            refuse=false;if(!await ownedHost.NotifyAsync("Own test","Generated test only") || sent!=1)throw new Exception("Active plugin host notification failed");
+            var threadRejected=await Task.Run(()=>{try{ownedHost.WriteSetting("label","wrong-thread");return false;}catch(InvalidOperationException){return true;}});
+            if(!threadRejected || ownedHost.ReadSetting("label")!="original")throw new Exception("Background setting write bypassed UI ownership");
+            using var queued=new ManualResetEventSlim();
+            var pending=Task.Run(()=>{var delivery=ownedHost.NotifyAsync("Own queued test","Must not deliver after stop");queued.Set();return delivery;});
+            if(!queued.Wait(TimeSpan.FromSeconds(2)))throw new Exception("Owned background fixture did not queue");
+            atomic.Disable(atomicId);
+            if(await pending || await ownedHost.NotifyAsync("late","late") || sent!=1)throw new Exception("Stopped host delivered queued or late notification");
+            var closed=false;try{ownedHost.WriteSetting("label","after-stop");}catch(ObjectDisposedException){closed=true;}
+            if(!closed || atomicSettings.PluginPreferences[atomicId]["label"]!="original")throw new Exception("Stopped host retained setting write capability");
+            atomic.Enable(typeof(FixturePlugin).Assembly.Location);var freshHost=(ICapsulePluginHost)atomic.Widget(atomicId).Tag;
+            if(await ownedHost.NotifyAsync("old generation","old") || !await freshHost.NotifyAsync("new generation","own data") || sent!=2)throw new Exception("Re-enable revived stale host or failed new host");
+        }
+        foreach(var preexisting in new[]{false,true})
+        {
+            var isolated=new Settings();if(preexisting)isolated.PluginPreferences["fixture.clock"]=new(){{"initializations","7"},{"label","keep"}};
+            using var failedRuntime=new PluginRuntime(isolated,()=>new("","",false,false),(_,_,_,_)=>Task.FromResult(true),()=>throw new IOException("Owned initialization save refusal"));
+            var refused=false;try{failedRuntime.Enable(typeof(FixturePlugin).Assembly.Location);}catch(IOException){refused=true;}
+            if(!refused || failedRuntime.ActiveIds.Count!=0 || (preexisting ? isolated.PluginPreferences["fixture.clock"]["initializations"]!="7" || isolated.PluginPreferences["fixture.clock"]["label"]!="keep" : isolated.PluginPreferences.ContainsKey("fixture.clock")))throw new Exception("Failed initialization left new or changed preference dictionary");
+        }
+        Console.WriteLine("PASS plugin preference save rollback, initialization rollback, stopped host revocation and queued background notification rejection");
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
         var windowSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,ClockEnabled=false};
         var missing=Path.Combine(packageRoot,"missing.dll");windowSettings.PluginFiles.Add(missing);
