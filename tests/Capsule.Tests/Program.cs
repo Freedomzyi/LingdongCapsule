@@ -65,6 +65,8 @@ Check(lyrics.Lines.Count==3 && lyrics.At(TimeSpan.FromMilliseconds(900)).Line is
 Check(lyrics.At(TimeSpan.FromMilliseconds(1500)).Line?.Translation=="One","Translation matched by time");
 Check(Math.Abs(lyrics.At(TimeSpan.FromMilliseconds(2250)).Progress-0.5)<0.001,"Line progress is based on playback time");
 Check(lyrics.At(TimeSpan.FromMilliseconds(900),0.2).Line?.Text=="Alpha","User lyric offset advances line selection");
+foreach(var offset in new[]{10.5,-10.5,double.MaxValue,-double.MaxValue,double.NaN,double.PositiveInfinity})
+{var frame=lyrics.At(TimeSpan.Zero,offset);Check(double.IsFinite(frame.PositionMs) && double.IsFinite(frame.Progress),"Unbounded lyric preference has finite runtime frame");}
 var words=LyricsDocument.Parse("[00:01.00]Alpha Beta",wordTiming:"[1000,2000](1000,1000,0)Alpha (2000,1000,0)Beta");
 Check(words.HasWordTiming && words.Lines[0].Words.Count==2,"Time-before-text YRC parsed");
 var suffix=LyricsDocument.Parse("[00:01.00]AlphaBeta",wordTiming:"[1000,2000]Alpha(1000,1000)Beta(2000,1000)");

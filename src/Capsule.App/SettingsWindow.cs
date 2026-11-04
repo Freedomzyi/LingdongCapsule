@@ -245,7 +245,7 @@ public sealed partial class SettingsWindow : Window
         panel.Children.Add(Design.Card(mediaOptions));
         Heading(panel,"歌词与译文");
         var lyricOptions=new StackPanel();
-        AddSlider(lyricOptions,"歌词偏移",-3,3,settings.LyricOffsetSeconds,v=>settings.LyricOffsetSeconds=v,"秒；正值提前，负值延后。",0.1);
+        AddLyricOffset(lyricOptions);
         AddCheck(lyricOptions,"显示歌词",settings.LyricsEnabled,v=>settings.LyricsEnabled=v,"根据当前歌曲信息联网匹配同步歌词；关闭后不联网取词，无匹配时显示标题。");
         AddCheck(lyricOptions,"显示译文",settings.TranslationEnabled,v=>settings.TranslationEnabled=v,"歌词源有译文时显示第二行。");
         AddCheck(lyricOptions,"逐字高亮",settings.KaraokeEnabled,v=>settings.KaraokeEnabled=v,"优先使用真实逐字时序，没有时使用整行进度渐亮。");

@@ -116,6 +116,9 @@ public sealed class LyricsDocument
 
     public LyricFrame At(TimeSpan position, double offsetSeconds = 0)
     {
+        // Preserve the user's finite preference; only bound runtime arithmetic to
+        // the representable playback time domain so extreme values cannot overflow.
+        offsetSeconds=double.IsFinite(offsetSeconds) ? Math.Clamp(offsetSeconds,-TimeSpan.MaxValue.TotalSeconds,TimeSpan.MaxValue.TotalSeconds) : 0;
         var ms = position.TotalMilliseconds + offsetSeconds * 1000;
         int lower = 0, upper = Lines.Count - 1, found = -1;
         while (lower <= upper)

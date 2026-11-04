@@ -136,6 +136,7 @@ internal static class LyricsTests
             if(!canceled || slow.Requests!=1)throw new Exception("Canceled lyric request tried other providers");
         }
         Console.WriteLine("PASS Empty/oversized relay fallback, QQ mid/discovery/base64, Netease priority, duration/version rejection and in-flight cancellation");
+        await LyricOffsetTests.RunAsync();
     }
     internal static async Task RunLiveAsync()
     {

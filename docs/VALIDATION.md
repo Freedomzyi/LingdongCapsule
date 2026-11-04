@@ -399,3 +399,11 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 新回归在实际 WPF 窗口连续更改通知宽度，要求高度按首次展开期限完成并能收回。对比实验临时运行旧 HEAD 的同一 MainWindow 源文件，旧实现确实失败：artifacts/animation-old-counterfactual.log；随后按预先记录的字节哈希恢复修正源码，新实现通过：artifacts/animation-restored-test.log，animation-tests/4c2445c1668f459896254d8399d96977。仅替换本任务自有文件做实验，没有回滚其他文件或用户配置。
 - 真实 Windows toast 头像定向通过：artifacts/native-toast-tests/37113547e91f4f15a5e8c2df06b7da3b。轨迹从 35 过渡到 55 并稳定，仍需在完整整合流程复验。长期运行尚未启动，不延长等待或删断言绕过实际缺陷。
 - 0b91362 原干净构建与解压入口虽通过（ZIP SHA256 1EAEEF5F02D9F974660DFC51926FA20789FDE78B1E35C724EB8A12A4C9E253E6，published-tests/888cec7955f44113980cf3520059f3be，公开 CI run 41746676011 成功），因上述缺陷不作为长期运行固定版本。
+
+## 源码入口核对与歌词偏移范围
+
+- 只读提取参照 UI 的 52 个字面量保存键，实际参考 EXE 哈希仍为 B94C964328745D21F16340473AA1E15671510B2D0A7BD2E7E02A644B8BA19E2B。docs/SOURCE_SETTINGS_MAP.md 覆盖全部 52 键，原始提取 artifacts/reference-settings-inventory.json；另明确动态帮助方法/插件设置仍按功能矩阵核对，不把静态键表说成运行版逐页或全部交互验收。
+- 对照确认歌词偏移按 0.1 秒增减且无 ±3 限制。已将额外限制移除，保留所有有限选择，改为同一加减/还原入口；非有限配置恢复零，播放时极端偏移仅做有限算术保护而不覆盖偏好。
+- 核心极端偏移帧、实际 WPF 正负超三秒、0.1 步进、重载、还原、写盘拒绝和反馈均通过：artifacts/lyric-offset-core.log、artifacts/lyric-offset-ui.log、artifacts/lyric-offset-tests/6d10e08e1585477d9d7fb571cecba752。网络歌词链邻近用例一起通过。
+- 动画修正提交 8582fe829f846f737a0a34ee7f1c894d10934e2b 的二十五组完整顺序整合全部通过：artifacts/verification/20261104-003457-9047/results.json；最后真实系统头像专项 native-toast-tests/8906fb9fc0f44afaa8dac0f961380101。CI run 41747903599 成功。歌词偏移变更在此整合之后，另有上述定向证据，未混写为同一提交全部通过。
+- Owner 于 2026-11-04 明确：暂时不能接外接显示器；没有干净 Windows 11 实体机/VM，需要准备。两项维持未通过门槛，不默认为豁免。当前本机为 Windows 11 家庭中文版，31.5 GiB 内存、E 盘约 95.9 GiB 可用；未发现现成 VM 命令。HypervisorPresent=true 时不能仅凭处理器虚拟化字段为 false 推断 BIOS 虚拟化关闭。尚未改系统配置或安装虚拟机驱动。

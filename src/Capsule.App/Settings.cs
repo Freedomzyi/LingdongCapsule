@@ -111,7 +111,7 @@ public sealed partial class Settings
         if(!NotificationSound.Options().ContainsKey(NotificationSoundKey))NotificationSoundKey="none";
         BottomRadius=Limit(BottomRadius,0,28,12);IslandShape=Math.Clamp(IslandShape,0,1);MonitorId??="";
         MediaSourceKind??="other";ManualMediaSource??="";WeatherCity=(WeatherCity ?? "").Trim();if(WeatherCity.Length>80)WeatherCity=WeatherCity[..80];
-        LyricOffsetSeconds=Limit(LyricOffsetSeconds,-3,3,0);MutedSources=new(MutedSources ?? [],StringComparer.OrdinalIgnoreCase);
+        if(!double.IsFinite(LyricOffsetSeconds))LyricOffsetSeconds=0;MutedSources=new(MutedSources ?? [],StringComparer.OrdinalIgnoreCase);
         Shortcuts??=[];foreach(var action in Enum.GetValues<ShortcutAction>())if(!Shortcuts.TryGetValue(action,out var chord) || chord==null || !chord.IsValid)Shortcuts[action]=ShortcutChord.Default(action);
     }
     public void Save()
