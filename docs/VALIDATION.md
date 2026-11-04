@@ -391,3 +391,11 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 整合 artifacts/verification/20261104-001804-6379 共二十四组，二十三组通过，最后真实通知专项因固定延时后头像边界仍未稳定而失败；保留完整失败记录，不标整合全通过，尚未启动长期运行。
 - 新增逐步几何取证，实际观察到窗口 35 高、头像上沿 -4 的过渡帧，随后到目标 55 高、头像上沿 6/下沿 49，连续稳定三次。改为有限等待实际目标几何与不裁切，而非假定等待指定毫秒即动画结束；最终仍有期限，永久裁切仍失败。定向通过 artifacts/native-toast-tests/defe571bdae24d5e96a4dba9c75f31df/geometry.json，实际帧轨迹证实过渡与最终状态不同。截图前再次核对自建通知身份，避免记录其他来源内容。
 - 启动脚本来源检查的字段纠正为实际 BUILD-INFO.json 的 appSha256，并增加 ValidateOnly 预检。已对真实 de8bbea 发行目录以 PS5 预检通过，未启动应用。PS5 边界再次通过 soak-tests/c65d502365344f23aa1d1534b6525ecc。后续须由新干净提交构建后再开始 24 小时。
+
+## 通知高度动画实际停滞修复
+
+- 重跑完整整合 artifacts/verification/20261104-002650-8578，再次为二十三组通过、真实通知项失败。新失败轨迹 artifacts/native-toast-tests/8559483fbb444b6b807daf0ca036e0bd/geometry.json 连续四十次停在窗口高 35、目标 55、头像上沿 -4。证据确认并非只有截图时机问题；前次单次定向通过不足以证明根因闭环。
+- 根因路径为宽度重新测量时同时重启未改变目标的高度动画。已拆分两个维度，只重启动目标改变的尺寸，明确从当前实际尺寸到目标，完成后写回最终基础值并移除时钟；用独立代次拒绝过期完成回调，保留原有时长、减速与帧率约定。
+- 新回归在实际 WPF 窗口连续更改通知宽度，要求高度按首次展开期限完成并能收回。对比实验临时运行旧 HEAD 的同一 MainWindow 源文件，旧实现确实失败：artifacts/animation-old-counterfactual.log；随后按预先记录的字节哈希恢复修正源码，新实现通过：artifacts/animation-restored-test.log，animation-tests/4c2445c1668f459896254d8399d96977。仅替换本任务自有文件做实验，没有回滚其他文件或用户配置。
+- 真实 Windows toast 头像定向通过：artifacts/native-toast-tests/37113547e91f4f15a5e8c2df06b7da3b。轨迹从 35 过渡到 55 并稳定，仍需在完整整合流程复验。长期运行尚未启动，不延长等待或删断言绕过实际缺陷。
+- 0b91362 原干净构建与解压入口虽通过（ZIP SHA256 1EAEEF5F02D9F974660DFC51926FA20789FDE78B1E35C724EB8A12A4C9E253E6，published-tests/888cec7955f44113980cf3520059f3be，公开 CI run 41746676011 成功），因上述缺陷不作为长期运行固定版本。

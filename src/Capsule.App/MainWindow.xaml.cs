@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private WelcomeWindow? welcomeWindow;
     private bool busy, closing, controlsOpen, lastNotificationsEnabled;
     private double desiredWidth = 104, desiredHeight = 35;
+    private int widthAnimationGeneration,heightAnimationGeneration;
     internal double ActiveVisualScale{get;private set;}=1;
     private readonly System.Windows.Media.ScaleTransform islandScale=new(1,1);
     private SettingsWindow? settingsWindow;
@@ -208,13 +209,26 @@ public partial class MainWindow : Window
     }
     private void Animate(double width, double height)
     {
-        if (desiredWidth == width && desiredHeight == height) return;
+        var changeWidth=desiredWidth!=width;var changeHeight=desiredHeight!=height;
+        if(!changeWidth && !changeHeight)return;
         desiredWidth = width; desiredHeight = height;
+        if(changeWidth)AnimateDimension(WidthProperty,ActualWidth,width,++widthAnimationGeneration);
+        if(changeHeight)AnimateDimension(HeightProperty,ActualHeight,height,++heightAnimationGeneration);
+    }
+    private void AnimateDimension(DependencyProperty property,double from,double target,int generation)
+    {
         var duration = TimeSpan.FromMilliseconds(settings.MotionMs);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var horizontal=new DoubleAnimation(width,duration){EasingFunction=ease};var vertical=new DoubleAnimation(height,duration){EasingFunction=ease};
-        Timeline.SetDesiredFrameRate(horizontal,settings.Glass.FramesPerSecond);Timeline.SetDesiredFrameRate(vertical,settings.Glass.FramesPerSecond);
-        BeginAnimation(WidthProperty,horizontal);BeginAnimation(HeightProperty,vertical);
+        var animation=new DoubleAnimation(from,target,duration){EasingFunction=ease};
+        Timeline.SetDesiredFrameRate(animation,settings.Glass.FramesPerSecond);
+        animation.Completed+=(_,_)=>
+        {
+            if(closing || generation!=(property==WidthProperty ? widthAnimationGeneration : heightAnimationGeneration))return;
+            // Commit the final base value before removing the clock. A later width-only
+            // change must not restart or revert an independent height transition.
+            SetCurrentValue(property,target);BeginAnimation(property,null);
+        };
+        BeginAnimation(property,animation);
     }
     private void OnIslandClick(object sender, MouseButtonEventArgs e)
     {

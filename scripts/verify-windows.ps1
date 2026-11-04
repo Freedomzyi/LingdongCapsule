@@ -13,6 +13,7 @@ try {
         @{Name='instance';Project='tests/Capsule.WindowsTests';Args=@('--instance-test')},
         @{Name='input-routing';Project='tests/Capsule.WindowsTests';Args=@('--input-routing-test')},
         @{Name='diagnostics';Project='tests/Capsule.WindowsTests';Args=@('--diagnostics-test')},
+        @{Name='animation';Project='tests/Capsule.WindowsTests';Args=@('--animation-test')},
         @{Name='timeline';Project='tests/Capsule.WindowsTests';Args=@('--timeline-test')},
         @{Name='welcome';Project='tests/Capsule.WindowsTests';Args=@('--welcome-test')},
         @{Name='settings-sync';Project='tests/Capsule.WindowsTests';Args=@('--settings-sync-test')},
