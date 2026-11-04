@@ -297,7 +297,7 @@ public sealed partial class SettingsWindow : Window
         panel=pages["关于软件"];
         Heading(panel,"灵动胶囊");
         var about=new StackPanel();
-        var description=new TextBlock {Text="独立 Windows 桌面交互胶囊。\n\n正在完整对齐本机 NotchPeninsula 定制版的功能与交互；当前为开发版本。",TextWrapping=TextWrapping.Wrap,LineHeight=22,Margin=new Thickness(0,8,0,14)};about.Children.Add(description);
+        var description=new TextBlock {Text="独立 Windows 桌面交互胶囊。\n\n在屏幕顶部查看时间、媒体歌词和通知，控制播放并展开空闲信息面板。日常驻留系统托盘。",TextWrapping=TextWrapping.Wrap,LineHeight=22,Margin=new Thickness(0,8,0,14)};about.Children.Add(description);
         var repository=new Button {Content="GitHub 源码与进度",Padding=new Thickness(12,10,12,10)};repository.Click+=(_,_)=>System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/Freedomzyi/LingdongCapsule"){UseShellExecute=true});about.Children.Add(repository);
         var updateStatus=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,8,0,8)};Design.Bind(updateStatus,TextBlock.ForegroundProperty,"TextSecondary");
         var update=new Button{Content="检查更新",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,8,0,0)};

@@ -2,7 +2,7 @@
 
 Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部，以少量操作完成日常查看和控制。
 
-**开发中 · Windows 11 x64。目标已明确为本机 NotchPeninsula 定制版的全部功能与交互 1:1 对齐。当前基础原型尚不完整，不构成最终交付，也没有正式 Release。** 完整差距见 [对齐清单](docs/PARITY.md)，已完成部分的证据见 [验证记录](docs/VALIDATION.md)。
+**Windows 11 x64 · 当前针对 Owner 本机环境验收。** 独立实现本机 NotchPeninsula 定制版的功能与交互；正式发布包以 GitHub Releases 为准，源码分支的构建不自动代表已交付版本。[对齐清单](docs/PARITY.md) · [验证记录](docs/VALIDATION.md) · [交付标准](docs/DELIVERY_PLAN.md)。
 
 ## 使用
 
@@ -13,6 +13,8 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 可选系统通知头像的数据来源和限制见 [通知图片](docs/NOTIFICATIONS.md)。
 
 已安装字体、本地字体文件与恢复默认见 [字体](docs/FONTS.md)。
+
+左右键入口见 [交互说明](docs/INTERACTION.md)，工程长期取证见 [稳定性验证](docs/STABILITY.md)。
 
 目前可从源码构建开发包；正式发布后下载附件中的 `LingdongCapsule-win-x64.zip` 并完整解压。双击 `安装.cmd` 打开 iOS 风格安装页，点击“安装并打开”安装到当前用户目录并创建开始菜单入口；不需要管理员权限。也可直接运行 `LingdongCapsule.exe` 使用便携版。自包含包无需预装 .NET，不能只复制一个 EXE。
 
@@ -43,7 +45,7 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 
 候选包使用 `./scripts/build.ps1 -RequireClean`，包内 BUILD-INFO.json 记录提交、源码是否有未提交改动、SDK、程序和许可清单哈希。每次从全新暂存目录打包，插件只收录本次校验清单中的包；生成目录属于可再生构建输出。依赖许可保存在 licenses，来源及适用范围见 [许可来源](licenses/SOURCES.md)。
 
-`./scripts/test-published.ps1 -RequireClean` 解压并启动自己的安装入口，核对包内运行时与退出，不执行安装。`-MainStartup` 另外检查主程序和首次引导，只允许在没有本程序数据的新用户环境使用；CI 使用独立 runner 执行。两者都不替代干净 Windows 的完整安装维护验收。
+`./scripts/test-published.ps1 -RequireClean` 解压并启动自己的安装入口，核对包内运行时与退出，不执行安装。`-MainStartup` 另外检查主程序和首次引导，只允许在没有本程序数据的新用户环境使用；CI 使用独立 runner 执行。两者都不替代本机完整安装维护验收；本次按 Owner 决定以本机环境为准。
 
 ```powershell
 dotnet run --project src/Capsule.App
