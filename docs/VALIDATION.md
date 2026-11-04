@@ -385,3 +385,9 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 插件宿主修正提交 9f22f48 的 GitHub Actions run 41744562122 已核验成功。
 
 - 监测时间转换补充：当前 PowerShell 的 ConvertFrom-Json 会将 ISO 时间转换为 DateTime，再用 DateTime.Parse 隐式转文本会丢失 UTC 与亚秒精度，可能将真正的同一进程误判为身份变化。已改为直接 DateTimeOffset 转换，启动时间/墙钟/心跳均保持时区与精度。PS5 与 PS7 的真实进程开始时间 JSON 往返守卫通过，证据 soak-tests/48c04a7774054961a501be036578b46a 与 soak-tests/40e6fdf83ec049a09e9a0d749e4e66ce；仍未开始 24 小时运行。
+
+## 长期取证前整合失败与修正
+
+- 整合 artifacts/verification/20261104-001804-6379 共二十四组，二十三组通过，最后真实通知专项因固定延时后头像边界仍未稳定而失败；保留完整失败记录，不标整合全通过，尚未启动长期运行。
+- 新增逐步几何取证，实际观察到窗口 35 高、头像上沿 -4 的过渡帧，随后到目标 55 高、头像上沿 6/下沿 49，连续稳定三次。改为有限等待实际目标几何与不裁切，而非假定等待指定毫秒即动画结束；最终仍有期限，永久裁切仍失败。定向通过 artifacts/native-toast-tests/defe571bdae24d5e96a4dba9c75f31df/geometry.json，实际帧轨迹证实过渡与最终状态不同。截图前再次核对自建通知身份，避免记录其他来源内容。
+- 启动脚本来源检查的字段纠正为实际 BUILD-INFO.json 的 appSha256，并增加 ValidateOnly 预检。已对真实 de8bbea 发行目录以 PS5 预检通过，未启动应用。PS5 边界再次通过 soak-tests/c65d502365344f23aa1d1534b6525ecc。后续须由新干净提交构建后再开始 24 小时。

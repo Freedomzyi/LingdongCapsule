@@ -70,10 +70,19 @@ internal static class NativeToastTests
                     return pixel[0]==220 && pixel[1]==100 && pixel[2]==40 && pixel[3]==255;
                 }
                 for(var i=0;i<30 && !HasAvatar();i++)await Task.Delay(100);
-                await Task.Delay(settings.MotionMs+100);window.UpdateLayout();
                 if(window.LiveState.Notification?.SourceId!=id || !HasAvatar() || frame.Visibility!=Visibility.Visible)throw new Exception("Real system avatar did not reach actual island");
-                var bounds=frame.TransformToAncestor(window).TransformBounds(new Rect(frame.RenderSize));
-                if(bounds.Top<0 || bounds.Bottom>window.ActualHeight+1)throw new Exception("Settled native avatar is clipped by island height");
+                var trace=new List<object>();var settled=0;
+                for(var attempt=0;attempt<40 && settled<3;attempt++)
+                {
+                    window.UpdateLayout();var bounds=frame.TransformToAncestor(window).TransformBounds(new Rect(frame.RenderSize));
+                    var target=(double)typeof(MainWindow).GetField("desiredHeight",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+                    trace.Add(new{windowHeight=window.ActualHeight,windowWidth=window.ActualWidth,targetHeight=target,frameTop=bounds.Top,frameBottom=bounds.Bottom,frameHeight=frame.ActualHeight,scale=window.ActiveVisualScale,dpi=VisualTreeHelper.GetDpi(window).DpiScaleY});
+                    settled=Math.Abs(window.ActualHeight-target)<.5 && bounds.Top>=-.5 && bounds.Bottom<=window.ActualHeight+.5 ? settled+1 : 0;
+                    if(settled<3)await Task.Delay(50);
+                }
+                File.WriteAllText(Path.Combine(root,"geometry.json"),JsonSerializer.Serialize(trace));
+                if(settled<3)throw new Exception("Native avatar did not reach stable unclipped target geometry");
+                if(window.LiveState.Notification?.SourceId!=id || !HasAvatar())throw new Exception("Own notice changed before screenshot; no other content was captured");
                 var rendered=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth),(int)Math.Ceiling(window.ActualHeight),96,96,PixelFormats.Pbgra32);rendered.Render(window);
                 var screenshot=new PngBitmapEncoder();screenshot.Frames.Add(BitmapFrame.Create(rendered));using(var output=File.Create(Path.Combine(root,"own-native-island.png")))screenshot.Save(output);
                 var render=typeof(MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!;
