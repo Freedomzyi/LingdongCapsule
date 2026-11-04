@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.IO;
+using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -67,6 +69,19 @@ internal static class InputRoutingTests
             window.OpenOverview();Refresh();var overview=(FrameworkElement)window.FindName("OverviewHost");
             if(overview.Visibility!=Visibility.Visible)throw new Exception("Own overview did not open");MouseUp(overview,true);
             if(overview.Visibility!=Visibility.Collapsed || app.Windows.OfType<SettingsWindow>().Any())throw new Exception("Overview right click opened settings instead of collapsing");
+            window.LiveState.UpdateMedia(new("Own media switch","Own artist",true,true));Refresh();
+            var evidence=Path.Combine(Environment.CurrentDirectory,"artifacts","input-routing-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(evidence);
+            void Capture(string name){window.UpdateLayout();var bitmap=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth*2),(int)Math.Ceiling(window.ActualHeight*2),192,192,PixelFormats.Pbgra32);bitmap.Render(window);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using var output=File.Create(Path.Combine(evidence,name+".png"));png.Save(output);}
+            await Task.Delay(550);Capture("media-information-switch");
+            var information=(Button)window.FindName("InformationSwitch");
+            if(information.Visibility!=Visibility.Visible || !Equals(information.ToolTip,"系统信息"))throw new Exception("Playing media has no discoverable information switch");
+            information.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await Task.Delay(550);Capture("information-return-switch");
+            if(overview.Visibility!=Visibility.Visible || !Equals(information.ToolTip,"返回媒体") || window.LiveState.Media.Title!="Own media switch")throw new Exception("Information switch stopped/replaced media or failed to show overview");
+            information.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if(overview.Visibility!=Visibility.Collapsed || media.Visibility!=Visibility.Visible)throw new Exception("Information switch did not return to live media");
+            settings.OverviewEnabled=false;Refresh();if(information.Visibility!=Visibility.Collapsed)throw new Exception("Information switch ignored disabled overview component");
+            Console.WriteLine("PASS actual playing-media information switch, live-state preservation, return and component enable boundary; evidence: "+evidence);
             Console.WriteLine("PASS actual WPF source-based right-click expansion/settings, single-window restore, left-click mode, paused clock and overview collapse; routed events, no physical input or real player control");
         }
         finally{window.Close();}

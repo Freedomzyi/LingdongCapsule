@@ -61,6 +61,7 @@
     <StackPanel x:Name="NoticeRight" Grid.Column="2" VerticalAlignment="Center" Margin="7,0,0,0" MaxWidth="64"><TextBlock x:Name="NoticeNow" Text="现在" Foreground="#ACACB6" FontSize="10" TextAlignment="Right"/><TextBlock x:Name="NoticeRightApp" Foreground="#ACACB6" FontSize="10" TextAlignment="Right" TextTrimming="CharacterEllipsis"/></StackPanel>
     <StackPanel x:Name="NoticePrivate" Grid.ColumnSpan="3" VerticalAlignment="Center" Visibility="Collapsed"><TextBlock x:Name="NoticePrivateApp" Foreground="White" FontSize="13" TextAlignment="Center" TextTrimming="CharacterEllipsis"/><TextBlock Text="新消息 · 点击查看" Foreground="#ACACB6" FontSize="11" TextAlignment="Center" Margin="0,4,0,0"/></StackPanel>
    </Grid>
+   <Button x:Name="InformationSwitch" Style="{StaticResource InlineButton}" Content="▦" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip="系统信息" AutomationProperties.Name="查看系统信息" Click="OnInformationSwitch"/>
   </Grid>
  </Border>
  <local:CapsuleProgressView x:Name="CoverRing"/>

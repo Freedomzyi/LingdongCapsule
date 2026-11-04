@@ -44,7 +44,7 @@ public partial class MainWindow
         }
         var visible=order.Where(id=>moduleHosts[id].Visibility==Visibility.Visible).ToArray();var natural=new Dictionary<string,double>();
         foreach(var id in visible){views[id].Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));natural[id]=Math.Clamp(views[id].DesiredSize.Width,0,widthLimit);}
-        var available=Math.Max(0,widthLimit-26);var reserve=showMedia ? Math.Min(110,available) : 0;
+        var available=Math.Max(0,widthLimit-26-compactLayout.Margin.Right);var reserve=showMedia ? Math.Min(110,available) : 0;
         var gap=visible.Length>1 ? Math.Min(8,Math.Max(0,(available-reserve)/(visible.Length-1))) : 0;
         var others=visible.Where(id=>id!="media").Sum(id=>natural[id]);var budget=Math.Max(0,available-reserve-gap*Math.Max(0,visible.Length-1));var ratio=others>0 ? Math.Min(1,budget/others) : 1;
         compactNaturalWidth=visible.Sum(id=>natural[id])+gap*Math.Max(0,visible.Length-1);

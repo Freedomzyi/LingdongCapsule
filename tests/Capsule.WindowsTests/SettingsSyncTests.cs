@@ -71,6 +71,41 @@ internal static class SettingsSyncTests
         }
         finally{retry.Close();}
         Console.WriteLine("PASS startup read refusal on first open and refresh, disabled unknown state, recovery and no persistence side effect");
+        var feedback=CreatePage();
+        try
+        {
+            feedback.Show();feedback.SelectPage("通用设置");feedback.UpdateLayout();
+            var msp=Descendants<CheckBox>(feedback).Single(item=>System.Windows.Automation.AutomationProperties.GetName(item)=="MSP 实验性接入");
+            var errors=0;var guard=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromMilliseconds(30)};
+            guard.Tick+=(_,_)=>{foreach(var dialog in app.Windows.OfType<Window>().Where(item=>item.Title=="未能更新设置").ToArray()){errors++;dialog.Close();}};
+            guard.Start();
+            try{using var held=new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None);msp.IsChecked=true;msp.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));}
+            finally{guard.Stop();}
+            Check(errors==1 && msp.IsChecked==false && !settings.MspEnabled && !Settings.LoadFrom(path).MspEnabled,"MSP save refusal retained an enabled switch or unsaved in-memory preference");
+            feedback.Height=780;feedback.SelectPage("显示设置");feedback.UpdateLayout();
+            var composite=Descendants<CheckBox>(feedback).Single(item=>System.Windows.Automation.AutomationProperties.GetName(item)=="组合显示");
+            var info=((StackPanel)composite.Content).Children.OfType<TextBlock>().Single(item=>item.Text=="ⓘ");
+            foreach(var theme in new[]{0,1})
+            {
+                Design.ApplyTheme(theme);var tip=new ToolTip{Content=info.ToolTip,PlacementTarget=info,IsOpen=true};await Task.Delay(100);tip.ApplyTemplate();tip.UpdateLayout();
+                Check(tip.ActualWidth<=280.5 && Descendants<TextBlock>(tip).Any(item=>item.TextWrapping==TextWrapping.Wrap) && Descendants<Border>(tip).Any(item=>item.CornerRadius.TopLeft==10),"Tooltip lacks bounded wrapped text or rounded theme template");
+                var bitmap=new RenderTargetBitmap((int)Math.Ceiling(tip.ActualWidth*2),(int)Math.Ceiling(tip.ActualHeight*2),192,192,PixelFormats.Pbgra32);bitmap.Render(tip);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var output=File.Create(Path.Combine(root,"tooltip-"+theme+".png")))png.Save(output);tip.IsOpen=false;
+            }
+            Console.WriteLine("PASS actual MSP switch save-refusal rollback and bounded wrapping rounded dark/light tooltips; evidence: "+root);
+        }
+        finally{feedback.Close();}
+        var nodes=Path.Combine(root,"refused-msp");var failedSettings=new Settings{MediaEnabled=false,NotificationsEnabled=false,MspEnabled=false};
+        var main=new MainWindow(suppressOnboarding:true,initialSettings:failedSettings,localMspDirectory:nodes,localPluginDirectory:Path.Combine(root,"no-plugins"),pluginSettingsWriter:()=>throw new IOException("Owned preference write refusal")){ShowActivated=false};
+        try
+        {
+            main.Show();await Task.Delay(150);failedSettings.MspEnabled=true;var refused=false;
+            try{typeof(MainWindow).GetMethod("SaveAndApplySettings",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(main,null);}
+            catch(System.Reflection.TargetInvocationException error) when(error.InnerException is IOException){refused=true;}
+            var bridge=(MspBridge)typeof(MainWindow).GetField("msp",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(main)!;
+            Check(refused && !bridge.Enabled && !Directory.Exists(nodes),"Preference save failure started or registered MSP before persistence");
+            Console.WriteLine("PASS actual main preference writer propagates refusal before any MSP service/registration side effect");
+        }
+        finally{main.Close();}
     }
     private static IEnumerable<T> Descendants<T>(DependencyObject root) where T:DependencyObject
     {for(var index=0;index<VisualTreeHelper.GetChildrenCount(root);index++){var child=VisualTreeHelper.GetChild(root,index);if(child is T match)yield return match;foreach(var nested in Descendants<T>(child))yield return nested;}}

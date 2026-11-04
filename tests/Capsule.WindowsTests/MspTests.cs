@@ -61,6 +61,19 @@ internal static class MspTests
         }
         finally{client.Stop();}
         await TestIslandAsync(Path.Combine(directory,"island"),imageSpec);
+        var local=Path.Combine(Settings.Folder,"msp-storage-test-"+Guid.NewGuid().ToString("N"));
+        using var encryptedBridge=new MspBridge(_=>Task.FromResult(true),()=>Task.FromResult(new MediaSnapshot("Owned","",false,false)),_=>Task.FromResult(false));
+        if(!encryptedBridge.Start(local))throw new Exception("MSP cannot register in actual profile filesystem: "+encryptedBridge.Error);
+        var encryptedPeer=new MspNode("owned-filesystem-peer",nodesDir:local);
+        try
+        {
+            encryptedPeer.Start();var responded=false;
+            for(var attempt=0;attempt<30;attempt++)try{var response=JsonSerializer.Serialize((await encryptedPeer.CallAsync("lingdongcapsule","ping",new{})).Unwrap());if(response.Contains("lingdongcapsule")){responded=true;break;}}catch{await Task.Delay(100);}
+            if(!responded)throw new Exception("MSP profile-filesystem peer discovery/ping failed");
+        }
+        finally{encryptedPeer.Stop();encryptedBridge.Dispose();}
+        if(!encryptedBridge.Start(local))throw new Exception("MSP cannot re-enable on actual profile filesystem");encryptedBridge.Dispose();
+        Console.WriteLine("PASS actual profile MSP registration, independent peer ping, stop and re-enable; encrypted="+File.GetAttributes(local).HasFlag(FileAttributes.Encrypted)+"; generated-only directory: "+local);
     }
     private static async Task<string> TestContentAsync(string directory)
     {

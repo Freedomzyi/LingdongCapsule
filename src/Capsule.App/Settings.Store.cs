@@ -56,7 +56,7 @@ public sealed partial class Settings
             var valid=false;
             try{var current=ReadFile(full);if(current.SchemaVersion>1)throw new InvalidOperationException("磁盘配置已由更新版本写入，拒绝覆盖。");valid=true;}
             catch(Exception error) when(Recoverable(error)){ }
-            if(valid)File.Replace(temporary,full,full+".backup",true);
+            if(valid)ReplaceWithBackup(temporary,full);
             else
             {
                 var rejected=full+".rejected-"+Guid.NewGuid().ToString("N")+".json";
@@ -65,5 +65,62 @@ public sealed partial class Settings
             }
         }
         finally{if(File.Exists(temporary))File.Delete(temporary);}
+    }
+    private static void ReplaceWithBackup(string temporary,string full)
+    {
+        if(File.GetAttributes(full).HasFlag(FileAttributes.Encrypted)){RenameWithBackup(temporary,full);return;}
+        try{File.Replace(temporary,full,full+".backup",true);}
+        catch(IOException error) when((error.HResult & 0xffff)==1175){RenameWithBackup(temporary,full);}
+    }
+    private static void RenameWithBackup(string temporary,string full)
+    {
+        var attributes=File.GetAttributes(full);
+        if(attributes.HasFlag(FileAttributes.ReadOnly))throw new UnauthorizedAccessException("配置文件只读，无法保存。");
+        var backup=full+".backup";
+        // Same-directory rename avoids ReplaceFile's EFS/metadata merge failure.
+        // Only the documented 1175 failure can enter this path after ReplaceFile.
+        var staged=full+".backup-stage-"+Guid.NewGuid().ToString("N");
+        var previous=full+".backup-prior-"+Guid.NewGuid().ToString("N");
+        byte[]? previousAccess=null;
+        var movedPrevious=false;var published=false;var committed=false;var restored=false;
+        try
+        {
+            File.Copy(full,staged);
+            if(attributes.HasFlag(FileAttributes.Encrypted))
+            {
+                foreach(var target in new[]{staged,temporary})if(!File.GetAttributes(target).HasFlag(FileAttributes.Encrypted))File.Encrypt(target);
+            }
+            var descriptor=new FileInfo(full).GetAccessControl(System.Security.AccessControl.AccessControlSections.Access).GetSecurityDescriptorBinaryForm();
+            foreach(var target in new[]{staged,temporary})
+                SetFileAccess(target,descriptor);
+            if(File.Exists(backup))
+            {
+                if(File.GetAttributes(backup).HasFlag(FileAttributes.ReadOnly))throw new UnauthorizedAccessException("配置备份只读，无法保存。");
+                previousAccess=new FileInfo(backup).GetAccessControl(System.Security.AccessControl.AccessControlSections.Access).GetSecurityDescriptorBinaryForm();
+                File.Move(backup,previous);movedPrevious=true;SetFileAccess(previous,previousAccess);
+            }
+            File.Move(staged,backup);published=true;
+            // This host reapplies parent inheritance on rename to a new filename.
+            // Restore the saved ACL before the primary file is committed.
+            SetFileAccess(backup,descriptor);
+            File.Move(temporary,full,true);committed=true;
+        }
+        catch
+        {
+            if(published)File.Move(backup,staged,true);
+            if(movedPrevious){File.Move(previous,backup);SetFileAccess(backup,previousAccess!);}
+            restored=true;throw;
+        }
+        finally
+        {
+            // A rollback error retains recovery files instead of deleting evidence.
+            if(committed || restored)
+                foreach(var file in new[]{staged,previous})try{if(File.Exists(file))File.Delete(file);}catch(IOException){}catch(UnauthorizedAccessException){}
+        }
+    }
+    private static void SetFileAccess(string path,byte[] descriptor)
+    {
+        var access=new System.Security.AccessControl.FileSecurity();access.SetSecurityDescriptorBinaryForm(descriptor,System.Security.AccessControl.AccessControlSections.Access);
+        new FileInfo(path).SetAccessControl(access);
     }
 }

@@ -22,7 +22,17 @@ internal static class MonitorPlacement
         var screen=Target(selected);if(screen==null)return;
         var dpi=GetDpiForWindow(window);if(dpi==0)dpi=96;
         var work=screen.WorkingArea;var point=MonitorGeometry.Center(new(work.Left,work.Top,work.Width,work.Height),rect.Right-rect.Left,rect.Bottom-rect.Top,dpi,topDip);
-        SetWindowPos(window,IntPtr.Zero,point.X,point.Y,0,0,0x0001|0x0004|0x0010);
+        if(rect.Left!=point.X || rect.Top!=point.Y)SetWindowPos(window,IntPtr.Zero,point.X,point.Y,0,0,0x0001|0x0004|0x0010);
+    }
+    internal static bool ResizeAndCenter(IntPtr window,string selected,double topDip,double width,double height)
+    {
+        if(window==IntPtr.Zero)return false;var screen=Target(selected);if(screen==null)return false;
+        var dpi=GetDpiForWindow(window);if(dpi==0)dpi=96;var work=screen.WorkingArea;
+        var w=Math.Clamp((int)Math.Round(width*dpi/96),1,work.Width);var h=Math.Clamp((int)Math.Round(height*dpi/96),1,work.Height);
+        var point=MonitorGeometry.Center(new(work.Left,work.Top,work.Width,work.Height),w,h,dpi,topDip);
+        // Deliver width, height and anchor in one native frame, avoiding a tall/narrow
+        // intermediate HWND between separate WPF Width/Height property updates.
+        return SetWindowPos(window,IntPtr.Zero,point.X,point.Y,w,h,0x0004|0x0010);
     }
     private static Forms.Screen? Target(string selected)
     {

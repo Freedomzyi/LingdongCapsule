@@ -34,5 +34,27 @@ internal static class SettingsStoreTests
         File.WriteAllText(path,"null");File.WriteAllText(path+".backup","{broken backup");
         var fallback=Settings.LoadFrom(path);if(fallback.Width!=280 || fallback.RecoveryMessage.Length==0 || File.ReadAllText(path)!="null")throw new Exception("Double-corrupt fallback was silent or destructive");
         Console.WriteLine("PASS Legacy migration, atomic backup/recovery, corrupt-file preservation, future-version guard and save-failure cleanup");
+        // Reproduce the actual profile's filesystem policy without opening or copying
+        // personal settings. Only unique, generated files below our own directory.
+        var local=Path.Combine(Settings.Folder,"storage-test-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(local);
+        var localPath=Path.Combine(local,"owned-settings.json");var owned=new Settings{Width=195};owned.SaveTo(localPath);
+        var encrypted=File.GetAttributes(localPath).HasFlag(FileAttributes.Encrypted);
+        var access=new FileInfo(localPath).GetAccessControl(System.Security.AccessControl.AccessControlSections.Access);if(encrypted){access.SetAccessRuleProtection(true,true);new FileInfo(localPath).SetAccessControl(access);}
+        var originalAccess=new FileInfo(localPath).GetAccessControl(System.Security.AccessControl.AccessControlSections.Access).GetSecurityDescriptorSddlForm(System.Security.AccessControl.AccessControlSections.Access);
+        owned.Width=250;owned.SaveTo(localPath);owned.Width=280;owned.SaveTo(localPath);
+        if(encrypted && (new FileInfo(localPath).GetAccessControl(System.Security.AccessControl.AccessControlSections.Access).GetSecurityDescriptorSddlForm(System.Security.AccessControl.AccessControlSections.Access)!=originalAccess || new FileInfo(localPath+".backup").GetAccessControl(System.Security.AccessControl.AccessControlSections.Access).GetSecurityDescriptorSddlForm(System.Security.AccessControl.AccessControlSections.Access)!=originalAccess))throw new Exception("Filesystem fallback changed protected primary/backup access rules");
+        if(Settings.LoadFrom(localPath).Width!=280 || Settings.LoadFrom(localPath+".backup").Width!=250)throw new Exception("Actual local profile filesystem cannot save or retain previous preferences");
+        var original=File.ReadAllBytes(localPath);var oldBackup=File.ReadAllBytes(localPath+".backup");
+        using(var held=new FileStream(localPath+".backup",FileMode.Open,FileAccess.Read,FileShare.None))
+        {
+            blocked=false;try{owned.SaveTo(localPath);}catch(IOException){blocked=true;}
+            if(!blocked || !File.ReadAllBytes(localPath).SequenceEqual(original))throw new Exception("Locked backup modified actual-profile primary settings");
+        }
+        if(!File.ReadAllBytes(localPath+".backup").SequenceEqual(oldBackup) || Directory.GetFiles(local,"*.tmp-*").Length>0 || Directory.GetFiles(local,"*.backup-*").Length>0)throw new Exception("Filesystem save refusal changed backup or retained transaction files");
+        var attributes=File.GetAttributes(localPath);File.SetAttributes(localPath,attributes|FileAttributes.ReadOnly);
+        try{blocked=false;try{owned.SaveTo(localPath);}catch(UnauthorizedAccessException){blocked=true;}if(!blocked)throw new Exception("EFS rename bypassed a read-only settings file");}
+        finally{File.SetAttributes(localPath,attributes);}
+        if(!File.ReadAllBytes(localPath).SequenceEqual(original))throw new Exception("Read-only refusal modified the primary settings");
+        Console.WriteLine("PASS Actual profile filesystem save/reload/previous backup and locked-backup rollback; encrypted="+File.GetAttributes(localPath).HasFlag(FileAttributes.Encrypted)+"; generated-only evidence: "+local);
     }
 }

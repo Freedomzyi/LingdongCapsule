@@ -132,9 +132,9 @@ public sealed partial class SettingsWindow : Window
         AddSlider(glassOptions,"玻璃雾度",0,4,settings.Glass.Frost,v=>settings.Glass=settings.Glass with{Frost=(int)v},"控制主题雾色的混合程度。",1);
         AddSlider(glassOptions,"明度",0,4,settings.Glass.Brightness,v=>settings.Glass=settings.Glass with{Brightness=(int)v},"五档：80% / 90% / 100% / 108% / 115%。",1);
         AddSlider(glassOptions,"抓屏刷新",0,4,settings.Glass.Capture,v=>settings.Glass=settings.Glass with{Capture=(int)v},"五档：1000 / 500 / 250 / 160 / 60 毫秒；亚克力与玻璃共用。",1);
-        AddSlider(glassOptions,"岛体动画帧率",0,4,settings.Glass.FrameRate,v=>settings.Glass=settings.Glass with{FrameRate=(int)v},"五档：30 / 60 / 90 / 120 / 144 FPS，控制歌词、频谱、进度线及下一次收放/淡出动画；实际受系统合成与显示器刷新率限制。",1);
+        AddSlider(glassOptions,"岛体动画帧率",0,4,settings.Glass.FrameRate,v=>settings.Glass=settings.Glass with{FrameRate=(int)v},"控制歌词、频谱等动态内容；收放过渡跟随屏幕刷新。",1);
         AddSlider(glassOptions,"放大倍率",0,4,settings.Glass.Zoom,v=>settings.Glass=settings.Glass with{Zoom=(int)v},"五档：1 / 1.08 / 1.18 / 1.32 / 1.5 倍。",1);
-        var resetGlass=new Button{Content="恢复默认玻璃参数",Margin=new Thickness(0,8,0,0)};resetGlass.Click+=(_,_)=>{updatingControls=true;try{var sliders=glassOptions.Children.OfType<Slider>().ToArray();for(var index=0;index<sliders.Length;index++)sliders[index].Value=index==11 ? 0 : 2;settings.Glass=new();}finally{updatingControls=false;}save();};glassOptions.Children.Add(resetGlass);
+        var resetGlass=new Button{Content="恢复默认玻璃参数",Margin=new Thickness(0,8,0,0)};resetGlass.Click+=(_,_)=>{var previous=settings.Glass;var sliders=glassOptions.Children.OfType<Slider>().ToArray();var values=sliders.Select(item=>item.Value).ToArray();void Set(double[] levels){updatingControls=true;try{for(var index=0;index<sliders.Length;index++)sliders[index].Value=levels[index];}finally{updatingControls=false;}}CommitChange(()=>{Set(Enumerable.Range(0,sliders.Length).Select(index=>index==11 ? 0d : 2d).ToArray());settings.Glass=new();},()=>{Set(values);settings.Glass=previous;});};glassOptions.Children.Add(resetGlass);
         var glassCard=Design.Card(glassOptions);glassCard.Tag="material-glass";panel.Children.Add(glassCard);
         refreshMaterialControls=()=>{var glass=settings.MaterialKind==2;opacityOptions.Visibility=glass ? Visibility.Collapsed : Visibility.Visible;glassCard.Visibility=glass ? Visibility.Visible : Visibility.Collapsed;};
         refreshPreferences.Add(refreshMaterialControls);refreshMaterialControls();
@@ -165,7 +165,7 @@ public sealed partial class SettingsWindow : Window
         if(!startupReadable)startupCheck.ToolTip=preferenceError;
         panel.Children.Add(Design.Card(switches));
         var publishing=new StackPanel();AddCheck(publishing,"MSP 事件广播",settings.MspPublishEvents,value=>settings.MspPublishEvents=value,"默认关闭，需同时开启 MSP 接入。向已连接本机节点发送媒体变化和通知事件；隐私预览开启时不发送通知标题与正文。接收的 MSP 通知不会回广播。");panel.Children.Add(Design.Card(publishing));
-        var mspOptions=new StackPanel();mspCheck=AddCheck(mspOptions,"MSP 实验性接入",settings.MspEnabled,value=>settings.MspEnabled=value,"默认关闭。开启后向本机共享目录宣告 lingdongcapsule 节点，允许发现它的本机 MSP 节点调用通知、媒体状态与控制；关闭后停止节点。主动广播另由事件广播开关控制。");panel.Children.Add(Design.Card(mspOptions));
+        var mspOptions=new StackPanel();mspCheck=AddCheck(mspOptions,"MSP 实验性接入",settings.MspEnabled,value=>settings.MspEnabled=value,"允许本机 MSP 应用调用通知和媒体控制；默认关闭。");panel.Children.Add(Design.Card(mspOptions));
         Heading(panel,"通知展示");
         var notificationOptions=new StackPanel();
         AddSlider(notificationOptions,"通知高度",40,120,settings.NotificationHeight,v=>settings.NotificationHeight=v,"逻辑像素；图标或完整内容需要时可自动增高。",1,55);
@@ -194,7 +194,7 @@ public sealed partial class SettingsWindow : Window
                 if(!await NotificationSound.ValidateDurationAsync(picker.FileName)){Design.PresentMessage("无法使用此音频","请选择系统能解码、时长不超过 5 秒的音频。");return;}
                 var folder=System.IO.Path.Combine(Settings.Folder,"Sounds");System.IO.Directory.CreateDirectory(folder);
                 var destination=System.IO.Path.Combine(folder,"custom-"+Guid.NewGuid().ToString("N")+System.IO.Path.GetExtension(picker.FileName));
-                System.IO.File.Copy(picker.FileName,destination);settings.NotificationSoundPath=destination;fileName.Text=System.IO.Path.GetFileName(picker.FileName);save();
+                System.IO.File.Copy(picker.FileName,destination);var previous=settings.NotificationSoundPath;if(CommitChange(()=>settings.NotificationSoundPath=destination,()=>settings.NotificationSoundPath=previous))fileName.Text=System.IO.Path.GetFileName(picker.FileName);
                 Design.PresentMessage("音频已保存","在提示音选项中选择“自选音频”即可使用。");
             }
             catch(Exception exception) when(exception is System.IO.IOException or UnauthorizedAccessException){Design.PresentMessage("音频未能保存","请检查文件是否仍然可读，以及保存目录权限。");}
@@ -210,7 +210,7 @@ public sealed partial class SettingsWindow : Window
         panel=pages["显示设置"];
         Heading(panel,"显示位置与形态");
         var clockOptions=new StackPanel();
-        AddCheck(clockOptions,"组合显示",settings.CompositeEnabled,value=>settings.CompositeEnabled=value,"折叠态同时显示已启用的时钟、硬件、插件和媒体；展开播放器时保留完整控制。较窄时其他组件会裁切。");
+        AddCheck(clockOptions,"组合显示",settings.CompositeEnabled,value=>settings.CompositeEnabled=value,"同时显示已启用的组件；空间不足时会裁切。");
         AddSelection(clockOptions,"待机场景",()=>new Dictionary<string,string>{{"1","时间"},{"2","空白"},{"3","媒体控制"}},settings.StandbyScene.ToString(),value=>settings.StandbyScene=int.Parse(value),"待机时仅显示所选内容；通知仍可临时覆盖，媒体控制需要已有媒体会话。");
         AddCheck(clockOptions,"待机模式",settings.StandbyActive,value=>settings.StandbyActive=value,"临时使用单一场景，退出后恢复原有组件开关与顺序。",readCurrent:()=>settings.StandbyActive);
         AddCheck(clockOptions,"双击切换待机",settings.StandbyDoubleClick,value=>settings.StandbyDoubleClick=value,"双击岛体内容区域切换待机；启用后单击会等待系统双击判定时间。");
@@ -274,7 +274,7 @@ public sealed partial class SettingsWindow : Window
             var row=new Grid{Margin=new Thickness(0,5,0,5)};row.ColumnDefinitions.Add(new());row.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
             var name=new TextBlock{Text=GlobalShortcuts.Label(action),VerticalAlignment=VerticalAlignment.Center};row.Children.Add(name);
             var record=new Button{Content=GlobalShortcuts.Format(settings.Shortcuts[action]),Padding=new Thickness(10,8,10,8),MinWidth=100,ToolTip="点击录制，Esc 取消，Backspace 清空"};
-            record.Click+=(_,_)=>{if(ShortcutRecorder.Show(this,shortcuts,action)){record.Content=GlobalShortcuts.Format(settings.Shortcuts[action]);save();}};Grid.SetColumn(record,1);row.Children.Add(record);bindings.Children.Add(row);
+            record.Click+=(_,_)=>{var previous=settings.Shortcuts[action];if(ShortcutRecorder.Show(this,shortcuts,action)){CommitChange(()=>{},()=>{settings.Shortcuts[action]=previous;shortcuts.Apply();});record.Content=GlobalShortcuts.Format(settings.Shortcuts[action]);}};Grid.SetColumn(record,1);row.Children.Add(record);bindings.Children.Add(row);
         }
         var shortcutStatus=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,8,0,0)};Design.Bind(shortcutStatus,TextBlock.ForegroundProperty,"TextSecondary");bindings.Children.Add(shortcutStatus);
         var shortcutTimer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};shortcutTimer.Tick+=(_,_)=>shortcutStatus.Text=shortcuts.Error;shortcutTimer.Start();Closed+=(_,_)=>shortcutTimer.Stop();
@@ -350,7 +350,7 @@ public sealed partial class SettingsWindow : Window
             {
                 var key=option.Key;var value=option.Value;
                 var item=new MenuItem {Header=value+(key==selected ? "  ✓" : "")};
-                item.Click+=(_,_)=>{selected=key;changed(key);text.Text=value+" ▾";save();};menu.Items.Add(item);
+                item.Click+=(_,_)=>{var previous=selected;if(CommitChange(()=>changed(key),()=>changed(previous))){selected=key;text.Text=value+" ▾";}};menu.Items.Add(item);
             }
             menu.IsOpen=true;
         };
@@ -378,8 +378,13 @@ public sealed partial class SettingsWindow : Window
         var row = new Grid { Margin = new(0, 9, 0, 0) }; row.ColumnDefinitions.Add(new()); row.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); row.Children.Add(Label(title, help));
         var format=step<1 ? "0.0" : "0";
         var number = new TextBlock { Text = value.ToString(format), FontSize = 13, FontWeight = FontWeights.Medium, Foreground = new SolidColorBrush(Color.FromRgb(0, 122, 255)) }; Grid.SetColumn(number, 1); row.Children.Add(number); panel.Children.Add(row);
-        var slider = new Slider { Minimum = min, Maximum = max, Value = value, TickFrequency = step, IsSnapToTickEnabled = true, Margin = new(0, 4, 0, 7), ToolTip = help };
-        slider.ValueChanged += (_, _) => { number.Text = slider.Value.ToString(format);if(updatingControls)return;changed(slider.Value);save(); }; panel.Children.Add(slider);
+        var slider = new Slider { Minimum = min, Maximum = max, Value = value, TickFrequency = step, IsSnapToTickEnabled = true, Margin = new(0, 4, 0, 7) };
+        slider.ValueChanged += (_, _) =>
+        {
+            number.Text=slider.Value.ToString(format);if(updatingControls){value=slider.Value;return;}
+            var previous=value;var next=slider.Value;
+            if(CommitChange(()=>changed(next),()=>{changed(previous);updatingControls=true;try{slider.Value=previous;}finally{updatingControls=false;}}))value=next;
+        }; panel.Children.Add(slider);
         if(resetValue is {} restore)
         {
             var reset=new Button{Content="↺",Width=25,Height=24,Margin=new(0,0,7,0),ToolTip="还原为 "+restore.ToString(format)};
@@ -407,13 +412,18 @@ public sealed partial class SettingsWindow : Window
     }
     private CheckBox AddCheck(StackPanel panel, string text, bool value, Action<bool> changed, string help,bool saveAfter=true,Func<bool>? readCurrent=null)
     {
-        var check = new CheckBox { Content = Label(text, help), IsChecked = value, Margin = new(0, 4, 0, 4), ToolTip = help }; System.Windows.Automation.AutomationProperties.SetName(check, text);
+        var check = new CheckBox { Content = Label(text, help), IsChecked = value, Margin = new(0, 4, 0, 4) }; System.Windows.Automation.AutomationProperties.SetName(check, text);
         if(readCurrent!=null)refreshPreferences.Add(()=>{value=readCurrent();check.IsChecked=value;});
         check.Click += (_, _) =>
         {
-            try{changed(check.IsChecked==true);if(saveAfter)save();value=check.IsChecked==true;}
-            catch(Exception error){check.IsChecked=value;Design.PresentMessage("未能更新设置",error.Message);}
+            if(saveAfter){var next=check.IsChecked==true;if(CommitChange(()=>changed(next),()=>{changed(value);check.IsChecked=value;}))value=next;}
+            else try{changed(check.IsChecked==true);value=check.IsChecked==true;}catch(Exception error){check.IsChecked=value;Design.PresentMessage("未能更新设置",error.Message);}
         }; panel.Children.Add(check); return check;
+    }
+    private bool CommitChange(Action apply,Action rollback)
+    {
+        try{apply();save();return true;}
+        catch(Exception error){try{rollback();}catch{}Design.PresentMessage("未能更新设置",error.Message);return false;}
     }
     public void UpdateStatus(string media, string notification, Dictionary<string, string> apps)
     {
@@ -426,7 +436,7 @@ public sealed partial class SettingsWindow : Window
         {
             var id = app.Key; var label = new TextBlock { Text = app.Value, MaxWidth = 238, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
             var check = new CheckBox { Content = label, IsChecked = !settings.MutedSources.Contains(id), Margin = new(0, 4, 0, 4), ToolTip = app.Value }; System.Windows.Automation.AutomationProperties.SetName(check, app.Value);
-            check.Click += (_, _) => { if (check.IsChecked == true) settings.MutedSources.Remove(id); else settings.MutedSources.Add(id); save(); }; sources.Children.Add(check);
+            check.Click += (_, _) => {var previous=!settings.MutedSources.Contains(id);void Set(bool enabled){if(enabled)settings.MutedSources.Remove(id);else settings.MutedSources.Add(id);}CommitChange(()=>Set(check.IsChecked==true),()=>{Set(previous);check.IsChecked=previous;});}; sources.Children.Add(check);
         }
         if (apps.Count == 0) { var empty = new TextBlock { Text = "收到系统通知后，来源会自动出现在这里。", TextWrapping = TextWrapping.Wrap, FontSize = 12 }; Design.Bind(empty, TextBlock.ForegroundProperty, "TextSecondary"); sources.Children.Add(empty); }
     }

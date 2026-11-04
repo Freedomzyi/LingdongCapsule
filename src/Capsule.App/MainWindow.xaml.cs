@@ -23,7 +23,6 @@ public partial class MainWindow : Window
     private WelcomeWindow? welcomeWindow;
     private bool busy, closing, controlsOpen, lastNotificationsEnabled;
     private double desiredWidth = 104, desiredHeight = 35;
-    private int widthAnimationGeneration,heightAnimationGeneration;
     internal double ActiveVisualScale{get;private set;}=1;
     private readonly System.Windows.Media.ScaleTransform islandScale=new(1,1);
     private SettingsWindow? settingsWindow;
@@ -62,7 +61,7 @@ public partial class MainWindow : Window
         Shell.PreviewMouseLeftButtonDown+=(_,args)=>
         {
             if(settings.StandbyDoubleClick && state.Notification==null && args.ClickCount==2 && (ReferenceEquals(args.OriginalSource,Shell) || ReferenceEquals(args.OriginalSource,ClockTime) || ReferenceEquals(args.OriginalSource,ClockDate)))
-            {islandClickDelay.Stop();skipIslandRelease=true;SetStandby(!settings.StandbyActive);SaveAndApplySettings();args.Handled=true;}
+            {islandClickDelay.Stop();skipIslandRelease=true;var previous=settings.StandbyActive;SetStandby(!previous);try{SaveAndApplySettings();}catch(Exception error){SetStandby(previous);Design.PresentMessage("设置未能保存",error.Message);}args.Handled=true;}
         };
         overview=new OverviewView(settings,SaveAndApplySettings);OverviewHost.Content=overview;
         InitializePlugins(initialSettings==null);
@@ -96,6 +95,7 @@ public partial class MainWindow : Window
             else if (!suppressOnboarding && !settings.OnboardingCompleted && !Environment.GetCommandLineArgs().Contains("--startup")) ShowWelcome();
         };
         Closed += (_, _) => { closing = true;visibilityProbe.Stop();shortcuts.Dispose(); timer.Stop();panelCollapse.Stop();notificationSound.Dispose();overview.Dispose();mediaTimer.Stop();audio.Dispose();lyricRequest?.Cancel();lyricRequest?.Dispose();lyricsClient.Dispose(); media.Dispose(); notifications.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); settingsWindow?.Close(); welcomeWindow?.Close(); SystemEvents.UserPreferenceChanged-=OnThemePreferenceChanged;SystemEvents.DisplaySettingsChanged -= OnDisplayChanged; SystemEvents.PowerModeChanged -= OnPowerChanged; };
+        Closed+=(_,_)=>StopSizeTransition();
     }
     private IntPtr WindowHook(IntPtr hwnd, int msg, IntPtr wp, IntPtr lp, ref bool handled)
     {
@@ -110,6 +110,7 @@ public partial class MainWindow : Window
     private void OnNativeMediaChanged(){if(!closing && !Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(async()=>await RefreshAsync());}
     private void Position()
     {
+        StopSizeTransition();
         BeginAnimation(WidthProperty, null); BeginAnimation(HeightProperty, null);
         Width = desiredWidth; Height = desiredHeight;
         BeginAnimation(LeftProperty, null);
@@ -165,6 +166,13 @@ public partial class MainWindow : Window
         var mode = state.Mode;
         overview.SetEnabled(settings.OverviewEnabled);if(!settings.OverviewEnabled)overviewOpen=false;
         var showOverview=overviewOpen && mode!=IslandMode.Notification;
+        var canSwitch=state.Media.Available && settings.OverviewEnabled && mode!=IslandMode.Notification;
+        InformationSwitch.Visibility=canSwitch ? Visibility.Visible : Visibility.Collapsed;
+        InformationSwitch.Content=showOverview ? "♫" : "▦";
+        InformationSwitch.ToolTip=showOverview ? "返回媒体" : "系统信息";
+        System.Windows.Automation.AutomationProperties.SetName(InformationSwitch,showOverview ? "返回媒体" : "查看系统信息");
+        compactLayout.Margin=new Thickness(0,0,canSwitch && !showOverview && !IsMediaExpanded ? 30 : 0,0);
+        OverviewHost.Margin=new Thickness(0,0,canSwitch && showOverview ? 30 : 0,0);
         var showMedia = !showOverview && (mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available));
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
         OverviewHost.Visibility=showOverview ? Visibility.Visible : Visibility.Collapsed;
@@ -202,6 +210,7 @@ public partial class MainWindow : Window
         Shell.CornerRadius = settings.IslandShape==0 ? new CornerRadius(0,0,settings.BottomRadius,settings.BottomRadius) : new CornerRadius(height > 100 ? 22 : height / 2);
         Topmost=settings.Topmost;
         Animate(width*ActiveVisualScale, height*ActiveVisualScale);
+        FadePresentation(showOverview ? 1 : mode==IslandMode.Notification ? 2 : showMedia ? IsMediaExpanded ? 4 : 3 : 0);
         UpdateIslandVisibility();
         RenderMediaControls();
         ApplyIslandTheme();
@@ -212,23 +221,44 @@ public partial class MainWindow : Window
         var changeWidth=desiredWidth!=width;var changeHeight=desiredHeight!=height;
         if(!changeWidth && !changeHeight)return;
         desiredWidth = width; desiredHeight = height;
-        if(changeWidth)AnimateDimension(WidthProperty,ActualWidth,width,++widthAnimationGeneration);
-        if(changeHeight)AnimateDimension(HeightProperty,ActualHeight,height,++heightAnimationGeneration);
+        var now=System.Diagnostics.Stopwatch.GetTimestamp();
+        if(changeWidth){widthFrom=Width;widthStarted=now;widthMoving=true;}
+        if(changeHeight){heightFrom=Height;heightStarted=now;heightMoving=true;}
+        if(!sizeTransitionActive){sizeTransitionActive=true;System.Windows.Media.CompositionTarget.Rendering+=OnSizeFrame;}
     }
-    private void AnimateDimension(DependencyProperty property,double from,double target,int generation)
+    private double widthFrom,heightFrom;
+    private long widthStarted,heightStarted;
+    private bool widthMoving,heightMoving,sizeTransitionActive;
+    internal bool SizeTransitionActive=>sizeTransitionActive;
+    private void OnSizeFrame(object? sender,EventArgs args)
     {
-        var duration = TimeSpan.FromMilliseconds(settings.MotionMs);
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var animation=new DoubleAnimation(from,target,duration){EasingFunction=ease};
-        Timeline.SetDesiredFrameRate(animation,settings.Glass.FramesPerSecond);
-        animation.Completed+=(_,_)=>
+        if(closing){StopSizeTransition();return;}
+        double Step(double from,double target,long started,out bool moving)
         {
-            if(closing || generation!=(property==WidthProperty ? widthAnimationGeneration : heightAnimationGeneration))return;
-            // Commit the final base value before removing the clock. A later width-only
-            // change must not restart or revert an independent height transition.
-            SetCurrentValue(property,target);BeginAnimation(property,null);
-        };
-        BeginAnimation(property,animation);
+            var progress=Math.Clamp(System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds/settings.MotionMs,0,1);
+            moving=progress<1;return from+(target-from)*(1-Math.Pow(1-progress,3));
+        }
+        // One composition callback commits both dimensions before layout. Width-only
+        // updates retain the height deadline, and no permanent render loop is kept.
+        var width=widthMoving ? Step(widthFrom,desiredWidth,widthStarted,out widthMoving) : Width;
+        var height=heightMoving ? Step(heightFrom,desiredHeight,heightStarted,out heightMoving) : Height;
+        var top=Environment.GetCommandLineArgs().Any(arg=>arg is "--inspect" or "--render-media") ? 80 : settings.IslandShape==0 ? 0 : 8*ActiveVisualScale;
+        if(!MonitorPlacement.ResizeAndCenter(new WindowInteropHelper(this).Handle,settings.MonitorId,top,width,height)){Width=width;Height=height;}
+        if(!widthMoving && !heightMoving)StopSizeTransition();
+    }
+    private void StopSizeTransition(){System.Windows.Media.CompositionTarget.Rendering-=OnSizeFrame;sizeTransitionActive=widthMoving=heightMoving=false;}
+    private int lastPresentation=-1;
+    private void FadePresentation(int presentation)
+    {
+        if(lastPresentation==presentation)return;
+        var first=lastPresentation<0;lastPresentation=presentation;if(first)return;
+        FrameworkElement incoming=presentation==1 ? OverviewHost : presentation==2 ? NoticePanel : compactLayout;
+        incoming.BeginAnimation(OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(Math.Min(200,settings.MotionMs*.55))){BeginTime=TimeSpan.FromMilliseconds(settings.MotionMs*.2),EasingFunction=new CubicEase{EasingMode=EasingMode.EaseOut}});
+    }
+    private void OnInformationSwitch(object sender,RoutedEventArgs args)
+    {
+        args.Handled=true;panelCollapse.Stop();
+        if(overviewOpen){overviewOpen=false;Render();}else OpenOverview();
     }
     private void OnIslandClick(object sender, MouseButtonEventArgs e)
     {
@@ -296,11 +326,15 @@ public partial class MainWindow : Window
         =>ApplySettings(true);
     private void ApplySettings(bool persist)
     {
+        // Persist before starting external services or changing live behavior. Callers
+        // must see failure so their control and in-memory preference can roll back.
+        if(persist)writePluginSettings();
+        var requestedMsp=settings.MspEnabled;
         ApplyMsp();
+        if(persist && requestedMsp!=settings.MspEnabled)writePluginSettings();
         ApplyUserFont();
         solo.Configure(settings.MediaEnabled && SoloSelected);
         Design.ApplyTheme(settings.ThemeMode);
-        if(persist)try{settings.Save();}catch(Exception exception){Design.PresentMessage("设置未能保存",exception.Message);}
         media.Configure(settings.MediaEnabled,settings.MediaSourceKind,settings.ManualMediaSource);
         if(!settings.MediaEnabled)state.UpdateMedia(new("","",false,false));
         if(!settings.NotificationsEnabled)state.Dismiss();

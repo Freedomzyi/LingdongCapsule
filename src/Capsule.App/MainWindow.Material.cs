@@ -48,7 +48,7 @@ public partial class MainWindow
     }
     private async Task RefreshMaterialAsync()
     {
-        if(materialBusy || closing || settings.MaterialKind==0 || visibilityResult.PassThrough || Environment.TickCount64<materialRetryAt)return;
+        if(materialBusy || closing || SizeTransitionActive || settings.MaterialKind==0 || visibilityResult.PassThrough || Environment.TickCount64<materialRetryAt)return;
         materialBusy=true;var generation=materialGeneration;
         try
         {
@@ -77,7 +77,7 @@ public partial class MainWindow
                 var pixels=GlassMaterial.Compose(reduced,tw,th,w,h,m,corners.TopLeft,corners.BottomLeft,options,acrylic,dark,alpha,dpi*quality);
                 var image=BitmapSource.Create(w,h,96,96,PixelFormats.Bgra32,null,pixels,w*4);image.Freeze();return image;
             });
-            if(closing || generation!=materialGeneration || visibilityResult.PassThrough)return;
+            if(closing || generation!=materialGeneration || SizeTransitionActive || visibilityResult.PassThrough)return;
             materialBrush=new ImageBrush(result){Stretch=Stretch.Fill};materialBrush.Freeze();Shell.Background=materialBrush;
             MaterialStatus=acrylic ? "亚克力背景正常" : "液态玻璃背景正常";
         }
