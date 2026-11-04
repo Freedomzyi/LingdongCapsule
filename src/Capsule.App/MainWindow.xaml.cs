@@ -218,6 +218,7 @@ public partial class MainWindow : Window
     private void OnIslandClick(object sender, MouseButtonEventArgs e)
     {
         if(skipIslandRelease){skipIslandRelease=false;e.Handled=true;return;}
+        if(state.Notification==null && Within(e.OriginalSource,MediaPanel) && (!settings.ExpandedMediaControls || IsMediaExpanded || settings.ReturnToPlayer)){e.Handled=true;return;}
         if(settings.StandbyDoubleClick && state.Notification==null && (ReferenceEquals(e.OriginalSource,Shell) || ReferenceEquals(e.OriginalSource,ClockTime) || ReferenceEquals(e.OriginalSource,ClockDate))){islandClickDelay.Stop();islandClickDelay.Start();return;}
         HandleIslandClick();
     }
@@ -230,12 +231,28 @@ public partial class MainWindow : Window
             else if(settings.PrivatePreview || settings.ExpandNotifications){NoticeBodyScroll.ScrollToTop();state.Expand(DateTimeOffset.Now);}
             else if(AppActivation.Open(notice.SourceId))Dismiss();
         }
-        else if (state.Media.Available) controlsOpen = !controlsOpen;
+        else if (state.Media.Available) {if(settings.ExpandedMediaControls)controlsOpen = !controlsOpen;}
         else if(settings.OverviewEnabled)OpenOverview();
         else OpenSettings();
         Render();
     }
-    private void OnRightClick(object sender, MouseButtonEventArgs e) => OpenSettings();
+    private void OnRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled=true;
+        if(state.Notification==null && overviewOpen){overviewOpen=false;Render();return;}
+        var onMedia=Within(e.OriginalSource,MediaPanel);
+        if(state.Notification==null && onMedia && state.Media.Available && settings.ExpandedMediaControls && settings.ReturnToPlayer && !IsMediaExpanded)
+        {controlsOpen=true;Render();return;}
+        OpenSettings();
+        if(onMedia && state.Notification==null)settingsWindow?.SelectPage("媒体设置");
+        else if(Within(e.OriginalSource,Clock) || Within(e.OriginalSource,HardwarePanel))settingsWindow?.SelectPage("显示设置");
+    }
+    private static bool Within(object source,DependencyObject target)
+    {
+        for(var item=source as DependencyObject;item!=null;item=item is System.Windows.Media.Visual ? System.Windows.Media.VisualTreeHelper.GetParent(item) : LogicalTreeHelper.GetParent(item))
+            if(ReferenceEquals(item,target))return true;
+        return false;
+    }
     private async void OnControl(object sender, RoutedEventArgs e)
     {
         e.Handled = true;

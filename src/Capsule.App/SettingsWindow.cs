@@ -255,7 +255,7 @@ public sealed partial class SettingsWindow : Window
         Heading(panel,"媒体交互");
         var interaction=new StackPanel();
         AddCheck(interaction,"点击展开媒体控制",settings.ExpandedMediaControls,v=>settings.ExpandedMediaControls=v,"开启时点击展开完整控制；关闭时在紧凑岛体中显示内联播放按钮。");
-        AddCheck(interaction,"点击封面返回播放器",settings.ReturnToPlayer,v=>settings.ReturnToPlayer=v,"单击封面唤回当前媒体软件，歌词和时钟区域仍用于展开控制。");
+        AddCheck(interaction,"*点击封面返回播放器",settings.ReturnToPlayer,v=>settings.ReturnToPlayer=v,"开启时单击封面唤回播放器，右键媒体展开控制；关闭时单击媒体展开。暂停后的时钟仍可点击展开；需启用上方展开控制。");
         panel.Children.Add(Design.Card(interaction));
         Heading(panel,"自动隐藏与穿透");
         var hiding=new StackPanel();

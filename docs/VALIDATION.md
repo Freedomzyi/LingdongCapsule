@@ -358,3 +358,11 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 - 本机真实 TTF/TTC、含中文/空格/#/% 的临时路径、错误/缺失/远程输入、实际设置选择、重载、保存拒绝、取消、唯一恢复默认、重建实际岛体继承均通过。最终证据 artifacts/font-tests/2b0e87580ebd4563b133b06c46933d38；设置截图 artifacts/font-tests/e14da8a569404d8c8207135b2a713469/local-font-settings.png 已检查。
 - 额外实际 OTF 通过：Adobe 官方 https://raw.githubusercontent.com/adobe-fonts/source-sans/release/OTF/SourceSans3-Regular.otf ，SHA256 08DF266400933D3178D081A45F94A08814C3E55B4B7DD2E0FF69CB1329F13AB6；原 LICENSE.md 与字体仅留 artifacts/font-fixtures，不再分发。完整字体测试命令 --font-test --otf-file artifacts/font-fixtures/SourceSans3-Regular.otf。
 - 引导/设置同步定向回归通过：artifacts/font-settings-sync.log，settings-sync-tests/9b9783b413364ad59d3cb4231c65be18。字体专项已加入顺序整合脚本；物理文件选择器、Owner 选定字体的体验及完整 DPI 仍待验收。实现说明 docs/FONTS.md。
+
+## 字体整合与按来源路由点击
+
+- 6b496ba37c6a2b93311241260fde941bbded8c05 的二十二组顺序整合（含字体、真实自建通知）全部通过：artifacts/verification/20261103-235550-9933/results.json；GitHub Actions run 41742961883 成功。仍非正式交付。
+- 继续对照参照 NotchWindow.HandleIslandRightClick、Renderer.MediaExpandByRightClick/LeftClick、NativeRightClickTab，发现此前右键统一打开默认设置页，缺少媒体展开路由、区域直达与详情收起。
+- 已独立补齐 WPF 来源路由：封面跳转开启时右键媒体展开，关闭时左键媒体展开；展开态正文左键不误收起，右键直达媒体设置；关闭展开时清除隐藏展开状态。时钟/硬件右键直达显示设置，空闲详情右键收起。保留正式规范要求的暂停时钟点击展开。没有新增重复开关。
+- 实际 WPF 带来源路由事件专项通过：artifacts/input-routing-test.log。覆盖组合来源、设置恢复/不重复、两种左右键入口、展开/停用/恢复、暂停时钟及空闲详情；不使用物理输入，不控制真实播放器。邻近 Solo/统一组件顺序/展开恢复/断线回归 artifacts/input-solo-test.log 通过。专项已进入顺序整合。
+- 使用规则 docs/INTERACTION.md；待真实鼠标与 Owner 体验验收，不将路由事件冒充物理测试。
