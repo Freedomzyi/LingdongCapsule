@@ -2,6 +2,8 @@
 
 ## 2026-11-05 设置名称移除星号
 
+候选 bb42b8db4c84abfa89b421d89f2e53e583819f73，标签 v0.1.0-local-candidate.6，CI 42050154071 成功；干净 ZIP SHA256 94F97A4635B884C0132CE25310D326615957EFF718C8514C162B4A3595F9D453。解压启动 published-tests/45e915c71cb64476adf56c3be2c6d49e；实际发行 DLL 的内置组件、缩放、设置同步通过 unstar-package-host.json / unstar-packaged-ui-test.log。真实安装、升级、回退、卸载八项通过 installed-package-tests/a9fac34b92d74a17b943262c724dc716/result.json，日用配置和受保护进程未变。新版快照于北京时间 2026-11-05 23:00:17 启动，连续取证 soak/3109349877cc47569cf5c77fb613bf35；最初空闲约 45 秒、22 逻辑处理器归一化 CPU 均值约 0.044%，属于短测，不替代播放等场景或 24 小时稳定性。原版取证不拼接，新版尚未 Owner 体验验收或正式发布。
+
 按 Owner 最新要求，设置页、内置组件管理及排列列表统一移除名称前的星号，保留说明入口、还原按钮及原配置键。字体、插件、音频文件选择器的通配符保留。内置组件、缩放/还原、MSP 保存回滚与说明样式回归通过，证据 unstar-builtin-test.log、unstar-scale-test.log、unstar-settings-test.log。
 
 补充独立窗口生命周期诊断 --window-lifetime-test：冻结的 7cf3596 发行 DLL 在独立宿主内反复创建并关闭设置/赞赏窗 16 轮，弱引用存活窗口 0、配置写入 0；证据 window-lifetime-tests/5226aaa250754b78956fbec15d94dcdf/lifetime.json。私有内存仍由约 199 增至 242 MiB，此结果仅排除该夹具中的窗口强引用滞留，不证明日用进程无泄漏或达到内存目标。
