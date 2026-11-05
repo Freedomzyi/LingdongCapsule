@@ -2,6 +2,10 @@
 
 ## 2026-11-05 作者联系与赞赏入口
 
+候选提交 7cf35969edf047e5b0a6790e93a22fd8cf418720 已干净构建，候选标签 v0.1.0-local-candidate.5，对应 CI 42044479242 成功。ZIP SHA256 C4C11764217356C62CFD314C68EAE6988B88F146DBF60D93A6A1CA553E39A9AE；解压启动 published-tests/d43f0024357d4daeabe03479a8d2d003。实际发行 App/Core/API DLL 换入独立测试宿主后再次通过关于页/原图验证，见 about-package-host.json、about-packaged-ui-test.log、about-tests/4253b5c760a64a63aa44da9b0736c199。真实安装维护八项通过且日用配置、受保护旧进程未变，见 installed-package-tests/08a62efd5daa4a85becc516e0f288bc5/result.json。新快照已运行，原 ZIP 与 SHA 单独冻结；没有发布正式 Release，也未宣称混合稳定性通过。
+
+此前 191b317 实际运行约 23 小时 23 分，正常退出码 0、无未处理异常或写入错误，但仅覆盖空闲；小时资源数据保留于旧取证目录的 hourly-resource-review.json。约第 6 小时私有内存一次上升约 78 MiB，与配置成功保存时间接近，之后基本稳定，尚不能确证成因或据此证明无泄漏。为本次明确的关于页需求正常换包，保留旧记录，不拼接成同一候选 24 小时。
+
 按 Owner 明确提供的信息，在关于页加入联系邮箱 freedomzy@agent.qq.com、抖音号 Freedomzyi 和复制动作；赞赏入口打开随主题变化的圆角窗口，按比例完整显示原始微信收款码，注明金额随意。未推测抖音主页 URL，未增加付款确认、支付调用或订阅流程。
 
 资源 assets/support-wechat.jpg 为 Owner 提供的原始 JPG，SHA256 27D10CB217F44307325D7FF248633AAA1883D2866A99A24339BB1F539CD4C3EC；以资源内嵌，包内读取字节哈希与原图相同，解码尺寸 828×1124。关于页精确联系人值、真实按钮弹窗、深浅主题、短窗口关闭入口验证通过；证据 about-tests/d49d8c9a361147b6bce0ba45310ffe64、about-contact-test.log。实际渲染已检查；没有改写系统剪贴板、调用支付软件或进行支付。现有设置同步回归 about-settings-regression.log 通过。
