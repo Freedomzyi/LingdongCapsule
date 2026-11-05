@@ -46,10 +46,14 @@ public partial class MainWindow
     private Task<bool> SetRequestedVolumeAsync(double level)=>SoloSelected && solo.Snapshot() is {Connected:true,Volume:not null} ? solo.SetVolumeAsync(level) : Task.FromResult(audio.SetVolume(level));
     private async Task CommitSeekAsync()
     {
-        if(!seeking)return;
+        if(!seeking || closing)return;
         seeking=false;var expected=seekTrack;seekTrack=null;
-        if(state.Media.SameTrackAs(expected) && !await media.SeekAsync(SeekBar.Value,expectedTrack:expected))Design.PresentMessage("无法定位播放进度","播放器暂不支持此次定位，或当前曲目已经变化。");
-        await RefreshAsync();UpdateTimeline();
+        if(state.Media.SameTrackAs(expected))
+        {
+            var changed=await media.SeekAsync(SeekBar.Value,expectedTrack:expected);if(closing)return;
+            if(!changed)Design.PresentMessage("无法定位播放进度","播放器暂不支持此次定位，或当前曲目已经变化。");
+        }
+        await RefreshAsync();if(!closing)UpdateTimeline();
     }
     private void RenderMediaControls()
     {

@@ -100,7 +100,26 @@ internal static class InputRoutingTests
             Console.WriteLine("PASS actual WPF source-based right-click expansion/settings, single-window restore, left-click mode, paused clock and overview collapse; routed events, no physical input or real player control");
         }
         finally{window.Close();}
+        await PendingControlCloseAsync(app);
     }
-    private static IEnumerable<T> Descendants<T>(DependencyObject root) where T:DependencyObject
+    private static async Task PendingControlCloseAsync(Capsule.App.App app)
+    {
+        const string id="LingdongCapsule.Owned.close-control";using var publisher=await OwnedMediaPublisher.StartAsync(id);
+        var settings=new Settings{MediaEnabled=true,NotificationsEnabled=false,LyricsEnabled=false,OnlineCoversEnabled=false,ShowSpectrum=false,ManualMediaSource=id};
+        var main=new MainWindow(suppressOnboarding:true,initialSettings:settings,pluginSettingsWriter:()=>{}){ShowActivated=false};
+        var lateFeedback=false;var timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(20)};
+        timer.Tick+=(_,_)=>{foreach(var dialog in app.Windows.OfType<Window>().Where(item=>item.Title=="播放器未响应" || item.Title=="无法定位播放进度").ToArray()){lateFeedback=true;dialog.Close();}};
+        try
+        {
+            main.Show();for(var attempt=0;attempt<40 && main.LiveState.Media.Title!=publisher.Title;attempt++)await Task.Delay(100);
+            if(main.LiveState.Media.Title!=publisher.Title)throw new Exception("Owned media did not reach close-control fixture");
+            var play=(Button)main.FindName("Play");timer.Start();play.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if(play.IsEnabled)throw new Exception("Media control fixture did not enter pending state");
+            main.Close();await Task.Delay(650);
+            if(lateFeedback)throw new Exception("Closing island with native control pending opened late player failure dialog");
+            Console.WriteLine("PASS owned native media control pending at close returns without late feedback; no real player or master volume controlled");
+        }
+        finally{timer.Stop();if(main.IsVisible)main.Close();}
+    }    private static IEnumerable<T> Descendants<T>(DependencyObject root) where T:DependencyObject
     {for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T value)yield return value;foreach(var nested in Descendants<T>(child))yield return nested;}}
 }

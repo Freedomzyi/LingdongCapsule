@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -7,6 +8,11 @@ namespace Capsule.App;
 
 public sealed partial class SettingsWindow
 {
+    internal static string BuildVersion=>typeof(SettingsWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.1.0";
+    private static string DisplayVersion
+    {
+        get{var parts=BuildVersion.Split('+',2);return parts[0]+(parts.Length>1 ? " · "+parts[1][..Math.Min(7,parts[1].Length)] : "")+" · MIT";}
+    }
     internal const string ContactEmail="freedomzy@agent.qq.com";
     internal const string DouyinAccount="Freedomzyi";
 

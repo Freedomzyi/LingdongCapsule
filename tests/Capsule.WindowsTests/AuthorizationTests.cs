@@ -31,9 +31,27 @@ internal static class AuthorizationTests
         }
         finally{timer.Stop();app.DispatcherUnhandledException-=OnUnhandled;if(page.IsVisible)page.Close();}
         MessageLayout(app);
+        await DisabledFeedbackAsync();
         await PersistenceAsync();
     }
-    private static void MessageLayout(App app)
+    private static async Task DisabledFeedbackAsync()
+    {
+        var button=new Button{Content="Owned action",Width=150,Height=36};
+        var host=new Window{Content=button,Width=200,Height=100,ShowActivated=false,ShowInTaskbar=false};
+        try
+        {
+            host.Show();await Task.Delay(50);button.ApplyTemplate();
+            var surface=(FrameworkElement)button.Template.FindName("Surface",button);
+            surface.BeginAnimation(UIElement.OpacityProperty,new System.Windows.Media.Animation.DoubleAnimation(1,1,TimeSpan.FromMilliseconds(100)));
+            await Task.Delay(50);button.IsEnabled=false;await Task.Delay(100);
+            var effective=surface.Opacity*button.Opacity;
+            if(effective>.41)throw new Exception("Held hover/press opacity animation overrides disabled action feedback");
+            button.IsEnabled=true;await Task.Delay(30);
+            if(surface.Opacity*button.Opacity<.8)throw new Exception("Re-enabled action remained visually disabled");
+            Console.WriteLine("PASS disabled action remains visibly dimmed despite retained hover animation and recovers on re-enable");
+        }
+        finally{host.Close();}
+    }    private static void MessageLayout(App app)
     {
         foreach(var theme in new[]{0,1})
         {

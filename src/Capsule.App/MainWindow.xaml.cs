@@ -271,10 +271,10 @@ public partial class MainWindow : Window
     }
     private async void OnControl(object sender, RoutedEventArgs e)
     {
-        e.Handled = true;
+        e.Handled = true;if(closing)return;
         var button = (System.Windows.Controls.Button)sender; button.IsEnabled = false;
-        try { if (!await media.ControlAsync((string)button.Tag)) Design.PresentMessage("播放器未响应", "播放器暂未响应此操作，请稍后重试。"); await RefreshAsync(); }
-        finally { button.IsEnabled = true; }
+        try { var changed=await media.ControlAsync((string)button.Tag);if(closing)return;if(!changed)Design.PresentMessage("播放器未响应", "播放器暂未响应此操作，请稍后重试。");await RefreshAsync(); }
+        finally { if(!closing)button.IsEnabled = true; }
     }
     private void Dismiss() { state.Dismiss(); controlsOpen = false; overviewOpen=false; Render(); }
     internal void OpenOverview(){if(!settings.OverviewEnabled)return;WakeIsland();overviewOpen=true;controlsOpen=false;Render();_=overview.TickAsync();}

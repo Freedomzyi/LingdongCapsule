@@ -1,5 +1,13 @@
 # 验证记录
 
+## 异步媒体关闭与禁用按钮反馈
+
+专用静音 SMTC 发布器复现：播放/暂停控制处于原生请求等待期间关闭主岛体，异步结果仍弹出失败提示。pending-control-close-before.log 为失败证据。现控制和定位返回后先检查 closing，关闭后不再弹出提示或更新时间轴/按钮。原生请求等待中关闭的实际 WPF 路由验证通过 pending-control-close-after.log；既有原生媒体/定位/同名曲目与迟到结果回归通过 pending-control-media-regression.log。仅控制自建媒体，未操作真实播放器、播放列表或主音量。
+
+按钮悬停/按下动画保持 Surface.Opacity，优先级高于原来同一 Surface 上的禁用透明度 Setter，导致已禁用操作看起来仍正常。disabled-button-before.log 在实际样式控件复现；现禁用透明度作用于父按钮，与内部动画分离，禁用及重新启用视觉通过 disabled-button-after.log，同次授权/设置回滚等专项继续通过。
+
+关于页以实际程序集版本和短构建标识显示版本，完整值在说明中可查看，保留 MIT 标识；避免多个候选均显示同一固定开发版文案而无法识别具体构建。关于页/联系方式/赞赏原图及布局回归通过 build-identity-about-test.log，证据 about-tests/dfdb4703cade4c5292f80019392679bd。构建标识用于反馈定位，不表示候选已变成正式交付版。本批仍需合并固定包及实际使用验收。
+
 ## 设置页之外的保存失败与错误反馈审查
 
 天气城市入口原本先改内存选择再直接 save，异常会从点击事件向外传播，进入主程序全局错误退出路径；weather-city-save-repro.log 已在专用实际城市对话框复现。现保存失败恢复原城市、不切换天气服务或发起新请求，并保留原配置/天气；错误提示期间保持 DialogOpen，避免后台自动收回，finally 统一释放。成功重试与取消通过 save-boundaries-final-overview.log，所有网络和配置均使用专用处理器/文件，不更改日用城市或缓存。
