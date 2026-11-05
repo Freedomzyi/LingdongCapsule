@@ -11,7 +11,7 @@ internal sealed class OverviewView : Grid,IDisposable
     private readonly Settings settings;
     private readonly Action save;
     private readonly OverviewService sampler=new();
-    private readonly WeatherService weather=new();
+    private readonly WeatherService weather;
     private readonly TextBlock heading=Text(16),today=Text(12),tomorrow=Text(12,true),note=Text(8,true);
     private readonly TextBlock download=Text(11),upload=Text(11),network=Text(11),ram=Text(11),cpu=Text(11),battery=Text(11);
     private readonly StackPanel processes=new();
@@ -24,9 +24,9 @@ internal sealed class OverviewView : Grid,IDisposable
     internal bool DialogOpen{get;private set;}
     internal bool ContentFits=>Children[0] is FrameworkElement content && content.ActualHeight<=ActualHeight+0.5;
     internal string LayoutSizes=>$"available={ActualHeight:0.##}; content={((FrameworkElement)Children[0]).ActualHeight:0.##}";
-    public OverviewView(Settings settings,Action save)
+    public OverviewView(Settings settings,Action save,WeatherService? weatherService=null)
     {
-        this.settings=settings;this.save=save;
+        this.settings=settings;this.save=save;weather=weatherService ?? new();
         var root=new StackPanel();Children.Add(root);
         var weatherContent=new StackPanel();weatherContent.Children.Add(heading);weatherContent.Children.Add(today);weatherContent.Children.Add(tomorrow);weatherContent.Children.Add(note);
         var edit=new Button{Content=weatherContent,Background=Brushes.Transparent,HorizontalContentAlignment=HorizontalAlignment.Stretch,Padding=new Thickness(0,0,0,3),ToolTip="修改天气城市"};
@@ -55,10 +55,17 @@ internal sealed class OverviewView : Grid,IDisposable
     }
     internal void EditCity()
     {
-        string? selected;DialogOpen=true;
-        try{selected=CardDialog.Show("天气城市","输入城市名，保存后更新天气。","保存",settings.WeatherCity);}finally{DialogOpen=false;}
-        if(selected==null || selected==settings.WeatherCity)return;
-        settings.WeatherCity=selected;save();weather.SelectCity(selected);_=weather.RefreshIfDueAsync();
+        DialogOpen=true;
+        try
+        {
+            var selected=CardDialog.Show("天气城市","输入城市名，保存后更新天气。","保存",settings.WeatherCity);
+            if(selected==null || selected==settings.WeatherCity)return;
+            var previous=settings.WeatherCity;settings.WeatherCity=selected;
+            try{save();}
+            catch(Exception error){settings.WeatherCity=previous;Design.PresentMessage("天气城市未保存",error.Message);return;}
+            weather.SelectCity(selected);_=weather.RefreshIfDueAsync();
+        }
+        finally{DialogOpen=false;}
     }
     internal async Task TickAsync()
     {

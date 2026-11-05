@@ -40,10 +40,11 @@ internal static class Design
     }
     public static void PresentMessage(string title, string message)
     {
-        var window = new Window { Title = title, Width = 360, SizeToContent = SizeToContent.Height, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, AllowsTransparency = true, Background = Brushes.Transparent, WindowStartupLocation = WindowStartupLocation.CenterScreen, Topmost = true, FontFamily = new("Microsoft YaHei UI") };
+        var maxHeight=Math.Max(200,SystemParameters.WorkArea.Height-32);
+        var window = new Window { Title = title, Width = Math.Min(360,SystemParameters.WorkArea.Width-24), MaxHeight=maxHeight, ShowInTaskbar=false, SizeToContent = SizeToContent.Height, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, AllowsTransparency = true, Background = Brushes.Transparent, WindowStartupLocation = WindowStartupLocation.CenterScreen, Topmost = true, FontFamily = UserFont };
         var panel = new StackPanel { Margin = new(8) };
         var heading = new TextBlock { Text = title, FontSize = 17, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Center, Margin = new(0, 8, 0, 12) }; Bind(heading, TextBlock.ForegroundProperty, "TextPrimary"); panel.Children.Add(heading);
-        var body = new TextBlock { Text = message, FontSize = 13, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new(0, 0, 0, 20) }; Bind(body, TextBlock.ForegroundProperty, "TextSecondary"); panel.Children.Add(body);
+        var body = new TextBlock { Text = message, FontSize = 13, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new(0, 0, 0, 20) }; Bind(body, TextBlock.ForegroundProperty, "TextSecondary"); panel.Children.Add(new ScrollViewer{Content=body,MaxHeight=Math.Max(40,maxHeight-180),VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled});
         var button = new Button { Content = "知道了", Padding = new(14, 10, 14, 10), Background = new SolidColorBrush(Color.FromRgb(0, 122, 255)), Foreground = Brushes.White, IsDefault = true, IsCancel = true }; button.Click += (_, _) => window.Close(); panel.Children.Add(button);
         window.Content = Card(panel); window.ShowDialog();
     }

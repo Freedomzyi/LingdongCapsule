@@ -12,6 +12,7 @@ internal static class SettingsSyncTests
     {
         var root=Path.Combine(Environment.CurrentDirectory,"artifacts","settings-sync-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();app.ShutdownMode=ShutdownMode.OnExplicitShutdown;Design.ApplyTheme(0);
+        if(!auditOnly)await AuthorizationTests.RunAsync(app);
         var settings=new Settings{ThemeMode=0,MaterialKind=0,IslandShape=1};var path=Path.Combine(root,"settings.json");var startup=false;var readFails=false;var writes=0;using var shortcuts=new GlobalShortcuts(settings);
         void Save(){writes++;settings.SaveTo(path);}
         void Check(bool condition,string message){if(!condition)throw new Exception(message);}

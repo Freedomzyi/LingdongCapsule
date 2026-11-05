@@ -289,9 +289,16 @@ public partial class MainWindow : Window
             if (settingsWindow.WindowState == WindowState.Minimized) settingsWindow.WindowState = WindowState.Normal;
             settingsWindow.Show(); settingsWindow.Activate(); return;
         }
-        settingsWindow = new SettingsWindow(settings, async () => { var ok = await notifications.RequestAsync(); settings.NotificationsEnabled = ok; settings.Save(); return notifications.Status; }, SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin,InstallMarketPackage,DisplayComponents,MoveDisplayComponent,fontPreferenceWriter:()=>{settings.Save();ApplyUserFont();});
+        settingsWindow = new SettingsWindow(settings, () => AuthorizeNotificationsAsync(notifications.RequestAsync), SaveAndApplySettings, TestNotice, ConfigureStartup, ShowWelcome,()=>media.Sources,shortcuts,file=>LoadPlugin(file),()=>plugins.ActiveIds.ToArray(),DisablePlugin,UninstallPlugin,InstalledPlugins,RemoveInstalledPlugin,InstallMarketPackage,DisplayComponents,MoveDisplayComponent,fontPreferenceWriter:()=>{settings.Save();ApplyUserFont();});
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();
+    }
+    internal async Task<string> AuthorizeNotificationsAsync(Func<Task<bool>> request)
+    {
+        var allowed=await request();var previous=settings.NotificationsEnabled;
+        settings.NotificationsEnabled=allowed;
+        try{SaveAndApplySettings();}catch{settings.NotificationsEnabled=previous;throw;}
+        return notifications.Status;
     }
     private void SaveAndApplySettings()
         =>ApplySettings(true);

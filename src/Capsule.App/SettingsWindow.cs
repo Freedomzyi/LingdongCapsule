@@ -285,7 +285,7 @@ public sealed partial class SettingsWindow : Window
         Design.Bind(status, TextBlock.ForegroundProperty, "TextSecondary"); connection.Children.Add(status);
         var authorize = new Button { Content = "授权系统通知", Padding = new(12, 10, 12, 10), Margin = new(0, 12, 0, 8), Background = new SolidColorBrush(Color.FromRgb(0, 122, 255)), Foreground = Brushes.White };
         authorizeButton = authorize;
-        authorize.Click += async (_, _) => { authorize.IsEnabled = false; try { status.Text = await request(); } finally { authorize.IsEnabled = true; } };
+        authorize.Click += async (_, _) => { authorize.IsEnabled = false; try { status.Text = await request(); } catch(Exception error) { if(IsVisible)Design.PresentMessage("通知授权未完成",error.Message); } finally { authorize.IsEnabled = true; } };
         connection.Children.Add(authorize);
         var testButton = new Button { Content = "试一条通知", Padding = new(12, 10, 12, 10) }; testButton.Click += (_, _) => test(); connection.Children.Add(testButton);
         var guide = new Button { Content = "使用指南", Padding = new(12, 10, 12, 10), Margin = new(0, 8, 0, 0) }; guide.Click += (_, _) => welcome(); connection.Children.Add(guide);

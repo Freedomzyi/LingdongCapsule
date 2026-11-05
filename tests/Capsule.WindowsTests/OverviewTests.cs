@@ -80,7 +80,8 @@ internal static class OverviewTests
             if(weather.Data==null || weather.Cached)throw new Exception("Live weather request failed: "+weather.Status);
             Console.WriteLine("PASS Public weather service returned current and two daily forecasts");
         }
-        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();Design.ApplySystemTheme();
+        var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();app.ShutdownMode=System.Windows.ShutdownMode.OnExplicitShutdown;Design.ApplySystemTheme();
+        await CitySaveFailureAsync(app,output,run);
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:new Settings{NotificationsEnabled=false,MediaEnabled=false,ThemeMode=1});
         try
         {
@@ -96,4 +97,42 @@ internal static class OverviewTests
         }
         finally{window.Close();}
     }
-}
+    private static async Task CitySaveFailureAsync(Capsule.App.App app,string output,string run)
+    {
+        var settings=new Settings{WeatherCity="上海"};var file=Path.Combine(output,"city-settings-"+run+".json");settings.SaveTo(file);
+        var handler=new WeatherHandler();var weather=new WeatherService(new HttpClient(handler),Path.Combine(output,"city-cache-"+run+".json"));
+        weather.SelectCity(settings.WeatherCity);await weather.RefreshIfDueAsync();
+        var fail=true;var writes=0;var errorShown=false;var errorModalHeld=false;var timedOut=false;var cancel=false;
+        using var view=new OverviewView(settings,()=>{writes++;if(fail)throw new IOException("Owned weather save refusal");settings.SaveTo(file);},weather);
+        var host=new System.Windows.Window{Title="Owned city dialog fixture",Content=view,Width=300,Height=340,ShowActivated=false,ShowInTaskbar=false};
+        var timer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromMilliseconds(20)};var deadline=Stopwatch.StartNew();
+        timer.Tick+=(_,_)=>
+        {
+            foreach(var dialog in app.Windows.OfType<System.Windows.Window>().Where(item=>item!=host).ToArray())
+            {
+                if(deadline.Elapsed.TotalSeconds>4){timedOut=true;dialog.Close();continue;}
+                if(dialog.Title=="天气城市")
+                {
+                    if(cancel){dialog.Close();continue;}
+                    Descendants<System.Windows.Controls.TextBox>(dialog).Single().Text="北京";
+                    Descendants<System.Windows.Controls.Button>(dialog).Single(button=>Equals(button.Content,"保存")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                }
+                else if(dialog.Title=="天气城市未保存"){errorShown=true;errorModalHeld=view.DialogOpen;dialog.Close();}
+            }
+        };
+        try
+        {
+            host.Show();await Task.Delay(80);var before=handler.Calls;timer.Start();var escaped=false;
+            try{view.EditCity();}catch(IOException){escaped=true;}finally{timer.Stop();}
+            if(escaped || timedOut || !errorShown || !errorModalHeld || settings.WeatherCity!="上海" || Settings.LoadFrom(file).WeatherCity!="上海" || view.CurrentWeather?.City!="上海" || handler.Calls!=before || writes!=1 || view.DialogOpen)throw new Exception("Weather city save refusal escaped, lost original selection or started new weather request");
+            fail=false;deadline.Restart();timer.Start();try{view.EditCity();}finally{timer.Stop();}
+            for(var attempt=0;attempt<30 && view.CurrentWeather?.City!="北京";attempt++)await Task.Delay(30);
+            if(settings.WeatherCity!="北京" || Settings.LoadFrom(file).WeatherCity!="北京" || view.CurrentWeather?.City!="北京" || writes!=2 || view.DialogOpen)throw new Exception("Weather city save retry did not persist and refresh");
+            cancel=true;deadline.Restart();timer.Start();try{view.EditCity();}finally{timer.Stop();}
+            if(writes!=2 || view.DialogOpen)throw new Exception("Canceled city dialog saved or retained modal state");
+            Console.WriteLine("PASS real city dialog save refusal preserves preference/disk/weather, shows feedback without escaping; retry/cancel and modal state recover");
+        }
+        finally{timer.Stop();host.Close();}
+    }
+    private static IEnumerable<T> Descendants<T>(System.Windows.DependencyObject root) where T:System.Windows.DependencyObject
+    {for(var i=0;i<System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);i++){var child=System.Windows.Media.VisualTreeHelper.GetChild(root,i);if(child is T value)yield return value;foreach(var nested in Descendants<T>(child))yield return nested;}}}
