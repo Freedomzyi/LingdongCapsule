@@ -44,6 +44,10 @@ internal static class AnimationTests
                     return IntPtr.Zero;
                 }
                 var source=System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(window).Handle)!;source.AddHook(Observe);
+                var frameTimes=new List<double>();var frameWatch=Stopwatch.StartNew();
+                TimeSpan? lastRenderingTime=null;var duplicateFrames=0;
+                void Frame(object? sender,EventArgs args){if(args is System.Windows.Media.RenderingEventArgs frame){if(lastRenderingTime==frame.RenderingTime){duplicateFrames++;return;}lastRenderingTime=frame.RenderingTime;}frameTimes.Add(frameWatch.Elapsed.TotalMilliseconds);}
+                System.Windows.Media.CompositionTarget.Rendering+=Frame;
                 close();toWidth=(double)typeof(MainWindow).GetField("desiredWidth",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(window)!;observed=true;
                 var samples=0;var worst=0d;var deadline=Stopwatch.StartNew();
                 while(window.SizeTransitionActive && deadline.ElapsedMilliseconds<1000)
@@ -52,7 +56,10 @@ internal static class AnimationTests
                     if(double.IsFinite(x) && double.IsFinite(y)){worst=Math.Max(worst,Math.Abs(x-y));samples++;}
                     trace.Add(new{label,seconds=deadline.Elapsed.TotalSeconds,width=window.Width,height=window.Height,actualHeight=window.ActualHeight});
                 }
+                System.Windows.Media.CompositionTarget.Rendering-=Frame;
                 observed=false;source.RemoveHook(Observe);window.UpdateLayout();
+                var gaps=frameTimes.Zip(frameTimes.Skip(1),(a,b)=>b-a).Order().ToArray();
+                trace.Add(new{label,duplicateFrames,frameCount=frameTimes.Count,p95FrameGapMs=gaps.Length>0 ? gaps[(int)Math.Floor((gaps.Length-1)*.95)] : 0,maxFrameGapMs=gaps.Length>0 ? gaps[^1] : 0,framesOver33Ms=gaps.Count(gap=>gap>33.34),scope="UI composition callback intervals on own test window, not physical presentation or input latency"});
                 trace.Add(new{label,nativeSamples,worstNative,samples,worst});
                 if(window.SizeTransitionActive || Math.Abs(window.Height-settings.CompactHeight)>.01 || Math.Abs(window.ActualHeight-settings.CompactHeight)>.5 || samples<5 || worst>.08 || nativeSamples<5 || worstNative>.025)throw new Exception(label+" collapse stalled or width/height progress diverged: "+worst+"; native="+worstNative);
             }

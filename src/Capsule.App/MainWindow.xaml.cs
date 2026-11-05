@@ -166,15 +166,15 @@ public partial class MainWindow : Window
         var mode = state.Mode;
         overview.SetEnabled(settings.OverviewEnabled);if(!settings.OverviewEnabled)overviewOpen=false;
         var showOverview=overviewOpen && mode!=IslandMode.Notification;
-        var canSwitch=state.Media.Available && settings.OverviewEnabled && mode!=IslandMode.Notification && (controlsOpen || showOverview);
+        var showMedia = !showOverview && (mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available));
+        if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
+        var canSwitch=state.Media.Available && settings.OverviewEnabled && mode!=IslandMode.Notification && (showOverview || showMedia && controlsOpen);
         InformationSwitch.Visibility=canSwitch ? Visibility.Visible : Visibility.Collapsed;
         InformationSwitch.Content=showOverview ? "♫" : "▦";
         InformationSwitch.ToolTip=showOverview ? "返回媒体" : "系统信息";
         System.Windows.Automation.AutomationProperties.SetName(InformationSwitch,showOverview ? "返回媒体" : "查看系统信息");
         compactLayout.Margin=new Thickness(0,0,canSwitch && !showOverview && !IsMediaExpanded ? 30 : 0,0);
         OverviewHost.Margin=new Thickness(0,canSwitch && showOverview ? 30 : 0,0,0);
-        var showMedia = !showOverview && (mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available));
-        if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
         OverviewHost.Visibility=showOverview ? Visibility.Visible : Visibility.Collapsed;
         Clock.Visibility = mode == IslandMode.Clock && !showMedia && !showOverview ? Visibility.Visible : Visibility.Collapsed;
         var combined=settings.CompositeEnabled && showMedia && !IsMediaExpanded && !settings.StandbyActive && mode!=IslandMode.Notification;
@@ -229,10 +229,12 @@ public partial class MainWindow : Window
     private double widthFrom,heightFrom;
     private long widthStarted,heightStarted;
     private bool widthMoving,heightMoving,sizeTransitionActive;
+    private TimeSpan? lastSizeFrame;
     internal bool SizeTransitionActive=>sizeTransitionActive;
     private void OnSizeFrame(object? sender,EventArgs args)
     {
         if(closing){StopSizeTransition();return;}
+        if(args is System.Windows.Media.RenderingEventArgs frame){if(lastSizeFrame==frame.RenderingTime)return;lastSizeFrame=frame.RenderingTime;}
         double Step(double from,double target,long started,out bool moving)
         {
             var progress=Math.Clamp(System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds/settings.MotionMs,0,1);
@@ -246,7 +248,7 @@ public partial class MainWindow : Window
         if(!MonitorPlacement.ResizeAndCenter(new WindowInteropHelper(this).Handle,settings.MonitorId,top,width,height)){Width=width;Height=height;}
         if(!widthMoving && !heightMoving)StopSizeTransition();
     }
-    private void StopSizeTransition(){System.Windows.Media.CompositionTarget.Rendering-=OnSizeFrame;sizeTransitionActive=widthMoving=heightMoving=false;}
+    private void StopSizeTransition(){System.Windows.Media.CompositionTarget.Rendering-=OnSizeFrame;sizeTransitionActive=widthMoving=heightMoving=false;lastSizeFrame=null;}
     private int lastPresentation=-1;
     private void FadePresentation(int presentation)
     {

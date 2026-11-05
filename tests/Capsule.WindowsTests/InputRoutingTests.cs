@@ -90,6 +90,11 @@ internal static class InputRoutingTests
             if(information.Visibility!=Visibility.Collapsed)throw new Exception("Return to compact media left switch visible");
             settings.ExpandedMediaControls=false;settings.ReturnToPlayer=false;Refresh();MouseUp(media,false);
             if(information.Visibility!=Visibility.Visible || controls.Visibility==Visibility.Visible)throw new Exception("Click with inline controls did not reveal only information switch");
+            settings.StandbyActive=true;settings.StandbyScene=1;Refresh();
+            if(information.Visibility!=Visibility.Collapsed)throw new Exception("Standby clock leaked stale media information switch");
+            settings.StandbyScene=2;Refresh();
+            if(information.Visibility!=Visibility.Collapsed)throw new Exception("Blank standby leaked stale media information switch");
+            settings.StandbyActive=false;Refresh();
             settings.OverviewEnabled=false;Refresh();if(information.Visibility!=Visibility.Collapsed)throw new Exception("Information switch ignored disabled overview component");
             Console.WriteLine("PASS actual playing-media information switch, live-state preservation, return and component enable boundary; evidence: "+evidence);
             Console.WriteLine("PASS actual WPF source-based right-click expansion/settings, single-window restore, left-click mode, paused clock and overview collapse; routed events, no physical input or real player control");

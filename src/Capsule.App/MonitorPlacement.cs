@@ -30,6 +30,7 @@ internal static class MonitorPlacement
         var dpi=GetDpiForWindow(window);if(dpi==0)dpi=96;var work=screen.WorkingArea;
         var w=Math.Clamp((int)Math.Round(width*dpi/96),1,work.Width);var h=Math.Clamp((int)Math.Round(height*dpi/96),1,work.Height);
         var point=MonitorGeometry.Center(new(work.Left,work.Top,work.Width,work.Height),w,h,dpi,topDip);
+        if(GetWindowRect(window,out var current) && current.Left==point.X && current.Top==point.Y && current.Right-current.Left==w && current.Bottom-current.Top==h)return true;
         // Deliver width, height and anchor in one native frame, avoiding a tall/narrow
         // intermediate HWND between separate WPF Width/Height property updates.
         return SetWindowPos(window,IntPtr.Zero,point.X,point.Y,w,h,0x0004|0x0010);
