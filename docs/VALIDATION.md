@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05 固定宿主候选包复验与本机换包
+
+固定源码 7966eb9e2b86aed8f46f2987a90f2f9cac8364ba，候选 v0.1.0-local-candidate.8，CI 42057358337 成功。干净自包含 ZIP SHA256 AF6F4BF836CA1AC09055E45CCF6BE3A9EC725797AA2985BB9D876A784A0D95BC；App DLL SHA256 3B96A8D480A661949A7243BC5A7F7FA4AA8C2795835559B192C423C0DBCA9B5E。包解压启动 published-tests/26c712560c3e47008436c2ed7265887f；实际包 DLL 换入独立共享运行时宿主后的动画/动态缩放/输入回归通过 stable-host-package-host.json、stable-host-packaged-ui.log，未冒充无 SDK 测试。
+
+真实当前用户测试登记范围的安装/升级/回退/再安装/卸载八项通过 installed-package-tests/3a77ba76935249ec9742ea0abf5cf55a/result.json，日用设置和受保护旧进程未变。旧进程按路径/精确启动身份核对后正常更换；新快照 soak/3884f454dc484b0484b16be2bd822bb9 于北京时间 2026-11-05 23:46:46 启动，应用 PID 14112，监测 PID 10948。原 ZIP/SHA 和 candidate.json 冻结于新目录 release-package；profile-start-verification.json 核对新启动后日用设置哈希未变。旧时长不拼接；没有宣称 Owner 体验、真实播放资源、24 小时混合或正式 Release 已通过。
+
+启动器返回延迟的隔离复现：launcher-return-test/f1fb8554bc1d4159b0a9a9307ae50438/result-bypass.json 中，PS5 无输出重定向的后台子进程启动器约 0.4 秒返回；重定向后约 6.6 秒、等到专用 6 秒子进程结束。这与初步“主程序继承管道”的归因不同，现已修正归因，并移除 start-soak 对后台监测器的输出重定向，状态 JSON 仍由监测器自行写入。PS5 语法/身份/路径/脏源守卫通过 stable-host-soak-launcher-guards.log。此次仅改验证启动脚本，没有重启刚开始取证的候选，也未修改已冻结的运行包。当前旧式启动调用会随原监测器正常结束后返回，不为解除调用等待而结束日用程序。
+
 ## 2026-11-05 固定宿主的过渡渲染
 
 使用 Microsoft dotnet-trace 10.0.750501 对独立 WPF 动画夹具采集线程时间，未附加日用进程。原路径 OnSizeFrame → ResizeAndCenter → HwndTarget.OnResize → MediaContext.CompleteRender 进入同步等待；animation-baseline.nettrace / speedscope 采到该路径约 1594ms 等待总量。改为过渡期间固定原生宿主边界、居中动画内部 IslandSurface，结束时一次收紧宿主；尺寸与顶部锚点仍同时提交，宽高期限独立。相同夹具的 animation-stable-host.nettrace 采到约 49ms；见 animation-resize-wait-comparison.json。线程时间包含等待，不是 CPU 占用、实际帧率或通用性能提升比例。工具方法参考 https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-trace 。

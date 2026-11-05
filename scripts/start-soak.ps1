@@ -24,7 +24,7 @@ $run=[ordered]@{schemaVersion=1;runId=$id;pid=$child.Id;startedUtc=$child.StartT
 $run | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $root 'run.json') -Encoding UTF8
 for($i=0;$i -lt 50;$i++){Start-Sleep -Milliseconds 200;$child.Refresh();if($child.HasExited){throw ('App exited before readiness; retained run '+$root)};if(Test-Path -LiteralPath $diagnostics){break}}
 if(-not(Test-Path -LiteralPath $diagnostics)){throw ('Diagnostic readiness missing; app was left running for inspection: '+$root)}
-$watcher=Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $root 'watch-soak.ps1')+'"'),'-RunDirectory',('"'+$root+'"')) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root 'watcher.log') -RedirectStandardError (Join-Path $root 'watcher.err') -PassThru
+$watcher=Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $root 'watch-soak.ps1')+'"'),'-RunDirectory',('"'+$root+'"')) -WindowStyle Hidden -PassThru
 [pscustomobject]@{WatcherPid=$watcher.Id;StartedUtc=$watcher.StartTime.ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'watcher.json') -Encoding UTF8
 Write-Output ('Started actual fixed app; run evidence: '+$root)
 Write-Output ('App PID '+$child.Id+'; watcher PID '+$watcher.Id+'. This starts measurement, not acceptance.')
