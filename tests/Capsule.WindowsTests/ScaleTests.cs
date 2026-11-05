@@ -57,11 +57,11 @@ internal static class ScaleTests
                 Check(settings.VisualScale==.5 && !Control("减小视觉比例").IsEnabled && Settings.LoadFrom(path).VisualScale==.5,"Scale minimum/restore control lost correct state");
                 Control("增大视觉比例").BringIntoView();await Task.Delay(180);Capture(page,"settings-scale");
                 Control("还原视觉比例").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Check(settings.VisualScale==1,"Scale reset did not restore standard geometry");
-                Control("还原*全局上限／播放宽度").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Control("还原全局上限／播放宽度").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(settings.Width==195 && Settings.LoadFrom(path).Width==195,"Global width reset did not use canonical 195 or persist it");
                 var motion=Descendants<Slider>(page).Single(item=>item.Minimum==150 && item.Maximum==900);
                 Check(motion.TickFrequency==50,"Motion control does not follow the canonical 50ms step");
-                motion.Value=650;Control("还原*收放时长").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Check(settings.MotionMs==450,"Motion reset did not preserve canonical default");
+                motion.Value=650;Control("还原收放时长").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Check(settings.MotionMs==450,"Motion reset did not preserve canonical default");
                 void Tab(string text){Descendants<Button>(page).Single(item=>Equals(item.Content,text)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));page.UpdateLayout();}
                 Tab("通用设置");var icon=Descendants<Slider>(page).Single(item=>item.Minimum==18);Check(icon.Maximum==195,"Icon slider retained stale maximum after width reset");icon.Value=100;
                 Tab("个性化中心");Descendants<Slider>(page).Single(item=>item.Minimum==80 && item.Maximum==300).Value=80;

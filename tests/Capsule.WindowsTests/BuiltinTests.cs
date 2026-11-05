@@ -39,7 +39,7 @@ internal static class BuiltinTests
             Tab("显示设置").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(150);
             if(Descendants<CheckBox>(page).Any(check=>check.Tag is string tag && tag.StartsWith("builtin:")))throw new Exception("Duplicate built-in controls remain on display page");
             var manager=Descendants<Button>(page).Single(button=>button.Content as string=="管理时钟与空闲面板");manager.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(150);
-            if(Descendants<CheckBox>(page).Count(check=>check.Tag is string tag && tag.StartsWith("builtin:"))!=2 || window.DisplayComponents().Single(item=>item.Id=="clock").Name!="*居中时钟")throw new Exception("Manager navigation or custom component naming inconsistent");
+            if(Descendants<CheckBox>(page).Count(check=>check.Tag is string tag && tag.StartsWith("builtin:"))!=2 || window.DisplayComponents().Single(item=>item.Id=="clock").Name!="居中时钟")throw new Exception("Manager navigation or custom component naming inconsistent");
             Design.ApplyTheme(1);await Task.Delay(150);page.UpdateLayout();
             if(((SolidColorBrush)Tab("通用设置").Foreground).Color!=Color.FromRgb(29,29,31) || ((SolidColorBrush)Tab("我的插件").Background).Color!=Color.FromRgb(233,233,239))throw new Exception("Navigation retained dark brushes after live theme switch");
             var lightImage=new RenderTargetBitmap((int)Math.Ceiling(page.ActualWidth),(int)Math.Ceiling(page.ActualHeight),96,96,PixelFormats.Pbgra32);lightImage.Render(page);var lightPng=new PngBitmapEncoder();lightPng.Frames.Add(BitmapFrame.Create(lightImage));using(var output=File.Create(Path.Combine(root,"builtin-manager-light.png")))lightPng.Save(output);

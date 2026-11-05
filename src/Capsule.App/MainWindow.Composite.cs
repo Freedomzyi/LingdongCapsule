@@ -14,7 +14,7 @@ public partial class MainWindow
     private double compactNaturalWidth;
     internal IReadOnlyList<string> LiveModuleOrder=>compactLayout.Children.OfType<Border>().Where(host=>host.Visibility==Visibility.Visible).Select(host=>(string)host.Tag).ToArray();
     private IReadOnlyList<string> EffectiveModuleOrder()=>ComponentOrder.Effective(settings.ComponentOrder,plugins.ActiveIds,settings.HardwareFirst,settings.MediaFirst);
-    internal DisplayComponent[] DisplayComponents()=>EffectiveModuleOrder().Where(id=>id is "clock" or "hardware" or "media" || plugins.ActiveIds.Contains(id[7..])).Select(id=>new DisplayComponent(id,id switch{"clock"=>"*居中时钟","hardware"=>"硬件占用","media"=>"媒体",_=>plugins.Identity(id[7..]).DisplayName})).ToArray();
+    internal DisplayComponent[] DisplayComponents()=>EffectiveModuleOrder().Where(id=>id is "clock" or "hardware" or "media" || plugins.ActiveIds.Contains(id[7..])).Select(id=>new DisplayComponent(id,id switch{"clock"=>"居中时钟","hardware"=>"硬件占用","media"=>"媒体",_=>plugins.Identity(id[7..]).DisplayName})).ToArray();
     private void InitializeComposite()
     {
         var root=(Grid)Shell.Child;root.Children.Remove(Clock);root.Children.Remove(MediaPanel);Clock.Children.Remove(HardwarePanel);

@@ -1,5 +1,11 @@
 # 验证记录
 
+## 2026-11-05 设置名称移除星号
+
+按 Owner 最新要求，设置页、内置组件管理及排列列表统一移除名称前的星号，保留说明入口、还原按钮及原配置键。字体、插件、音频文件选择器的通配符保留。内置组件、缩放/还原、MSP 保存回滚与说明样式回归通过，证据 unstar-builtin-test.log、unstar-scale-test.log、unstar-settings-test.log。
+
+补充独立窗口生命周期诊断 --window-lifetime-test：冻结的 7cf3596 发行 DLL 在独立宿主内反复创建并关闭设置/赞赏窗 16 轮，弱引用存活窗口 0、配置写入 0；证据 window-lifetime-tests/5226aaa250754b78956fbec15d94dcdf/lifetime.json。私有内存仍由约 199 增至 242 MiB，此结果仅排除该夹具中的窗口强引用滞留，不证明日用进程无泄漏或达到内存目标。
+
 ## 2026-11-05 作者联系与赞赏入口
 
 候选提交 7cf35969edf047e5b0a6790e93a22fd8cf418720 已干净构建，候选标签 v0.1.0-local-candidate.5，对应 CI 42044479242 成功。ZIP SHA256 C4C11764217356C62CFD314C68EAE6988B88F146DBF60D93A6A1CA553E39A9AE；解压启动 published-tests/d43f0024357d4daeabe03479a8d2d003。实际发行 App/Core/API DLL 换入独立测试宿主后再次通过关于页/原图验证，见 about-package-host.json、about-packaged-ui-test.log、about-tests/4253b5c760a64a63aa44da9b0736c199。真实安装维护八项通过且日用配置、受保护旧进程未变，见 installed-package-tests/08a62efd5daa4a85becc516e0f288bc5/result.json。新快照已运行，原 ZIP 与 SHA 单独冻结；没有发布正式 Release，也未宣称混合稳定性通过。
