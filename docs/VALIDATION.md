@@ -1,5 +1,11 @@
 # 验证记录
 
+## 候选 d1c2349 换包与真实 QQ 暂停会话核对
+
+工程复审、当前固定包和未完成门槛汇总于 DELIVERY_REVIEW.md。 Owner 随后明确回复按钮与收放体验无异常，仅闭环该范围，原始范围记录在当前取证 owner-ui-feedback.json，不等于整体交付。本批 26 套整合全部通过，实际包七类界面/状态回归通过；真实维护八项通过且日用设置未变。候选 v0.1.0-local-candidate.9、CI 42064952420 成功；ZIP SHA256 D834F95C838888892621A21D2A81144973B1CD324988A643844D2EB15730A466，已于北京时间 2026-11-06 00:40:20 从独立快照运行，原 ZIP/SHA 与来源信息已冻结。持续目录 soak/55f16d3ac1404a7aa476aa2821cc2eb5，首次自包含启动 published-tests/e7e26e6923a74875a1047eba965ea467；维护 installed-package-tests/e2375eb4ef3a4e5faa0a8ba4b7a5ff25/result.json。旧时长不拼接。
+
+新增显式 --media-readonly-check，保留原先会操作播放器的 --render-media 为另一种需明确选择的场景，不隐式播放真实媒体。当前发行 App/Core/API DLL 覆盖进独立宿主，App DLL 哈希 6F82A748E57E2CA03F060B78DAA9FBE13C889CC49F3A6259D90DA22765D9C8DD 已核对。真实 QQ 音乐会话读取元数据、原生时长与已冻结封面，并按实际元数据取得 47 行逐字歌词，时间标签未超出已知时长容差；前后同曲且均暂停。本机 QQMusic.exe ProductVersion 为 22.76。证据 live-readonly-package-host.json、live-media-readonly-candidate9/result.json；结果仅布尔值/来源/数量等，不保存歌名、歌手、歌词正文和图片字节。未发送播放、暂停、切歌、定位或音量指令，未改配置。该证据不是播放中的同步、物理交互、更多曲库或 24 小时验收。
+
 ## 异步媒体关闭与禁用按钮反馈
 
 专用静音 SMTC 发布器复现：播放/暂停控制处于原生请求等待期间关闭主岛体，异步结果仍弹出失败提示。pending-control-close-before.log 为失败证据。现控制和定位返回后先检查 closing，关闭后不再弹出提示或更新时间轴/按钮。原生请求等待中关闭的实际 WPF 路由验证通过 pending-control-close-after.log；既有原生媒体/定位/同名曲目与迟到结果回归通过 pending-control-media-regression.log。仅控制自建媒体，未操作真实播放器、播放列表或主音量。

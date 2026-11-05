@@ -20,6 +20,7 @@ internal static class Program
     }
     private static async Task RunAsync(string[] args)
     {
+        if(args.Contains("--media-readonly-check")){await LiveMediaChecks.RunAsync(args);return;}
         if(args.Contains("--native-toast-test")){await NativeToastTests.RunAsync();return;}
         if(args.Contains("--about-test")){await AboutTests.RunAsync();return;}
         if(args.Contains("--window-lifetime-test")){await WindowLifetimeTests.RunAsync();return;}
