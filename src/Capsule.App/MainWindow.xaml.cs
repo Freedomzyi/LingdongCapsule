@@ -67,7 +67,7 @@ public partial class MainWindow : Window
         InitializePlugins(initialSettings==null);
         MouseEnter+=(_,_)=>panelCollapse.Stop();
         MouseLeave+=(_,_)=>{if(overviewOpen || controlsOpen){panelCollapse.Interval=TimeSpan.FromMilliseconds(overviewOpen ? 900 : 3000);panelCollapse.Start();}};
-        panelCollapse.Tick+=(_,_)=>{if(overview.DialogOpen || seeking)return;panelCollapse.Stop();if(!IsMouseOver){overviewOpen=false;controlsOpen=false;Render();}};
+        panelCollapse.Tick+=(_,_)=>{if(overview.DialogOpen || seeking)return;panelCollapse.Stop();if(!PointerOverIsland()){overviewOpen=false;controlsOpen=false;Render();}};
         LiveLyrics.FrameProvider=CurrentLyricFrame;
         InitializeMediaControls();
         InitializeCovers();
@@ -112,6 +112,7 @@ public partial class MainWindow : Window
     {
         StopSizeTransition();
         BeginAnimation(WidthProperty, null); BeginAnimation(HeightProperty, null);
+        SetSurfaceSize(desiredWidth,desiredHeight);
         Width = desiredWidth; Height = desiredHeight;
         BeginAnimation(LeftProperty, null);
         CenterOnMonitor();
@@ -216,40 +217,6 @@ public partial class MainWindow : Window
         ApplyIslandTheme();
         UpdateMaterial();
     }
-    private void Animate(double width, double height)
-    {
-        var changeWidth=desiredWidth!=width;var changeHeight=desiredHeight!=height;
-        if(!changeWidth && !changeHeight)return;
-        desiredWidth = width; desiredHeight = height;
-        var now=System.Diagnostics.Stopwatch.GetTimestamp();
-        if(changeWidth){widthFrom=Width;widthStarted=now;widthMoving=true;}
-        if(changeHeight){heightFrom=Height;heightStarted=now;heightMoving=true;}
-        if(!sizeTransitionActive){resizeTarget=MonitorPlacement.CaptureResizeTarget(new WindowInteropHelper(this).Handle,settings.MonitorId);sizeTransitionActive=true;System.Windows.Media.CompositionTarget.Rendering+=OnSizeFrame;}
-    }
-    private double widthFrom,heightFrom;
-    private long widthStarted,heightStarted;
-    private bool widthMoving,heightMoving,sizeTransitionActive;
-    private TimeSpan? lastSizeFrame;
-    private MonitorPlacement.ResizeTarget? resizeTarget;
-    internal bool SizeTransitionActive=>sizeTransitionActive;
-    private void OnSizeFrame(object? sender,EventArgs args)
-    {
-        if(closing){StopSizeTransition();return;}
-        if(args is System.Windows.Media.RenderingEventArgs frame){if(lastSizeFrame==frame.RenderingTime)return;lastSizeFrame=frame.RenderingTime;}
-        double Step(double from,double target,long started,out bool moving)
-        {
-            var progress=Math.Clamp(System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds/settings.MotionMs,0,1);
-            moving=progress<1;return from+(target-from)*(1-Math.Pow(1-progress,3));
-        }
-        // One composition callback commits both dimensions before layout. Width-only
-        // updates retain the height deadline, and no permanent render loop is kept.
-        var width=widthMoving ? Step(widthFrom,desiredWidth,widthStarted,out widthMoving) : Width;
-        var height=heightMoving ? Step(heightFrom,desiredHeight,heightStarted,out heightMoving) : Height;
-        var top=Environment.GetCommandLineArgs().Any(arg=>arg is "--inspect" or "--render-media") ? 80 : settings.IslandShape==0 ? 0 : 8*ActiveVisualScale;
-        if(!MonitorPlacement.ResizeAndCenter(new WindowInteropHelper(this).Handle,resizeTarget,top,width,height)){Width=width;Height=height;}
-        if(!widthMoving && !heightMoving)StopSizeTransition();
-    }
-    private void StopSizeTransition(){System.Windows.Media.CompositionTarget.Rendering-=OnSizeFrame;sizeTransitionActive=widthMoving=heightMoving=false;lastSizeFrame=null;resizeTarget=null;}
     private int lastPresentation=-1;
     private void FadePresentation(int presentation)
     {

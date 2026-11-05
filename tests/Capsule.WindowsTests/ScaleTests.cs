@@ -45,6 +45,15 @@ internal static class ScaleTests
             var primary=System.Windows.Forms.Screen.PrimaryScreen!;
             Check(GetWindowRect(handle,out var bounds) && bounds.Left>=primary.WorkingArea.Left && bounds.Top>=primary.WorkingArea.Top && bounds.Right<=primary.WorkingArea.Right && bounds.Bottom<=primary.WorkingArea.Bottom && settings.VisualScale==100 && island.ActiveVisualScale<100,"Huge scale escaped screen or overwrote preferred ratio");Capture(island,"overview-screen-fit");
             settings.VisualScale=1;island.SetIslandHidden(true);island.SetIslandHidden(false);Render();await Task.Delay(550);
+            await Task.Delay(600);settings.VisualScale=.5;Render();
+            var surface=(FrameworkElement)island.FindName("IslandSurface");
+            for(var step=0;step<8;step++)
+            {
+                await Task.Delay(30);island.UpdateLayout();
+                var visible=surface.TransformToAncestor(island).TransformBounds(new Rect(surface.RenderSize));
+                Check(Math.Abs(visible.Width-island.PresentedWidth)<2 && Math.Abs(visible.Height-island.PresentedHeight)<2,"Animated visual ratio distorted stable-host surface dimensions");
+            }
+            settings.VisualScale=1;Render();await Task.Delay(600);
             using var shortcuts=new GlobalShortcuts(settings);
             var page=new SettingsWindow(settings,()=>Task.FromResult("Owned test"),()=>{settings.SaveTo(path);Render();},()=>{},_=>{},()=>{},()=>new Dictionary<string,string>(),shortcuts,_=>{},()=>[],_=>{},_=>{},()=>[],_=>{},(_,_)=>false,()=>[],(_,_)=>{}){ShowActivated=false};
             try

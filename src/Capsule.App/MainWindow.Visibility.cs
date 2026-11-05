@@ -32,7 +32,7 @@ public partial class MainWindow
     private bool PointerOverIsland()
     {
         if(!GetCursorPos(out var cursor) || !IsLoaded)return false;
-        try{var point=PointFromScreen(new Point(cursor.X,cursor.Y));return point.X>=0 && point.Y>=0 && point.X<ActualWidth && point.Y<ActualHeight;}
+        try{var point=PointFromScreen(new Point(cursor.X,cursor.Y));return point.X>=(ActualWidth-PresentedWidth)/2 && point.Y>=0 && point.X<(ActualWidth+PresentedWidth)/2 && point.Y<PresentedHeight;}
         catch(InvalidOperationException){return false;}
     }
     private void UpdateIslandVisibility()
@@ -71,8 +71,9 @@ public partial class MainWindow
     internal void WakeIsland(){manuallyHidden=false;awake=true;UpdateIslandVisibility();}
     private bool PassThroughHit(IntPtr coordinates)
     {
-        if(closing || !IsLoaded || !visibilityResult.PassThrough)return false;
+        if(closing || !IsLoaded)return false;
         var packed=coordinates.ToInt64();var local=PointFromScreen(new Point((short)(packed&0xffff),(short)((packed>>16)&0xffff)));
+        if(!visibilityResult.PassThrough)return SizeTransitionActive && (local.X<(ActualWidth-PresentedWidth)/2 || local.X>(ActualWidth+PresentedWidth)/2 || local.Y<0 || local.Y>PresentedHeight);
         if(WakeButton.Visibility==Visibility.Visible)
         {
             var hit=WakeButton.TransformToAncestor(this).TransformBounds(new Rect(new Point(),new Size(WakeButton.ActualWidth,WakeButton.ActualHeight)));

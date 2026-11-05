@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05 固定宿主的过渡渲染
+
+使用 Microsoft dotnet-trace 10.0.750501 对独立 WPF 动画夹具采集线程时间，未附加日用进程。原路径 OnSizeFrame → ResizeAndCenter → HwndTarget.OnResize → MediaContext.CompleteRender 进入同步等待；animation-baseline.nettrace / speedscope 采到该路径约 1594ms 等待总量。改为过渡期间固定原生宿主边界、居中动画内部 IslandSurface，结束时一次收紧宿主；尺寸与顶部锚点仍同时提交，宽高期限独立。相同夹具的 animation-stable-host.nettrace 采到约 49ms；见 animation-resize-wait-comparison.json。线程时间包含等待，不是 CPU 占用、实际帧率或通用性能提升比例。工具方法参考 https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-trace 。
+
+实际可见表面与原生宿主分开验证：可见宽高协调、原生收回只有一次尺寸改变、顶部居中、透明余量返回 HTTRANSPARENT、可见区接收原生命中、中途反向从当前可见尺寸接续、结束后宿主与表面重合。截图 collapse-centered-surface.png 已检查，保持原字号而非拉伸文字；证据 animation-tests/aec5a42fe2df4b01a1c4d251f736e129。
+
+整合 26 套通过 verification/20261105-153526-6301/results.json，含实际原生通知头像链；此前定向材质、内置组件、通知、缩放和输入通过 stable-host-* 日志。随后修正动态视觉比例：按实际动画中的 ScaleX 计算内部尺寸，不按最终比例提前除算，避免更改比例时表面二次缩放；新增动态比例与表面真实布局边界断言，scale-tests/bbc710f66c2843f28b4bc9f6c1ad90c7 和 animation-tests/1d9765afda224de494543e632594fac7 定向通过。不将前一次整合说成在这项最终比例修正后重跑。工程证据仍不替代物理呈现、真实播放负载与 Owner 对流畅的体验确认，尚未发布正式版。
+
 ## 2026-11-05 完整产品复审与当前未通过项
 
 动画继续修正：每次过渡开始只读取一次目标工作区/DPI；原生尺寸提交本身已居中，SizeChanged 不再重复查询显示器和居中。面板淡入显式先清掉旧动画、把初始透明度设为 0，再立即淡入，移除延迟；原实现仅移除 BeginTime 仍会在第一时钟 tick 前显示基础透明度 1，新增断言确实失败，补初始值后通过。断言同时检查淡入结束恢复不透明。最终证据 animation-fade-final.log / animation-tests/43c668b278034c869b2a169dec260b66；缩放、输入回归 animation-scale-regression.log、animation-input-regression.log 通过。当前最终独立窗信息面板 p95 约 36.9ms、最大 42.8ms；展开媒体 p95 约 28.2ms、最大 44.2ms。不同短测有波动，不能据此宣称流畅已通过或稳定改善某个百分比。须继续处理原生逐帧缩放/布局绘制成本；本机旧日用候选继续运行，未将未完成工作反复换包。
