@@ -73,7 +73,7 @@ public partial class MainWindow : Window
         InitializeCovers();
         media.Changed+=OnNativeMediaChanged;Closed+=(_,_)=>media.Changed-=OnNativeMediaChanged;
         InitializeNotifications();
-        SizeChanged+=(_,_)=>CenterOnMonitor();
+        SizeChanged+=(_,_)=>{if(!SizeTransitionActive)CenterOnMonitor();};
         desiredHeight = settings.CompactHeight; Height = desiredHeight;
         if (Environment.GetCommandLineArgs().Contains("--inspect")) ShowInTaskbar = true;
         SourceInitialized += (_, _) => { var h = new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(h)?.AddHook(WindowHook);shortcuts.Attach(h); ApplyCapture(); };
@@ -224,12 +224,13 @@ public partial class MainWindow : Window
         var now=System.Diagnostics.Stopwatch.GetTimestamp();
         if(changeWidth){widthFrom=Width;widthStarted=now;widthMoving=true;}
         if(changeHeight){heightFrom=Height;heightStarted=now;heightMoving=true;}
-        if(!sizeTransitionActive){sizeTransitionActive=true;System.Windows.Media.CompositionTarget.Rendering+=OnSizeFrame;}
+        if(!sizeTransitionActive){resizeTarget=MonitorPlacement.CaptureResizeTarget(new WindowInteropHelper(this).Handle,settings.MonitorId);sizeTransitionActive=true;System.Windows.Media.CompositionTarget.Rendering+=OnSizeFrame;}
     }
     private double widthFrom,heightFrom;
     private long widthStarted,heightStarted;
     private bool widthMoving,heightMoving,sizeTransitionActive;
     private TimeSpan? lastSizeFrame;
+    private MonitorPlacement.ResizeTarget? resizeTarget;
     internal bool SizeTransitionActive=>sizeTransitionActive;
     private void OnSizeFrame(object? sender,EventArgs args)
     {
@@ -245,17 +246,18 @@ public partial class MainWindow : Window
         var width=widthMoving ? Step(widthFrom,desiredWidth,widthStarted,out widthMoving) : Width;
         var height=heightMoving ? Step(heightFrom,desiredHeight,heightStarted,out heightMoving) : Height;
         var top=Environment.GetCommandLineArgs().Any(arg=>arg is "--inspect" or "--render-media") ? 80 : settings.IslandShape==0 ? 0 : 8*ActiveVisualScale;
-        if(!MonitorPlacement.ResizeAndCenter(new WindowInteropHelper(this).Handle,settings.MonitorId,top,width,height)){Width=width;Height=height;}
+        if(!MonitorPlacement.ResizeAndCenter(new WindowInteropHelper(this).Handle,resizeTarget,top,width,height)){Width=width;Height=height;}
         if(!widthMoving && !heightMoving)StopSizeTransition();
     }
-    private void StopSizeTransition(){System.Windows.Media.CompositionTarget.Rendering-=OnSizeFrame;sizeTransitionActive=widthMoving=heightMoving=false;lastSizeFrame=null;}
+    private void StopSizeTransition(){System.Windows.Media.CompositionTarget.Rendering-=OnSizeFrame;sizeTransitionActive=widthMoving=heightMoving=false;lastSizeFrame=null;resizeTarget=null;}
     private int lastPresentation=-1;
     private void FadePresentation(int presentation)
     {
         if(lastPresentation==presentation)return;
         var first=lastPresentation<0;lastPresentation=presentation;if(first)return;
         FrameworkElement incoming=presentation==1 ? OverviewHost : presentation==2 ? NoticePanel : compactLayout;
-        incoming.BeginAnimation(OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(Math.Min(200,settings.MotionMs*.55))){BeginTime=TimeSpan.FromMilliseconds(settings.MotionMs*.2),EasingFunction=new CubicEase{EasingMode=EasingMode.EaseOut}});
+        incoming.BeginAnimation(OpacityProperty,null);incoming.Opacity=0;
+        incoming.BeginAnimation(OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(Math.Min(200,settings.MotionMs*.55))){EasingFunction=new CubicEase{EasingMode=EasingMode.EaseOut}});
     }
     private void OnInformationSwitch(object sender,RoutedEventArgs args)
     {

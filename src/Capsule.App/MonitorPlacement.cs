@@ -24,10 +24,16 @@ internal static class MonitorPlacement
         var work=screen.WorkingArea;var point=MonitorGeometry.Center(new(work.Left,work.Top,work.Width,work.Height),rect.Right-rect.Left,rect.Bottom-rect.Top,dpi,topDip);
         if(rect.Left!=point.X || rect.Top!=point.Y)SetWindowPos(window,IntPtr.Zero,point.X,point.Y,0,0,0x0001|0x0004|0x0010);
     }
-    internal static bool ResizeAndCenter(IntPtr window,string selected,double topDip,double width,double height)
+    internal readonly record struct ResizeTarget(System.Drawing.Rectangle WorkArea,uint Dpi);
+    internal static ResizeTarget? CaptureResizeTarget(IntPtr window,string selected)
     {
-        if(window==IntPtr.Zero)return false;var screen=Target(selected);if(screen==null)return false;
-        var dpi=GetDpiForWindow(window);if(dpi==0)dpi=96;var work=screen.WorkingArea;
+        if(window==IntPtr.Zero)return null;var screen=Target(selected);if(screen==null)return null;
+        var dpi=GetDpiForWindow(window);return new(screen.WorkingArea,dpi==0 ? 96 : dpi);
+    }
+    internal static bool ResizeAndCenter(IntPtr window,ResizeTarget? target,double topDip,double width,double height)
+    {
+        if(window==IntPtr.Zero || target is not {} captured)return false;
+        var dpi=captured.Dpi;var work=captured.WorkArea;
         var w=Math.Clamp((int)Math.Round(width*dpi/96),1,work.Width);var h=Math.Clamp((int)Math.Round(height*dpi/96),1,work.Height);
         var point=MonitorGeometry.Center(new(work.Left,work.Top,work.Width,work.Height),w,h,dpi,topDip);
         if(GetWindowRect(window,out var current) && current.Left==point.X && current.Top==point.Y && current.Right-current.Left==w && current.Bottom-current.Top==h)return true;
