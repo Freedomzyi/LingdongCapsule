@@ -312,6 +312,7 @@ public sealed partial class SettingsWindow : Window
         };
         about.Children.Add(update);about.Children.Add(updateStatus);about.Children.Add(download);
         panel.Children.Add(Design.Card(about));
+        AddAuthorSection(panel);
         var footer = new TextBlock { Text = "0.1.0 开发版  ·  源码 MIT", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new(0, 6, 0, 0) }; Design.Bind(footer, TextBlock.ForegroundProperty, "TextSecondary"); panel.Children.Add(footer);
         Loaded += (_, _) => BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
         Activated+=(_,_)=>RefreshPreferences();

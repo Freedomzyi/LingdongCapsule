@@ -1,5 +1,11 @@
 # 验证记录
 
+## 2026-11-05 作者联系与赞赏入口
+
+按 Owner 明确提供的信息，在关于页加入联系邮箱 freedomzy@agent.qq.com、抖音号 Freedomzyi 和复制动作；赞赏入口打开随主题变化的圆角窗口，按比例完整显示原始微信收款码，注明金额随意。未推测抖音主页 URL，未增加付款确认、支付调用或订阅流程。
+
+资源 assets/support-wechat.jpg 为 Owner 提供的原始 JPG，SHA256 27D10CB217F44307325D7FF248633AAA1883D2866A99A24339BB1F539CD4C3EC；以资源内嵌，包内读取字节哈希与原图相同，解码尺寸 828×1124。关于页精确联系人值、真实按钮弹窗、深浅主题、短窗口关闭入口验证通过；证据 about-tests/d49d8c9a361147b6bce0ba45310ffe64、about-contact-test.log。实际渲染已检查；没有改写系统剪贴板、调用支付软件或进行支付。现有设置同步回归 about-settings-regression.log 通过。
+
 ## 2026-11-04 Owner 本机反馈修正
 
 修正候选 191b3179a2cbc9df72939e3ac14573d3adc19ae9 已干净构建，公开标签 v0.1.0-local-candidate.4，对应 CI 41853786821 成功。ZIP SHA256 2E034CD8B53E6278046920ADB029C9CC39390AD370269DAE995E1285672EEA99；PS5 解压启动证据 published-tests/bc1e4ab9a2bb4f2d843d8e4689ac60e4，真实安装/升级/回退/卸载证据 installed-package-tests/16528514b0954c6d82e9b87d6d996110/result.json，日用配置哈希未变。已从独立快照启动供复测，并冻结原 ZIP 与校验和；尚未完成本轮 Owner 体验及 24 小时验收，不是正式 Release。

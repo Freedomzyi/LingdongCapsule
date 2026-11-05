@@ -21,6 +21,7 @@ internal static class Program
     private static async Task RunAsync(string[] args)
     {
         if(args.Contains("--native-toast-test")){await NativeToastTests.RunAsync();return;}
+        if(args.Contains("--about-test")){await AboutTests.RunAsync();return;}
         if(args.Contains("--font-test")){await FontTests.RunAsync(args);return;}
         if(args.Contains("--input-routing-test")){await InputRoutingTests.RunAsync();return;}
         if(args.Contains("--diagnostics-test")){await DiagnosticsTests.RunAsync();return;}

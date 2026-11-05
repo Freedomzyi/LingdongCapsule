@@ -1,2 +1,3 @@
 # Preserve redistributed upstream license and package metadata bytes.
 licenses/** -text
+assets/support-wechat.jpg -text

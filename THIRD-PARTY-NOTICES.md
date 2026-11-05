@@ -1,5 +1,7 @@
 # 来源和依赖
 
+`assets/support-wechat.jpg` 为作者提供的收款码原图，用于“关于软件”的自愿赞赏展示，原始字节保留。该资料的分发不授予其中第三方标识的额外使用权。
+
 本项目源码适用根目录 MIT 许可；二进制发行包内的运行时和依赖分别适用自己的许可，不将全部 Windows 原生组件笼统称为 MIT。发行包的 `licenses/` 提供许可正文、原始 NuGet 元数据、适用范围及文件哈希，详见 [许可来源](licenses/SOURCES.md)。
 
 ModelSensingProtocol 0.1.0-alpha.1：MSP 协议 SDK，MIT 许可。来源 https://github.com/ModelSensingProtocol/msp-dotnet ，NuGet 包声明源码提交 c1055f5edab6da32f6b2539c10b6c3adcc24a211。通过包引用用于后续独立适配，未复制 NotchPeninsula 的 MSP 桥接实现。默认不启动 MSP 节点；用户启用后使用本机共享目录发现与协议通信，主动事件广播另有默认关闭的独立开关。
