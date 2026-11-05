@@ -166,13 +166,13 @@ public partial class MainWindow : Window
         var mode = state.Mode;
         overview.SetEnabled(settings.OverviewEnabled);if(!settings.OverviewEnabled)overviewOpen=false;
         var showOverview=overviewOpen && mode!=IslandMode.Notification;
-        var canSwitch=state.Media.Available && settings.OverviewEnabled && mode!=IslandMode.Notification;
+        var canSwitch=state.Media.Available && settings.OverviewEnabled && mode!=IslandMode.Notification && (controlsOpen || showOverview);
         InformationSwitch.Visibility=canSwitch ? Visibility.Visible : Visibility.Collapsed;
         InformationSwitch.Content=showOverview ? "♫" : "▦";
         InformationSwitch.ToolTip=showOverview ? "返回媒体" : "系统信息";
         System.Windows.Automation.AutomationProperties.SetName(InformationSwitch,showOverview ? "返回媒体" : "查看系统信息");
         compactLayout.Margin=new Thickness(0,0,canSwitch && !showOverview && !IsMediaExpanded ? 30 : 0,0);
-        OverviewHost.Margin=new Thickness(0,0,canSwitch && showOverview ? 30 : 0,0);
+        OverviewHost.Margin=new Thickness(0,canSwitch && showOverview ? 30 : 0,0,0);
         var showMedia = !showOverview && (mode == IslandMode.Media || (mode == IslandMode.Clock && controlsOpen && state.Media.Available));
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
         OverviewHost.Visibility=showOverview ? Visibility.Visible : Visibility.Collapsed;
@@ -203,7 +203,7 @@ public partial class MainWindow : Window
         if(modulesVisible && !showMedia && !showOverview)width=Math.Min(widthLimit,Math.Max(104,compactNaturalWidth+26));
         if(mode==IslandMode.Notification)width=NotificationWidth(width);
         var notificationHeight=RenderNotification(width);
-        var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? settings.ShowTomorrow ? 278 : 258 : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;
+        var height = mode == IslandMode.Notification ? notificationHeight : showOverview ? (settings.ShowTomorrow ? 278 : 258)+(canSwitch ? 30 : 0) : showMedia && IsMediaExpanded ? media.Duration>TimeSpan.Zero ? 158 : 130 : settings.CompactHeight;
         MediaPanel.VerticalAlignment=IsMediaExpanded ? VerticalAlignment.Top : VerticalAlignment.Center;
         MediaPanel.Margin=IsMediaExpanded ? new Thickness(0,19,0,0) : new Thickness(0);
         Shell.Padding = mode == IslandMode.Notification || IsMediaExpanded || showOverview ? new Thickness(14, 7, 14, 7) : LiveLyrics.Visibility==Visibility.Visible ? new Thickness(12,1,12,1) : new Thickness(12, 4, 12, 4);
@@ -263,7 +263,7 @@ public partial class MainWindow : Window
     private void OnIslandClick(object sender, MouseButtonEventArgs e)
     {
         if(skipIslandRelease){skipIslandRelease=false;e.Handled=true;return;}
-        if(state.Notification==null && Within(e.OriginalSource,MediaPanel) && (!settings.ExpandedMediaControls || IsMediaExpanded || settings.ReturnToPlayer)){e.Handled=true;return;}
+        if(state.Notification==null && Within(e.OriginalSource,MediaPanel) && (IsMediaExpanded || settings.ReturnToPlayer)){e.Handled=true;return;}
         if(settings.StandbyDoubleClick && state.Notification==null && (ReferenceEquals(e.OriginalSource,Shell) || ReferenceEquals(e.OriginalSource,ClockTime) || ReferenceEquals(e.OriginalSource,ClockDate))){islandClickDelay.Stop();islandClickDelay.Start();return;}
         HandleIslandClick();
     }
@@ -276,7 +276,7 @@ public partial class MainWindow : Window
             else if(settings.PrivatePreview || settings.ExpandNotifications){NoticeBodyScroll.ScrollToTop();state.Expand(DateTimeOffset.Now);}
             else if(AppActivation.Open(notice.SourceId))Dismiss();
         }
-        else if (state.Media.Available) {if(settings.ExpandedMediaControls)controlsOpen = !controlsOpen;}
+        else if (state.Media.Available) {controlsOpen = !controlsOpen;}
         else if(settings.OverviewEnabled)OpenOverview();
         else OpenSettings();
         Render();

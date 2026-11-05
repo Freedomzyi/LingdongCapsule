@@ -53,7 +53,6 @@ public partial class MainWindow
     }
     private void RenderMediaControls()
     {
-        if(!settings.ExpandedMediaControls)controlsOpen=false;
         var expanded=IsMediaExpanded;
         Controls.Visibility=expanded ? Visibility.Visible : Visibility.Collapsed;
         InlineControls.Visibility=!settings.ExpandedMediaControls ? Visibility.Visible : Visibility.Collapsed;
