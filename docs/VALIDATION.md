@@ -1,5 +1,11 @@
 # 验证记录
 
+## 暂停歌词切换的有限动画与资源收尾
+
+全面审查发现：LyricView 只在 Playing 时订阅合成刷新，暂停状态更换歌词行后先画旧行，再因没有后续帧而停住。独立实际 WPF 控件已在 paused-lyrics-fade-before.log 复现失败。修复为播放或有限的 180ms 行切换期间刷新；淡出结束强制最终绘制并取消暂停态订阅，不等待下一次媒体轮询。在绘制宽度变为零时也按时间结束，避免 OnRender 提前返回导致刷新永久保留。
+
+实际暂停控件、30fps 节奏、最终像素与强制重绘一致、零宽度以及关闭时释放均通过 paused-lyrics-fade-pixels.log，证据 lyric-offset-tests/f85ec52ab72749bca544cab1b7fecf5d。歌词来源/取消/偏移同次通过，邻近 Solo 和动态绘制节奏通过 paused-lyrics-solo-regression.log、paused-lyrics-cadence-regression.log。均为独立测试窗口及专用本机发送端，不代表真实第三方播放器或 Owner 日用已验收。本次不重启日用候选；该修复尚须合并到后续固定包，并重新核对发布门槛，不能将当前 7966eb9 候选声明为已含此修复。
+
 ## 2026-11-05 固定宿主候选包复验与本机换包
 
 固定源码 7966eb9e2b86aed8f46f2987a90f2f9cac8364ba，候选 v0.1.0-local-candidate.8，CI 42057358337 成功。干净自包含 ZIP SHA256 AF6F4BF836CA1AC09055E45CCF6BE3A9EC725797AA2985BB9D876A784A0D95BC；App DLL SHA256 3B96A8D480A661949A7243BC5A7F7FA4AA8C2795835559B192C423C0DBCA9B5E。包解压启动 published-tests/26c712560c3e47008436c2ed7265887f；实际包 DLL 换入独立共享运行时宿主后的动画/动态缩放/输入回归通过 stable-host-package-host.json、stable-host-packaged-ui.log，未冒充无 SDK 测试。

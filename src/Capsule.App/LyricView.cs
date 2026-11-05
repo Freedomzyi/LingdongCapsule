@@ -38,14 +38,19 @@ public sealed class LyricView : FrameworkElement
     public void Refresh(){UpdateSubscription();InvalidateVisual();}
     private void UpdateSubscription()
     {
-        var needed=playing && IsVisible && IsLoaded;
+        var needed=(playing || previous.Line is not null) && IsVisible && IsLoaded;
         if(needed==listening)return;
         if(needed)CompositionTarget.Rendering+=OnFrame;else CompositionTarget.Rendering-=OnFrame;
         listening=needed;
     }
     private readonly AnimationCadence cadence=new();
     public int FrameRate{get=>cadence.FramesPerSecond;set=>cadence.FramesPerSecond=value;}
-    private void OnFrame(object? sender,EventArgs args){if(cadence.Advance(args))InvalidateVisual();}
+    private void OnFrame(object? sender,EventArgs args)
+    {
+        var finished=previous.Line is not null && Stopwatch.GetElapsedTime(changedAt).TotalMilliseconds>=180;
+        if(finished){previous=default;UpdateSubscription();}
+        if(finished || cadence.Advance(args))InvalidateVisual();
+    }
 
     protected override void OnRender(DrawingContext context)
     {
@@ -62,6 +67,7 @@ public sealed class LyricView : FrameworkElement
         context.PushOpacity(previous.Line is null ? 1 : fade);DrawFrame(context,frame);context.Pop();
         context.Pop();
         if(fade>=1)previous=default;
+        UpdateSubscription();
     }
     private void DrawFrame(DrawingContext context,LyricFrame frame)
     {
