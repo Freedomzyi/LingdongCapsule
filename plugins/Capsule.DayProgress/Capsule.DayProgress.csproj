@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0-windows10.0.19041.0</TargetFramework><UseWPF>true</UseWPF><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><Version>0.1.0</Version></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/Capsule.PluginApi/Capsule.PluginApi.csproj" Private="false"/><Compile Include="../Shared/RingWidget.cs" Link="RingWidget.cs"/></ItemGroup>
+</Project>

@@ -27,7 +27,7 @@ public sealed partial class SettingsWindow : Window
     private readonly ContentControl pageHost=new();
     private readonly NotificationSound soundPreview=new();
 
-    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage,Func<DisplayComponent[]> displayComponents,Action<string,int> moveDisplayComponent,Func<bool>? startupState=null,Action? fontPreferenceWriter=null,Func<string?>? fontPicker=null)
+    internal SettingsWindow(Settings settings, Func<Task<string>> request, Action save, Action test, Action<bool> startup, Action welcome,Func<IReadOnlyDictionary<string,string>> mediaSources,GlobalShortcuts shortcuts,Action<string> loadPlugin,Func<string[]> activePlugins,Action<string> disablePlugin,Action<string> uninstallPlugin,Func<PluginCatalogEntry[]> installedPlugins,Action<string> removeInstalledPlugin,Func<string,string,bool> installMarketPackage,Func<DisplayComponent[]> displayComponents,Action<string,int> moveDisplayComponent,Func<bool>? startupState=null,Action? fontPreferenceWriter=null,Func<string?>? fontPicker=null,string? bundledComponentDirectory=null)
     {
         this.settings = settings; this.save = save;
         startupState??=()=>StartupService.IsEnabled;
@@ -60,7 +60,7 @@ public sealed partial class SettingsWindow : Window
         {
             var recovery=new TextBlock{Text=settings.RecoveryMessage,TextWrapping=TextWrapping.Wrap,FontSize=12,LineHeight=19};Design.Bind(recovery,TextBlock.ForegroundProperty,"TextSecondary");pages["通用设置"].Children.Add(Design.Card(recovery));
         }
-        var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();var installedRows=new StackPanel();Action refreshDisplayOrder=()=>{};
+        var pluginPage=pages["我的插件"];var pluginRows=new StackPanel();var installedRows=new StackPanel();Action refreshDisplayOrder=()=>{};Action refreshBundled=()=>{};
         Heading(pluginPage,"内置组件");
         var builtinClock=new StackPanel();
         AddSelection(builtinClock,"时钟布局",()=>new Dictionary<string,string>{{"0","居中时钟"},{"1","时间与日期"}},settings.ClockLayout.ToString(),value=>settings.ClockLayout=int.Parse(value),"居中时钟显示 HH:mm；时间与日期同时显示 MM/dd。沿用原有选择，停止组件不会重置布局。");
@@ -71,10 +71,11 @@ public sealed partial class SettingsWindow : Window
         AddCheck(builtinOverview,"显示明日天气",settings.ShowTomorrow,value=>settings.ShowTomorrow=value,"空闲面板显示第二天预报，不影响今日天气；停用组件不会重置此选择。");
         pluginPage.Children.Add(Design.Card(builtinOverview));
         var displayOptions=new Button{Content="排列与显示选项",Padding=new Thickness(12,9,12,9),Margin=new Thickness(0,0,0,12)};displayOptions.Click+=(_,_)=>SelectPage("显示设置");pluginPage.Children.Add(displayOptions);
+        refreshBundled=AddBundledComponents(pluginPage,loadPlugin,disablePlugin,activePlugins,installedPlugins,RefreshPlugins,bundledComponentDirectory);
         Heading(pluginPage,"外部组件");
         void RefreshPlugins()
         {
-            pluginRows.Children.Clear();foreach(var id in activePlugins())
+            pluginRows.Children.Clear();foreach(var id in activePlugins().Where(id=>!BundledComponentIds.Contains(id)))
             {
                 var row=new DockPanel{Margin=new Thickness(0,5,0,5)};var remove=new Button{Content="卸载",Padding=new Thickness(10,6,10,6),Margin=new Thickness(3,0,0,0)};DockPanel.SetDock(remove,Dock.Right);remove.Click+=(_,_)=>{if(CardDialog.Show("卸载插件？","胶囊安装的包将删除；外部 DLL 只移出列表，原文件和个人设置保留。","卸载",destructive:true)==null)return;try{uninstallPlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("卸载未完成",error.Message);}};row.Children.Add(remove);var disable=new Button{Content="停用",Padding=new Thickness(10,6,10,6)};DockPanel.SetDock(disable,Dock.Right);disable.Click+=(_,_)=>{try{disablePlugin(id);RefreshPlugins();}catch(Exception error){Design.PresentMessage("停用未能保存",error.Message);}};row.Children.Add(disable);row.Children.Add(new TextBlock{Text=id,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis});pluginRows.Children.Add(row);
             }
@@ -86,12 +87,12 @@ public sealed partial class SettingsWindow : Window
                 row.Children.Add(new TextBlock{Text=entry.Name+(entry.Version.Length>0 ? " · "+entry.Version : ""),FontSize=14,FontWeight=FontWeights.Medium,TextWrapping=TextWrapping.Wrap});
                 var detail=new TextBlock{Text=entry.PendingRemoval ? "待清理，下次启动会重试" : entry.Error.Length>0 ? entry.Error : entry.Id+" · 已停用",FontSize=12,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,4,0,7)};Design.Bind(detail,TextBlock.ForegroundProperty,"TextSecondary");row.Children.Add(detail);
                 var actions=new StackPanel{Orientation=Orientation.Horizontal};
-                if(entry.CanEnable){var enable=new Button{Content="启用",Padding=new Thickness(12,7,12,7),Margin=new Thickness(0,0,8,0)};enable.Click+=(_,_)=>{try{loadPlugin(entry.EntryFile);RefreshPlugins();}catch(Exception error){Design.PresentMessage("启用未完成",error.Message);}};actions.Children.Add(enable);}
+                if(entry.CanEnable && !BundledComponentIds.Contains(entry.Id)){var enable=new Button{Content="启用",Padding=new Thickness(12,7,12,7),Margin=new Thickness(0,0,8,0)};enable.Click+=(_,_)=>{try{loadPlugin(entry.EntryFile);RefreshPlugins();}catch(Exception error){Design.PresentMessage("启用未完成",error.Message);}};actions.Children.Add(enable);}
                 if(entry.EntryFile.Length>0){var remove=new Button{Content=entry.PendingRemoval ? "重试清理" : "删除安装包",Padding=new Thickness(12,7,12,7)};remove.Click+=(_,_)=>{if(CardDialog.Show("删除此安装包？","只删除胶囊管理的这个安装目录，个人插件设置继续保留。","删除",destructive:true)==null)return;try{removeInstalledPlugin(entry.EntryFile);RefreshPlugins();}catch(Exception error){Design.PresentMessage("删除未完成",error.Message);}};actions.Children.Add(remove);}
                 row.Children.Add(actions);installedRows.Children.Add(row);
             }
             if(installedRows.Children.Count==0)installedRows.Children.Add(new TextBlock{Text="没有停用或待清理的安装包。",FontSize=12,Margin=new Thickness(0,6,0,6)});
-            refreshDisplayOrder();
+            refreshDisplayOrder();refreshBundled();
         }
         var pluginLoad=new Button{Content="安装插件包／加载 DLL…",Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,12,0,12)};
         pluginLoad.Click+=(_,_)=>
@@ -106,6 +107,7 @@ public sealed partial class SettingsWindow : Window
         var pluginErrors=new TextBlock{TextWrapping=TextWrapping.Wrap,FontSize=12,Margin=new Thickness(0,10,0,0)};Design.Bind(pluginErrors,TextBlock.ForegroundProperty,"TextSecondary");pluginPage.Children.Add(pluginErrors);
         var priorPlugins=string.Join("|",activePlugins());var pluginTimer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};pluginTimer.Tick+=(_,_)=>{var current=string.Join("|",activePlugins());if(current!=priorPlugins){priorPlugins=current;RefreshPlugins();}pluginErrors.Text=string.Join("\n",settings.PluginFailures.Values);};pluginTimer.Start();Closed+=(_,_)=>pluginTimer.Stop();
         var panel=pages["个性化中心"];
+        AddThemePresets(panel);
 
         Heading(panel, "外观与动效");
         AddFontSettings(panel,fontPreferenceWriter ?? save,fontPicker);
@@ -114,7 +116,7 @@ public sealed partial class SettingsWindow : Window
         Action refreshMaterialControls=()=>{};
         AddSelection(appearance,"背景材质",()=>new Dictionary<string,string>{{"0","实体"},{"1","亚克力"},{"2","液态玻璃"}},settings.MaterialKind.ToString(),value=>{settings.MaterialKind=int.Parse(value);refreshMaterialControls();},"亚克力和玻璃读取岛体后方的桌面像素，仅在内存合成，不录制或上传；显示环境不支持时回退实体背景。",()=>settings.MaterialKind.ToString());
         var opacityOptions=new StackPanel{Tag="material-opacity"};appearance.Children.Add(opacityOptions);
-        AddSlider(opacityOptions,"背景不透明度",0,100,settings.BackgroundOpacity,value=>settings.BackgroundOpacity=value,"百分比；实体调整背景透明度，亚克力调整模糊背板上的主题涂层浓度，不降低文字和按钮的不透明度。液态玻璃的着色由玻璃雾度控制。",1);
+        AddSlider(opacityOptions,"背景不透明度",0,100,settings.BackgroundOpacity,value=>settings.BackgroundOpacity=value,"百分比；实体调整背景透明度，亚克力调整模糊背板上的主题涂层浓度，不降低文字和按钮的不透明度。液态玻璃的着色由玻璃雾度控制。",1,readCurrent:()=>settings.BackgroundOpacity);
         AddSlider(appearance, "全局上限／播放宽度", 80, 300, settings.Width, v => {settings.Width=v;SyncIconLimit();}, "逻辑像素；播放固定宽度，时钟、通知和详情均不超过此上限。较窄时内容会裁切；还原值沿用参照版 195。",5,195);
         AddSlider(appearance, "折叠高度", 32, 60, settings.CompactHeight, v => settings.CompactHeight = v, "逻辑像素；默认 35，控制时钟与紧凑媒体高度，不压缩展开内容。", 1,35);
         AddVisualScale(appearance);
@@ -374,7 +376,7 @@ public sealed partial class SettingsWindow : Window
         try{notificationIconSizeSlider.Maximum=settings.Width;notificationIconSizeSlider.Value=settings.NotificationIconSize;}
         finally{updatingControls=previous;}
     }
-    private Slider AddSlider(StackPanel panel, string title, double min, double max, double value, Action<double> changed, string help, double step = 10,double? resetValue=null)
+    private Slider AddSlider(StackPanel panel, string title, double min, double max, double value, Action<double> changed, string help, double step = 10,double? resetValue=null,Func<double>? readCurrent=null)
     {
         var row = new Grid { Margin = new(0, 9, 0, 0) }; row.ColumnDefinitions.Add(new()); row.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); row.Children.Add(Label(title, help));
         var format=step<1 ? "0.0" : "0";
@@ -386,6 +388,7 @@ public sealed partial class SettingsWindow : Window
             var previous=value;var next=slider.Value;
             if(CommitChange(()=>changed(next),()=>{changed(previous);updatingControls=true;try{slider.Value=previous;}finally{updatingControls=false;}}))value=next;
         }; panel.Children.Add(slider);
+        if(readCurrent!=null)refreshPreferences.Add(()=>{var previous=updatingControls;updatingControls=true;try{value=readCurrent();slider.Value=value;number.Text=value.ToString(format);}finally{updatingControls=previous;}});
         if(resetValue is {} restore)
         {
             var reset=new Button{Content="↺",Width=25,Height=24,Margin=new(0,0,7,0),ToolTip="还原为 "+restore.ToString(format)};
@@ -423,7 +426,7 @@ public sealed partial class SettingsWindow : Window
     }
     private bool CommitChange(Action apply,Action rollback)
     {
-        try{apply();save();return true;}
+        try{apply();save();refreshThemeCards();return true;}
         catch(Exception error){try{rollback();}catch{}Design.PresentMessage("未能更新设置",error.Message);return false;}
     }
     public void UpdateStatus(string media, string notification, Dictionary<string, string> apps)

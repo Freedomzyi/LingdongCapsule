@@ -39,7 +39,7 @@
 
 ## 可构建示例与分发
 
-`plugins/Capsule.CenterClock` 是独立程序集示例，显示本地 24 小时时钟，跟随主题与宿主字体。运行 `scripts/build-plugins.ps1` 生成 ZIP 和 SHA256 校验和；完整构建和整合验证会先构建这些包。发布输出的 plugins 目录附带当前示例包，安装后仍由用户主动选择启用。
+`plugins/Capsule.CenterClock` 是独立程序集示例，显示本地 24 小时时钟，跟随主题与宿主字体。`plugins/Capsule.FocusTimer`、`plugins/Capsule.DayProgress` 是专注计时与今日进度两个可实际使用的组件。“我的插件→精选组件”可离线添加、停用和重新启用，管理卡片提供唯一启停入口；组件顺序仍在显示设置管理。运行 `scripts/build-plugins.ps1` 生成三个 ZIP 和 SHA256 校验和，完整构建一并附带；默认不自动启用。用法与计时恢复边界见 [主题与组件](COLLECTION.md)。
 
 测试既独立加载实际构建出的 ZIP，核对时间与深浅主题，也将它安装到真实岛体更新显示。未将示例或离线构建产物称为在线插件市场，两个定制组件的完整统一管理仍待验收。
 

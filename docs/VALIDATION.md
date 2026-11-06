@@ -544,3 +544,6 @@ Owner 确认点击微信相关程序、确认结束后无错误但仍在运行�
 继续用实际窗口核对发现原生父链仍未归组，新增真实子进程父 PID 断言后在修复前失败（process-parent-repro.log）。根因为 PROCESSENTRY32 结构体未声明 Unicode，却调用 Process32FirstW/NextW，结构体大小不匹配，父表始终为空。现匹配 CharSet.Unicode；同一真实子进程父 PID 核对、共享运行时边界、实际确认/退出链均通过 process-parent-fixed.log。修复后 WPF 真实排行截图 process-parent-fixed/overview.png 已显示合并后的微信约 1.4 GB 与微信图标，不再把它的辅助进程独立当成微信应用；没有结束日用微信。此前纯算法用例不足以证明原生父链有效，本次以反证补齐，不把早先算法通过冒充完整修复。
 
 最终修复提交 b9aa799dbe9b63a945ec6d1cac3fe973b26064a2 的实际发行 DLL 通过同组原生父 PID、共享父链与真实确认/退出用例（process-parent-packaged-overview.log / process-parent-package-host.json），解压包校验与运行时启动通过 published-tests/c8da784b45b0446ebaa69af36ae1d792。已正常替换本机托盘程序为 soak/dcc0a8f421d148a7ba8a59a6b2245da5，PID 17128、监测 PID 11664，运行身份与监测状态回读正常，设置哈希未变（process-parent-profile-preservation.json）。ZIP SHA256 为 21505DBA052F6CA694A94CBDF6E54969D59414162E5CA164E00F03B7CA7C64D1。未自动关闭真实微信，真实微信退出仍由 Owner 在确认无未保存内容后操作验收。
+
+## 2026-11-06 主题与精选组件
+新增曜石/月光/流光玻璃三张预览卡片，按现有主题、材质和不透明度组合应用；不覆盖字体、布局和隐私，手动修改同步当前主题标记，保存失败原子回退。专注计时与今日进度为独立 PluginApi 组件，随包附带并离线添加，卡片唯一启停、既有显示设置排序；不新增账号、收费锁、联网和独立计时器。实际 WPF 深浅绘制、开始/暂停/一次完成、时长保存失败/重试、跨日归零、停止释放、真实包安装与重新启用、岛体左右键路由及标准高度250px布局均通过 collection-regression-collection.log（collection-tests/96a58774c01948418ecedfe73c456b55）。时长推进和跨日用注入 PluginFrame 验证，不冒充等待25分钟。既有内置组件、设置同步、插件生命周期、缩放和收放专项通过 collection-regression-*.log。截图检查后已修正三张预览宽度随选中描述变化的问题，并以原创图标替代组件卡片的示意读数。没有实现多设备同步、云备份或历史版本库。

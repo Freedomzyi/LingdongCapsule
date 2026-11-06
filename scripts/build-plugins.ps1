@@ -8,7 +8,7 @@ try {
     foreach($path in @((Join-Path $root 'artifacts'),$folder)){if((Test-Path -LiteralPath $path) -and (Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Plugin output cannot be a link.'}}
     New-Item -ItemType Directory -Path $folder -Force | Out-Null
     $hashes=[Collections.Generic.List[string]]::new()
-    foreach($name in @('Capsule.CenterClock')) {
+    foreach($name in @('Capsule.CenterClock','Capsule.FocusTimer','Capsule.DayProgress')) {
         $project=Join-Path $root ('plugins/'+$name)
         & $Dotnet build $project -c Release -p:DebugType=none -p:DebugSymbols=false
         if($LASTEXITCODE -ne 0){throw ('Plugin build failed: '+$name)}
