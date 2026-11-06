@@ -69,22 +69,49 @@ internal sealed class OverviewView : Grid,IDisposable
     }
     internal async Task TickAsync()
     {
-        if(disposed || !settings.OverviewEnabled)return;
-        weather.SelectCity(settings.WeatherCity);RenderWeather();_=weather.RefreshIfDueAsync();
-        var sample=sampler.Sample();CurrentSample=sample;
-        ram.Text=sample.Memory is {} memory ? $"{memory}%" : "—";cpu.Text=sample.Cpu is {} cpuValue ? $"{cpuValue:0}%" : "—";battery.Text=sample.Battery;
-        if(sample.LowBattery)battery.Foreground=new SolidColorBrush(Color.FromRgb(237,151,65));else Design.Bind(battery,TextBlock.ForegroundProperty,"IslandInk");
-        download.Text=Rate(sample.Download);upload.Text=Rate(sample.Upload);network.Text=sample.Network;
-        network.Foreground=new SolidColorBrush(sample.Network=="健康" ? Color.FromRgb(72,189,127) : sample.Network=="欠佳" ? Color.FromRgb(237,151,65) : Color.FromRgb(164,164,174));
-        if(reading || Environment.TickCount64<nextProcesses)return;
+        if(disposed || !settings.OverviewEnabled || reading)return;
         reading=true;
+        var refreshProcesses=Environment.TickCount64>=nextProcesses;
         try
         {
-            var ranked=await Task.Run(sampler.ReadProcesses);
+            weather.SelectCity(settings.WeatherCity);RenderWeather();_=weather.RefreshIfDueAsync();
+            // Native network enumeration and Shell icon extraction must not block
+            // the dispatcher while the island is changing presentation.
+            var knownIcons=icons.Keys.ToHashSet(StringComparer.Ordinal);
+            var result=await Task.Run(()=>
+            {
+                var sample=sampler.Sample();
+                var ranked=refreshProcesses ? sampler.ReadProcesses() : null;
+                var loaded=new Dictionary<string,ImageSource?>();
+                if(ranked!=null)foreach(var group in ranked)
+                    if(!knownIcons.Contains(group.Name))loaded[group.Name]=ReadIcon(group.IconPath);
+                return (Sample:sample,Ranked:ranked,Icons:loaded);
+            });
             if(disposed || !settings.OverviewEnabled)return;
-            CurrentProcesses=ranked;RenderProcesses();
+            var sample=result.Sample;CurrentSample=sample;
+            ram.Text=sample.Memory is {} memory ? $"{memory}%" : "—";cpu.Text=sample.Cpu is {} cpuValue ? $"{cpuValue:0}%" : "—";battery.Text=sample.Battery;
+            if(sample.LowBattery)battery.Foreground=new SolidColorBrush(Color.FromRgb(237,151,65));else Design.Bind(battery,TextBlock.ForegroundProperty,"IslandInk");
+            download.Text=Rate(sample.Download);upload.Text=Rate(sample.Upload);network.Text=sample.Network;
+            network.Foreground=new SolidColorBrush(sample.Network=="健康" ? Color.FromRgb(72,189,127) : sample.Network=="欠佳" ? Color.FromRgb(237,151,65) : Color.FromRgb(164,164,174));
+            if(result.Ranked!=null)
+            {
+                foreach(var pair in result.Icons)icons[pair.Key]=pair.Value;
+                CurrentProcesses=result.Ranked;RenderProcesses();
+            }
         }
-        finally{reading=false;nextProcesses=Environment.TickCount64+5000;}
+        finally{reading=false;if(refreshProcesses)nextProcesses=Environment.TickCount64+5000;}
+    }
+    private static ImageSource? ReadIcon(string? path)
+    {
+        try
+        {
+            if(path==null)return null;
+            using var icon=System.Drawing.Icon.ExtractAssociatedIcon(path);using var bitmap=icon?.ToBitmap();
+            if(bitmap==null)return null;
+            using var stream=new MemoryStream();bitmap.Save(stream,System.Drawing.Imaging.ImageFormat.Png);stream.Position=0;
+            var decoded=new BitmapImage();decoded.BeginInit();decoded.CacheOption=BitmapCacheOption.OnLoad;decoded.StreamSource=stream;decoded.DecodePixelWidth=32;decoded.EndInit();decoded.Freeze();return decoded;
+        }
+        catch(Exception error) when(error is IOException or ArgumentException or System.ComponentModel.Win32Exception or UnauthorizedAccessException){return null;}
     }
     private static string Rate(double? bytes)=>bytes is not {} value ? "—" : value>=1048576 ? $"{value/1048576:0.0} MB/s" : $"{value/1024:0} KB/s";
     private void RenderWeather()
@@ -105,20 +132,7 @@ internal sealed class OverviewView : Grid,IDisposable
         foreach(var group in CurrentProcesses)
         {
             var row=new Grid{Height=25,Margin=new Thickness(8,0,4,0)};row.ColumnDefinitions.Add(new(){Width=new GridLength(21)});row.ColumnDefinitions.Add(new());row.ColumnDefinitions.Add(new(){Width=GridLength.Auto});row.ColumnDefinitions.Add(new(){Width=new GridLength(25)});
-            if(!icons.TryGetValue(group.Name,out var source))
-            {
-                source=null;
-                try
-                {
-                    if(group.IconPath!=null)
-                    {
-                        using var icon=System.Drawing.Icon.ExtractAssociatedIcon(group.IconPath);using var bitmap=icon?.ToBitmap();
-                        if(bitmap!=null){using var stream=new MemoryStream();bitmap.Save(stream,System.Drawing.Imaging.ImageFormat.Png);stream.Position=0;var decoded=new BitmapImage();decoded.BeginInit();decoded.CacheOption=BitmapCacheOption.OnLoad;decoded.StreamSource=stream;decoded.DecodePixelWidth=32;decoded.EndInit();decoded.Freeze();source=decoded;}
-                    }
-                }
-                catch(Exception error) when(error is IOException or ArgumentException or System.ComponentModel.Win32Exception or UnauthorizedAccessException){ }
-                icons[group.Name]=source;
-            }
+            icons.TryGetValue(group.Name,out var source);
             if(source!=null)row.Children.Add(new Image{Source=source,Width=15,Height=15});else{var fallback=Text(10,true);fallback.Text=group.Name[..1];row.Children.Add(fallback);}
             var name=Text(12);name.Text=group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase) ? "微信" : group.Name;name.TextAlignment=TextAlignment.Left;Grid.SetColumn(name,1);row.Children.Add(name);
             var amount=Text(11,true);amount.Text=group.Bytes>=1073741824 ? $"{group.Bytes/1073741824d:0.0} GB" : $"{group.Bytes/1048576d:0} MB";Grid.SetColumn(amount,2);row.Children.Add(amount);

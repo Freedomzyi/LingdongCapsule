@@ -23,6 +23,7 @@ public partial class MainWindow
             if(parent is Border {Tag:string tag} && tag.StartsWith("plugin:",StringComparison.Ordinal))return;
             if(parent is TextBlock text)text.Foreground=ink;
             if(parent is TransportIcon icon)icon.InvalidateVisual();
+            if(parent is PanelSwitchIcon switchIcon)switchIcon.InvalidateVisual();
             for(var index=0;index<VisualTreeHelper.GetChildrenCount(parent);index++)Visit(VisualTreeHelper.GetChild(parent,index));
         }
         Visit(IslandSurface);

@@ -74,12 +74,16 @@ internal static class InputRoutingTests
             void Capture(string name){window.UpdateLayout();var bitmap=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth*2),(int)Math.Ceiling(window.ActualHeight*2),192,192,PixelFormats.Pbgra32);bitmap.Render(window);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using var output=File.Create(Path.Combine(evidence,name+".png"));png.Save(output);}
             await Task.Delay(550);Capture("media-compact-no-switch");
             var information=(Button)window.FindName("InformationSwitch");
+            if(information.Content is not PanelSwitchIcon switchGlyph || information.Width<28 || information.Height<28)
+                throw new Exception("Panel switch lacks vector glyph or comfortable hit target");
             if(information.Visibility!=Visibility.Collapsed)throw new Exception("Compact playing media exposed information switch before click");
             MouseUp(shell,false);await Task.Delay(550);Capture("media-information-switch");
             if(information.Visibility!=Visibility.Visible || !Equals(information.ToolTip,"系统信息"))throw new Exception("Playing media has no discoverable information switch");
+            if(switchGlyph.Media)throw new Exception("Media panel has the wrong destination glyph");
             information.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await Task.Delay(550);Capture("information-return-switch");
             if(overview.Visibility!=Visibility.Visible || !Equals(information.ToolTip,"返回媒体") || window.LiveState.Media.Title!="Own media switch")throw new Exception("Information switch stopped/replaced media or failed to show overview");
+            if(!switchGlyph.Media)throw new Exception("Overview lacks the return-to-media vector glyph");
             var overviewBounds=overview.TransformToAncestor(shell).TransformBounds(new Rect(overview.RenderSize));
             if(Math.Abs(overviewBounds.Left-(shell.ActualWidth-overviewBounds.Right))>1)throw new Exception("Overview is not horizontally centered in shell");
             var buttonBounds=information.TransformToAncestor(shell).TransformBounds(new Rect(information.RenderSize));

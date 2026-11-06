@@ -171,7 +171,7 @@ public partial class MainWindow : Window
         if(settings.StandbyActive && mode!=IslandMode.Notification && !showOverview)showMedia=settings.StandbyScene==3 && state.Media.Available;
         var canSwitch=state.Media.Available && settings.OverviewEnabled && mode!=IslandMode.Notification && (showOverview || showMedia && controlsOpen);
         InformationSwitch.Visibility=canSwitch ? Visibility.Visible : Visibility.Collapsed;
-        InformationSwitch.Content=showOverview ? "♫" : "▦";
+        InformationSwitchGlyph.Media=showOverview;
         InformationSwitch.ToolTip=showOverview ? "返回媒体" : "系统信息";
         System.Windows.Automation.AutomationProperties.SetName(InformationSwitch,showOverview ? "返回媒体" : "查看系统信息");
         compactLayout.Margin=new Thickness(0,0,canSwitch && !showOverview && !IsMediaExpanded ? 30 : 0,0);
