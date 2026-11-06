@@ -55,15 +55,20 @@ public partial class MainWindow
         }
         await RefreshAsync();if(!closing)UpdateTimeline();
     }
-    private void RenderMediaControls()
+    private void PrepareMediaLayout()
     {
         var expanded=IsMediaExpanded;
         Controls.Visibility=expanded ? Visibility.Visible : Visibility.Collapsed;
         InlineControls.Visibility=!settings.ExpandedMediaControls ? Visibility.Visible : Visibility.Collapsed;
         TimelineSection.Visibility=media.Duration>TimeSpan.Zero ? Visibility.Visible : Visibility.Collapsed;
+        Spectrum.Visibility=settings.ShowSpectrum && state.Media.Playing ? Visibility.Visible : Visibility.Collapsed;
+    }
+    private void RenderMediaControls()
+    {
+        PrepareMediaLayout();
+        var expanded=IsMediaExpanded;
         PlayGlyph.Kind=state.Media.Playing ? TransportKind.Pause : TransportKind.Play;
         InlinePlayGlyph.Kind=PlayGlyph.Kind;
-        Spectrum.Visibility=settings.ShowSpectrum && state.Media.Playing ? Visibility.Visible : Visibility.Collapsed;
         var visibleMedia=MediaPanel.Visibility==Visibility.Visible && !visibilityResult.PassThrough;
         Spectrum.Active=settings.ShowSpectrum && state.Media.Playing && visibleMedia;
         var soloSpectrum=SoloSelected && solo.Snapshot() is {Connected:true,Bands.Length:>0};

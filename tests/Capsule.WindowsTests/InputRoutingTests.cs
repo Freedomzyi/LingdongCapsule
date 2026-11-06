@@ -102,9 +102,45 @@ internal static class InputRoutingTests
             settings.OverviewEnabled=false;Refresh();if(information.Visibility!=Visibility.Collapsed)throw new Exception("Information switch ignored disabled overview component");
             Console.WriteLine("PASS actual playing-media information switch, live-state preservation, return and component enable boundary; evidence: "+evidence);
             Console.WriteLine("PASS actual WPF source-based right-click expansion/settings, single-window restore, left-click mode, paused clock and overview collapse; routed events, no physical input or real player control");
+            await HoverLayoutAsync(window,settings,render);
         }
         finally{window.Close();}
         await PendingControlCloseAsync(app);
+    }
+    private static async Task HoverLayoutAsync(MainWindow window,Settings settings,MethodInfo render)
+    {
+        var root=Path.GetFullPath(Path.Combine("artifacts","media-hover-tests",Guid.NewGuid().ToString("N")));Directory.CreateDirectory(root);
+        var service=typeof(MainWindow).GetField("media",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(window)!;
+        var duration=service.GetType().GetField("duration",BindingFlags.Instance|BindingFlags.NonPublic)!;
+        var cover=service.GetType().GetProperty("Cover")!;
+        var pixels=BitmapSource.Create(2,2,96,96,PixelFormats.Bgra32,null,Enumerable.Repeat(new byte[]{130,90,50,255},4).SelectMany(bytes=>bytes).ToArray(),8);
+        using var bytes=new MemoryStream();var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(pixels));encoder.Save(bytes);bytes.Position=0;
+        var bitmap=new BitmapImage();bitmap.BeginInit();bitmap.CacheOption=BitmapCacheOption.OnLoad;bitmap.StreamSource=bytes;bitmap.EndInit();bitmap.Freeze();
+        settings.MediaEnabled=true;settings.ExpandedMediaControls=true;settings.LyricsEnabled=false;settings.ShowSpectrum=false;settings.CoverProgress=false;settings.Width=280;
+        typeof(MainWindow).GetField("controlsOpen",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(window,true);
+        window.LiveState.UpdateMedia(new("Own hover layout","Own artist",true,true));
+        var play=(Button)window.FindName("Play");
+        for(var scenario=0;scenario<6;scenario++)
+        {
+            settings.VisualScale=scenario>=4 ? 1.25 : 1;
+            duration.SetValue(service,scenario%2==0 ? TimeSpan.Zero : TimeSpan.FromMinutes(3));cover.SetValue(service,scenario>=2 ? bitmap : null);
+            ((FrameworkElement)window.FindName("VolumeSection")).Visibility=scenario>=4 ? Visibility.Visible : Visibility.Collapsed;
+            ((TextBlock)window.FindName("Track")).FontSize=scenario>=4 ? 19 : 13;
+            render.Invoke(window,null);await Task.Delay(550);window.UpdateLayout();
+            foreach(var button in ((Panel)play.Parent).Children.OfType<Button>())
+            {
+                button.ApplyTemplate();var hover=(Border)button.Template.FindName("Hover",button);hover.BeginAnimation(UIElement.OpacityProperty,null);hover.Opacity=1;
+                if(Math.Abs(hover.ActualWidth-hover.ActualHeight)>.5 || hover.ActualHeight<39)throw new Exception("Hover target was shrunk or lost circular shape");
+                for(var ancestor=VisualTreeHelper.GetParent(button);ancestor!=null;ancestor=VisualTreeHelper.GetParent(ancestor))
+                {
+                    if(ancestor is not FrameworkElement element || !element.ClipToBounds)continue;
+                    var bounds=hover.TransformToAncestor(element).TransformBounds(new Rect(hover.RenderSize));
+                    if(bounds.Top<-.5 || bounds.Bottom>element.ActualHeight+.5 || bounds.Left<-.5 || bounds.Right>element.ActualWidth+.5)throw new Exception($"Media hover clipped in scenario {scenario}: {element.GetType().Name} {element.ActualWidth}x{element.ActualHeight}; hover={bounds}");
+                }
+            }
+            var dpi=VisualTreeHelper.GetDpi(window);var rendered=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth*dpi.DpiScaleX),(int)Math.Ceiling(window.ActualHeight*dpi.DpiScaleY),96*dpi.DpiScaleX,96*dpi.DpiScaleY,PixelFormats.Pbgra32);rendered.Render(window);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(rendered));using var output=File.Create(Path.Combine(root,$"hover-{scenario}.png"));png.Save(output);
+        }
+        Console.WriteLine("PASS full 40px hover circles inside every clipping ancestor: duration/no duration, artwork, volume, larger text and visual scale; own fixture only; evidence: "+root);
     }
     private static async Task PendingControlCloseAsync(Capsule.App.App app)
     {

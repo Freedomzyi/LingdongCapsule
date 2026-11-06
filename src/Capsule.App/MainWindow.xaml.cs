@@ -208,6 +208,14 @@ public partial class MainWindow : Window
         MediaPanel.VerticalAlignment=IsMediaExpanded ? VerticalAlignment.Top : VerticalAlignment.Center;
         MediaPanel.Margin=IsMediaExpanded ? new Thickness(0,19,0,0) : new Thickness(0);
         Shell.Padding = mode == IslandMode.Notification || IsMediaExpanded || showOverview ? new Thickness(14, 7, 14, 7) : LiveLyrics.Visibility==Visibility.Visible ? new Thickness(12,1,12,1) : new Thickness(12, 4, 12, 4);
+        if(showMedia && IsMediaExpanded)
+        {
+            // Measure the current controls before choosing the expanded height.
+            // A fixed height can crop the 40px hover circles after header/artwork changes.
+            PrepareMediaLayout();
+            MediaPanel.Measure(new Size(Math.Max(0,width-Shell.Padding.Left-Shell.Padding.Right-Shell.BorderThickness.Left-Shell.BorderThickness.Right),double.PositiveInfinity));
+            height=Math.Max(height,Math.Ceiling(MediaPanel.DesiredSize.Height+Shell.Padding.Top+Shell.Padding.Bottom+Shell.BorderThickness.Top+Shell.BorderThickness.Bottom));
+        }
         Shell.CornerRadius = settings.IslandShape==0 ? new CornerRadius(0,0,settings.BottomRadius,settings.BottomRadius) : new CornerRadius(height > 100 ? 22 : height / 2);
         Topmost=settings.Topmost;
         Animate(width*ActiveVisualScale, height*ActiveVisualScale);
