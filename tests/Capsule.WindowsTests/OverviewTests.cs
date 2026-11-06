@@ -66,6 +66,7 @@ internal static class OverviewTests
         {
             try
             {
+                if(!OverviewService.ReadParents().TryGetValue(child.Id,out var nativeParent) || nativeParent!=Environment.ProcessId)throw new Exception("Native Unicode process snapshot did not identify the owned child parent");
                 var identity=new ProcessIdentity(child.Id,child.StartTime,child.ProcessName,child.SessionId);
                 var wrong=new MemoryGroup(identity.Name,0,new[]{identity with{Started=identity.Started.AddSeconds(-1)}},null);
                 if(await OverviewService.EndConfirmedAsync(wrong)!=1 || child.HasExited)throw new Exception("Mismatched process identity was allowed");

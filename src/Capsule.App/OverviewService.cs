@@ -18,7 +18,7 @@ internal sealed class OverviewService
         public uint Length,Load;
         public ulong TotalPhysical,AvailablePhysical,TotalPage,AvailablePage,TotalVirtual,AvailableVirtual,Extended;
     }
-    [StructLayout(LayoutKind.Sequential)] private struct ProcessEntry
+    [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)] private struct ProcessEntry
     {
         public uint Size,Usage,Id;public UIntPtr Heap;public uint Module,Threads,Parent;public int Priority;public uint Flags;
         [MarshalAs(UnmanagedType.ByValTStr,SizeConst=260)]public string Name;
@@ -99,7 +99,7 @@ internal sealed class OverviewService
         }
         return start.Name;
     }
-    private static Dictionary<int,int> ReadParents()
+    internal static Dictionary<int,int> ReadParents()
     {
         var parents=new Dictionary<int,int>();var snapshot=CreateToolhelp32Snapshot(2,0);
         if(snapshot==new IntPtr(-1))return parents;
