@@ -70,13 +70,23 @@ internal static class MaintenanceBootstrap
     internal static void Launch(string stage)
     {
         _=ReadTarget(stage);var start=new ProcessStartInfo(Path.Combine(stage,"LingdongCapsule.exe")){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=stage};start.ArgumentList.Add("--uninstall-staged");
-        using var process=Process.Start(start) ?? throw new IOException("无法打开卸载界面。");
+        try
+        {
+            using var process=Process.Start(start) ?? throw new IOException("无法打开卸载界面。");
+            if(!process.WaitForInputIdle(10000) || process.HasExited)throw new IOException("卸载界面未能启动，请稍后重试。");
+        }
+        catch{TryRemoveFailedStage(stage);throw;}
     }
     internal static void ScheduleCleanup(string stage)
     {
         _=ReadTarget(stage);
-        var start=new ProcessStartInfo("powershell.exe"){UseShellExecute=false,CreateNoWindow=true};
+        var start=MaintenanceProcess.PowerShellStartInfo();
+        start.WorkingDirectory=CacheRoot;
         foreach(var arg in new[]{"-NoProfile","-ExecutionPolicy","Bypass","-File",Path.Combine(stage,"MaintenanceCleanup.ps1"),"-Root",stage,"-WaitPid",Environment.ProcessId.ToString(),"-StartedTicks",Process.GetCurrentProcess().StartTime.ToUniversalTime().Ticks.ToString()})start.ArgumentList.Add(arg);
         using var process=Process.Start(start);
+    }
+    internal static void RecordCleanupFailure(string stage,Exception error)
+    {
+        try{var root=SafePath(stage);if(string.Equals(Path.GetDirectoryName(root),SafePath(CacheRoot),StringComparison.OrdinalIgnoreCase) && Guid.TryParseExact(Path.GetFileName(root),"N",out _))File.WriteAllText(Path.Combine(root,"cleanup-error.log"),error.ToString());}catch{ }
     }
 }

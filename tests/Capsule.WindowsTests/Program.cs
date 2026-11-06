@@ -22,6 +22,9 @@ internal static class Program
     {
         if(args.Contains("--maintenance-test")){await MaintenanceTests.RunAsync();return;}
         if(args.Contains("--maintenance-bootstrap-test")){await MaintenanceBootstrapTests.RunAsync();return;}
+        if(args.Contains("--setup-payload-test")){SetupPayloadTests.Run();return;}
+        if(args.Contains("--setup-smoke")){await MaintenanceIntegrationTests.SetupSmokeAsync(args[Array.IndexOf(args,"--setup-smoke")+1]);return;}
+        if(args.Contains("--maintenance-real-test")){await MaintenanceIntegrationTests.RunAsync(args[Array.IndexOf(args,"--maintenance-real-test")+1]);return;}
         if(args.Contains("--install-viewport-test")){await InstallWindowTests.RunAsync();return;}
         if(args.Contains("--collection-test")){await CollectionTests.RunAsync();return;}
         if(args.Contains("--media-readonly-check")){await LiveMediaChecks.RunAsync(args);return;}

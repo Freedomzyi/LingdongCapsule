@@ -15,10 +15,17 @@ internal sealed record MaintenanceProgress(string Stage,int Completed,int Total)
 
 internal static class MaintenanceProcess
 {
+    internal static ProcessStartInfo PowerShellStartInfo()
+    {
+        var home=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell","v1.0");
+        var start=new ProcessStartInfo(Path.Combine(home,"powershell.exe")){UseShellExecute=false,CreateNoWindow=true};
+        // A parent PowerShell 7 process may export incompatible module directories.
+        start.Environment["PSModulePath"]=Path.Combine(home,"Modules");return start;
+    }
     internal static async Task RunAsync(string script,IEnumerable<string> arguments,IProgress<MaintenanceProgress> progress)
     {
         if(!File.Exists(script))throw new IOException("安装文件不完整，请重新下载并完整解压。");
-        var start=new ProcessStartInfo("powershell.exe"){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+        var start=PowerShellStartInfo();start.RedirectStandardOutput=true;start.RedirectStandardError=true;start.StandardOutputEncoding=System.Text.Encoding.UTF8;start.StandardErrorEncoding=System.Text.Encoding.UTF8;
         foreach(var argument in new[]{"-NoProfile","-ExecutionPolicy","Bypass","-File",script}.Concat(arguments))start.ArgumentList.Add(argument);
         using var process=Process.Start(start) ?? throw new IOException("无法启动维护服务，请稍后重试。");
         var errorTask=process.StandardError.ReadToEndAsync();

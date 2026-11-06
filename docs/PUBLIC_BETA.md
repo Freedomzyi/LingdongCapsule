@@ -2,9 +2,9 @@
 
 ## 下载与启动
 
-从本仓库 Releases 中选择标有 Pre-release 的主程序版本，下载 LingdongCapsule-win-x64.zip 与 SHA256SUMS.txt。插件 API 预览版本不是主程序。
+从本仓库 Releases 中选择标有 Pre-release 的主程序版本。推荐下载 LingdongCapsule-Setup-win-x64.exe 与 SETUP-SHA256SUMS.txt；便携版下载 LingdongCapsule-win-x64.zip 与 SHA256SUMS.txt。插件 API 预览版本不是主程序。
 
-完整解压 ZIP 后，可直接运行 LingdongCapsule.exe，或双击安装.cmd 使用当前用户安装入口。首次启动提供引导，之后主要在托盘常驻，双击托盘图标打开设置。无需管理员权限或另装 .NET SDK。安装、升级、回退和卸载细节见 INSTALLATION.md。
+安装 EXE 可直接双击，依次选择位置并完成安装。完整解压 ZIP 后，可直接运行 LingdongCapsule.exe，或双击安装.cmd 使用相同安装向导。首次启动提供引导，之后主要在托盘常驻，双击托盘图标打开设置。无需管理员权限或另装 .NET SDK。Windows 已安装应用中的卸载入口提供图形界面，并保留个人设置。安装、升级、回退和卸载细节见 INSTALLATION.md。
 
 应用内检查更新目前只检查正式版本；测试版更新请查看本仓库 Releases。首个测试版尚无正式版本可供检查，不代表下载包损坏。
 

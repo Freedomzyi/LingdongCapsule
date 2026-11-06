@@ -1,5 +1,6 @@
 ﻿param([string]$TestRegistrationId='',[switch]$ReportProgress)
 $ErrorActionPreference='Stop'
+if($ReportProgress){[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);$OutputEncoding=[Console]::OutputEncoding}
 . (Join-Path $PSScriptRoot 'Deployment.Common.ps1')
 $target=Assert-CapsulePath ((Resolve-Path -LiteralPath $PSScriptRoot).Path)
 $manifest=Join-Path $target 'installed-files.json'

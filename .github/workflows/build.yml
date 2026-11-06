@@ -23,6 +23,15 @@ jobs:
       - name: Verify bundled themes and widgets
         shell: pwsh
         run: dotnet run --project tests/Capsule.WindowsTests -c Release --no-build -- --collection-test
+      - name: Verify standalone setup and real maintenance lifecycle
+        shell: pwsh
+        run: |
+          dotnet run --project tests/Capsule.WindowsTests -c Release --no-build -- --setup-payload-test
+          if ($LASTEXITCODE -ne 0) { throw 'Payload guards failed' }
+          dotnet run --project tests/Capsule.WindowsTests -c Release --no-build -- --setup-smoke artifacts/LingdongCapsule-Setup-win-x64.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Setup startup failed' }
+          dotnet run --project tests/Capsule.WindowsTests -c Release --no-build -- --maintenance-real-test artifacts/app
+          if ($LASTEXITCODE -ne 0) { throw 'Maintenance lifecycle failed' }
       - name: Verify main application and onboarding in fresh runner profile
         shell: powershell
         run: ./scripts/test-published.ps1 -RequireClean -MainStartup
@@ -32,5 +41,8 @@ jobs:
           path: |
             artifacts/LingdongCapsule-win-x64.zip
             artifacts/SHA256SUMS.txt
+            artifacts/LingdongCapsule-Setup-win-x64.exe
+            artifacts/SETUP-SHA256SUMS.txt
+            artifacts/SETUP-BUILD-INFO.json
             artifacts/plugins/*.zip
             artifacts/plugins/SHA256SUMS.txt

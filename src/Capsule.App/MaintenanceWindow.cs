@@ -17,12 +17,12 @@ internal sealed class MaintenanceWindow : Window
     private readonly StackPanel body=new();
     private readonly Button primary=new(){Padding=new Thickness(18,11,18,11),MinWidth=120,Foreground=Brushes.White,Background=new SolidColorBrush(Color.FromRgb(0,122,255))};
     private readonly Button secondary=new(){Padding=new Thickness(16,11,16,11),MinWidth=86,Margin=new Thickness(0,0,10,0)};
-    private readonly TextBox location=new(){Padding=new Thickness(10),FontSize=12};
+    private readonly TextBox location=new(){Padding=new Thickness(10),FontSize=12,Background=Brushes.Transparent,BorderThickness=new Thickness(0)};
     private readonly TextBlock stage=new(){FontSize=13,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,20,0,8)};
     private readonly ProgressBar progress=new(){Height=5,Minimum=0,Maximum=100};
     private bool busy;
     internal MaintenanceState State{get;private set;}
-    internal void BeginPreparation(){busy=true;ShowState(MaintenanceState.Working);stage.Text="准备卸载界面…";progress.IsIndeterminate=true;}
+    internal void BeginPreparation(string caption="准备卸载界面…"){busy=true;ShowState(MaintenanceState.Working);stage.Text=caption;progress.IsIndeterminate=true;}
     internal void EndPreparation(){busy=false;}
     internal MaintenanceWindow(bool uninstall=false,string? directory=null,Func<string,string[],IProgress<MaintenanceProgress>,Task>? runner=null)
     {
@@ -34,6 +34,7 @@ internal sealed class MaintenanceWindow : Window
         var scroll=new ScrollViewer{Content=body,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};Grid.SetRow(scroll,1);layout.Children.Add(scroll);
         var actions=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,22,0,0)};actions.Children.Add(secondary);actions.Children.Add(primary);Grid.SetRow(actions,2);layout.Children.Add(actions);Content=Design.Card(layout);
         SizeChanged+=(_,_)=>{var narrow=ActualWidth<350;var shortWindow=ActualHeight<300;primary.MinWidth=narrow ? 88 : 120;secondary.MinWidth=narrow ? 58 : 86;layout.Margin=new Thickness(shortWindow ? 8 : 16);brand.Margin=new Thickness(0,0,0,shortWindow ? 12 : 24);actions.Margin=new Thickness(0,shortWindow ? 12 : 22,0,0);};
+        Design.Bind(location,TextBox.ForegroundProperty,"TextPrimary");
         location.Text=uninstall ? source : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","LingdongCapsule");
         primary.Click+=async(_,_)=>await NextAsync();secondary.Click+=(_,_)=>{if(busy)return;if(State==MaintenanceState.Location)ShowState(MaintenanceState.Welcome);else Close();};Closing+=(_,args)=>{if(busy)args.Cancel=true;};
         PreviewKeyDown+=(_,args)=>{if(args.Key==System.Windows.Input.Key.Escape && !busy){Close();args.Handled=true;}};Loaded+=(_,_)=>BeginAnimation(OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(160)));ShowState(MaintenanceState.Welcome);
@@ -48,7 +49,9 @@ internal sealed class MaintenanceWindow : Window
             case MaintenanceState.Welcome:
                 Text(uninstall ? "准备卸载灵动胶囊？" : "让重要的信息，轻轻出现。",25,false);Text(uninstall ? "将移除程序文件、快捷方式及本程序的启动登记。\n个人设置会保留，重新安装后可以继续使用。\n不会删除其他应用和不属于胶囊的文件。" : "把媒体、通知与日常信息收在屏幕顶部。\n安装到当前用户，无需管理员权限。\n安装后可通过引导完成设置，日常从托盘管理。");primary.Content=uninstall ? "确认卸载" : "开始安装";secondary.Content="取消";break;
             case MaintenanceState.Location:
-                Text("选择安装位置",25,false);Text("升级保留个人设置；已有其他文件的目录不会被直接覆盖。");Text("安装目录",12);body.Children.Add(location);
+                Text("选择安装位置",25,false);Text("升级保留个人设置；已有其他文件的目录不会被直接覆盖。");Text("安装目录",12);
+                if(location.Parent is Border previous)previous.Child=null;
+                var field=new Border{CornerRadius=new CornerRadius(10),Child=location};Design.Bind(field,Border.BackgroundProperty,"ButtonFill");body.Children.Add(field);
                 var browse=new Button{Content="更改位置…",Padding=new Thickness(12,7,12,7),HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0,12,0,0)};browse.Click+=(_,_)=>{var picker=new Microsoft.Win32.OpenFolderDialog{Title="选择安装目录"};if(picker.ShowDialog(this)==true)location.Text=Path.Combine(picker.FolderName,"LingdongCapsule");};body.Children.Add(browse);primary.Content="安装";secondary.Content="返回";break;
             case MaintenanceState.Working:
                 Text(uninstall ? "正在卸载" : "正在安装",25,false);Text("请稍候，完成后会在这里显示结果。");body.Children.Add(stage);body.Children.Add(progress);primary.Content="处理中…";secondary.Content="请稍候";break;

@@ -6,7 +6,7 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 
 ## 使用
 
-公开测试版请从 [Releases](https://github.com/Freedomzyi/LingdongCapsule/releases) 选择主程序 Pre-release，下载 ZIP 与 SHA256SUMS.txt，完整解压后运行安装.cmd 或 LingdongCapsule.exe。测试范围与限制见 [测试版说明](docs/PUBLIC_BETA.md)，版本变化见 [更新记录](CHANGELOG.md)。
+公开测试版请从 [Releases](https://github.com/Freedomzyi/LingdongCapsule/releases) 选择主程序 Pre-release。推荐下载 `LingdongCapsule-Setup-win-x64.exe`，双击进入安装向导；便携使用则下载 ZIP 并完整解压。测试范围与限制见 [测试版说明](docs/PUBLIC_BETA.md)，版本变化见 [更新记录](CHANGELOG.md)。
 
 本机 MSP 工具、内容块与图片读取规则见 [外部接入](docs/EXTERNAL.md)。
 
@@ -20,7 +20,7 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 
 左右键入口见 [交互说明](docs/INTERACTION.md)，工程长期取证见 [稳定性验证](docs/STABILITY.md)。
 
-请从 GitHub Releases 中标记为正式版的记录下载附件 `LingdongCapsule-win-x64.zip` 并完整解压；若没有该正式附件，请使用源码验证构建，不将候选标签或插件预览当作正式安装包。双击 `安装.cmd` 打开 iOS 风格安装页，点击“安装并打开”安装到当前用户目录并创建开始菜单入口；不需要管理员权限。也可直接运行 `LingdongCapsule.exe` 使用便携版。自包含包无需预装 .NET，不能只复制一个 EXE。
+安装向导依次提供欢迎、安装位置、阶段进度和完成页；失败后可检查原因并重试。默认安装到当前用户目录并创建开始菜单入口，不需要管理员权限。ZIP 内的 `安装.cmd` 也会打开同一向导；直接运行 `LingdongCapsule.exe` 为便携使用。安装 EXE 自带程序和运行时；ZIP 便携版必须完整保留解压内容。
 
 首次运行展示四页引导，可选择形态、主题、材质、显示器、普通/待机模式和开机启动，点击“开始使用”后保存。自启默认关闭，由用户自行选择；完成后只驻留系统托盘，不占任务栏。“稍后设置”保留原有选择，关闭未完成的引导不会冒充完成。设置里的“使用指南”可再次打开。
 
@@ -45,7 +45,7 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 
 构建脚本优先使用仓库本地可选的 `.tools/dotnet/dotnet.exe`，不存在时使用系统 SDK。本地 SDK 不提交 Git，也不随软件发布；项目不依赖任何会话临时目录。
 
-生成 `artifacts/LingdongCapsule-win-x64.zip` 和 `artifacts/SHA256SUMS.txt`；同时构建独立插件包及校验和到 `artifacts/plugins`，并随主包提供。仅构建插件可运行 `./scripts/build-plugins.ps1`。插件源码和接口见 [插件说明](docs/PLUGINS.md)。源码调试：
+生成 `artifacts/LingdongCapsule-win-x64.zip`、`SHA256SUMS.txt`，以及独立安装 EXE、`SETUP-SHA256SUMS.txt` 和 `SETUP-BUILD-INFO.json`；同时构建独立插件包及校验和到 `artifacts/plugins`，并随主包提供。安装器内嵌 ZIP，构建核对版本及来源。仅构建插件可运行 `./scripts/build-plugins.ps1`。插件源码和接口见 [插件说明](docs/PLUGINS.md)。源码调试：
 
 候选包使用 `./scripts/build.ps1 -RequireClean`，包内 BUILD-INFO.json 记录提交、源码是否有未提交改动、SDK、程序和许可清单哈希。每次从全新暂存目录打包，插件只收录本次校验清单中的包；生成目录属于可再生构建输出。依赖许可保存在 licenses，来源及适用范围见 [许可来源](licenses/SOURCES.md)。
 

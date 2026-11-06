@@ -8,6 +8,9 @@ $marker=Join-Path $full '.capsule-maintenance.json'
 if(-not(Test-Path -LiteralPath $marker) -or (Get-Item -LiteralPath $marker).Length -gt 16384){throw 'Missing maintenance identity.'}
 $identity=[IO.File]::ReadAllText($marker) | ConvertFrom-Json
 if($identity.Id -ne (Split-Path $full -Leaf)){throw 'Maintenance identity mismatch.'}
+trap {[IO.File]::WriteAllText((Join-Path $full 'cleanup-error.log'),$_.Exception.ToString());exit 1}
+[Environment]::CurrentDirectory=$cache
+Set-Location -LiteralPath $cache
 $owner=Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
 if($owner){if($owner.Path -ne (Join-Path $full 'LingdongCapsule.exe') -or $owner.StartTime.ToUniversalTime().Ticks -ne $StartedTicks){throw 'Different process identity; no cleanup.'};if(-not $owner.WaitForExit(600000)){throw 'Maintenance process remains active; no cleanup.'}}
 $pending=[Collections.Generic.Stack[string]]::new();$pending.Push($full)

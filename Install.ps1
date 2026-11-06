@@ -1,5 +1,6 @@
 ﻿param([string]$InstallDir=(Join-Path $env:LOCALAPPDATA 'Programs\LingdongCapsule'),[switch]$NoLaunch,[switch]$NoRegistration,[string]$TestRegistrationId='',[switch]$ReportProgress)
 $ErrorActionPreference='Stop'
+if($ReportProgress){[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);$OutputEncoding=[Console]::OutputEncoding}
 . (Join-Path $PSScriptRoot 'Deployment.Common.ps1')
 $source=(Resolve-Path -LiteralPath $PSScriptRoot).Path
 $target=Assert-CapsulePath $InstallDir

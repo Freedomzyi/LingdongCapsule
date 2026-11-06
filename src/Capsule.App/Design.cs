@@ -7,6 +7,10 @@ namespace Capsule.App;
 
 internal static class Design
 {
+    internal static void ApplyMaintenancePreferences()
+    {
+        var preferences=Settings.Load();ApplyTheme(preferences.ThemeMode);ApplyFont(preferences.FontName,preferences.FontFilePath);
+    }
     public static bool IsDark{get;private set;}=true;
     public static FontFamily UserFont{get;private set;}=new("Microsoft YaHei UI");
     public static string FontStatus{get;private set;}="";

@@ -8,13 +8,14 @@ public partial class App : System.Windows.Application
     private SingleInstance? instance;
     internal AppDiagnostics? Diagnostics{get;private set;}
     internal bool SuppressStartupForTests{get;set;}
+    internal bool HostedMaintenance{get;set;}
     private string? maintenanceStage;
     protected override async void OnStartup(StartupEventArgs e)
     {
-        if(SuppressStartupForTests){base.OnStartup(e);return;}
+        if(SuppressStartupForTests || HostedMaintenance){base.OnStartup(e);return;}
         if(e.Args.Contains("--uninstall") || e.Args.Contains("--uninstall-staged"))
         {
-            base.OnStartup(e);Design.ApplySystemTheme();
+            base.OnStartup(e);Design.ApplyMaintenancePreferences();
             if(e.Args.Contains("--uninstall-staged"))
             {
                 try{var root=AppContext.BaseDirectory;var target=MaintenanceBootstrap.ReadTarget(root);maintenanceStage=root;MainWindow=new MaintenanceWindow(true,target);MainWindow.Show();}
@@ -32,7 +33,7 @@ public partial class App : System.Windows.Application
         if (e.Args.Contains("--install"))
         {
             base.OnStartup(e);
-            Design.ApplySystemTheme();
+            Design.ApplyMaintenancePreferences();
             MainWindow = new MaintenanceWindow(); MainWindow.Show(); return;
         }
         const string instanceName = "Local\\LingdongCapsule";
@@ -54,5 +55,5 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += (_, a) => { Diagnostics?.Unhandled(a.Exception);a.Handled = true; Design.PresentMessage("灵动胶囊发生错误", a.Exception.Message); Shutdown(1); };
         MainWindow = new MainWindow(); MainWindow.Show();
     }
-    protected override void OnExit(ExitEventArgs e) { Diagnostics?.Finish(e.ApplicationExitCode);instance?.Dispose();if(maintenanceStage!=null)try{MaintenanceBootstrap.ScheduleCleanup(maintenanceStage);}catch{/* Keep a failed-cleanup staging directory rather than expanding deletion scope. */}base.OnExit(e); }
+    protected override void OnExit(ExitEventArgs e) { Diagnostics?.Finish(e.ApplicationExitCode);instance?.Dispose();if(maintenanceStage!=null)try{MaintenanceBootstrap.ScheduleCleanup(maintenanceStage);}catch(Exception error){MaintenanceBootstrap.RecordCleanupFailure(maintenanceStage,error);}base.OnExit(e); }
 }

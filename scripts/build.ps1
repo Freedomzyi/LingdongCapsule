@@ -53,4 +53,5 @@ try {
     $info=[ordered]@{schema=1;sourceCommit=$revision;sourceDirty=[bool]$dirty;utc=[DateTime]::UtcNow.ToString('o');sdk=$sdk;rid='win-x64';selfContained=$true;version=[Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $stage 'LingdongCapsule.dll')).ProductVersion;appSha256=(Get-FileHash -LiteralPath (Join-Path $stage 'LingdongCapsule.dll') -Algorithm SHA256).Hash;noticesSha256=(Get-FileHash -LiteralPath (Join-Path $stage 'licenses/components.json') -Algorithm SHA256).Hash}
     [IO.File]::WriteAllText((Join-Path $stage 'BUILD-INFO.json'),($info | ConvertTo-Json),[Text.UTF8Encoding]::new($false))
     Publish-CapsuleBundle -Stage $stage -OutputRoot $outputRoot
+    & (Join-Path $PSScriptRoot 'build-setup.ps1') -Dotnet $Dotnet -RequireClean:$RequireClean
 } finally { Pop-Location }
