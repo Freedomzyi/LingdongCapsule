@@ -557,3 +557,7 @@ Owner 确认点击微信相关程序、确认结束后无错误但仍在运行�
 2026-11-06 展开媒体悬浮圆按钮裁切：Owner 截图显示播放按钮底部变平。新增逐级裁切祖先几何断言，旧实现稳定失败：40px悬浮背景底边116.5超过父容器114（media-hover-before.log）。根因为媒体详情固定130/158高度，未覆盖当前标题/封面/控件及边距。现先准备当前控制布局，再按 MediaPanel 实测期望高度及完整边框/内边距确定展开高度，保留原最小高度与40px按钮。六组实际WPF回归覆盖时长有无、封面、音量栏、大字及1.25倍率，每个按钮的悬浮背景都在所有裁切祖先内；实际渲染检查 media-hover-tests/7803873320094aabab74894f2f7042fd/hover-3.png 与 hover-5.png，输入、收放和缩放专项通过 media-hover-*.log。测试只操作自己的窗口与专用媒体源，不控制真实播放器。
 
 媒体悬浮修复实际发行 DLL 的输入与六组裁切边界回归通过 media-hover-packaged-tests.log，渲染 media-hover-tests/aa1934bb80ba442ba725d3ce6277c888；解压包运行时/安装入口通过 published-tests/b625a8fb8e72462195c3b00693ea6c14。源码 34c5b5326ea38e57cfa4b64844f964787667f565，本机已正常替换为 soak/28d2d13384fb49c5ba07b7194cee7133，PID 19972、监测 PID 28020，身份及监测状态回读正常。更新前后设置哈希一致（media-hover-profile-preservation.json）；固定ZIP与元数据保存在该run的release-package，SHA256为52E07E9CE7CA8E3905B35CDD7E87411FF7585CF2690D4376C0BF7D9954D76014。提交时 CI 42210253536 尚在运行，不能记作已通过；不创建正式Release或宣称成熟交付。
+
+2026-11-06 按Owner最新提供的二维码专用PNG替换完整收款页：assets/support-wechat.png，365×370，SHA256 FBF15088AA6FE3830BF1009F164F4219A9ED708A957B78526C8424D719B7BDEC。直接使用提供的图像字节，去除旧JPG资源和赞赏弹窗宣传文案，仅保留二维码、白色扫码留白及关闭按钮。深浅主题、内嵌原字节、短窗口关闭专项通过 qr-only-about.log，截图 about-tests/ab540b4779ae4ce1a919619ec83bd7bb；此更改纳入正在准备的公开测试版，未调用付款软件。
+
+公开测试版回归：verification/20261106-113651-5372/results.json 实际26套均为退出码0，先前口头27套计数已纠正。本轮期间另补入beta版本元数据、发布文档与纯二维码资源，二维码/关于页增量专项 qr-only-about.log 通过；后续固定发布提交的实际包继续验证，不将跨提交过程写作同一固定包全部通过。

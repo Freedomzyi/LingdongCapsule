@@ -6,6 +6,8 @@ Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部
 
 ## 使用
 
+公开测试版请从 [Releases](https://github.com/Freedomzyi/LingdongCapsule/releases) 选择主程序 Pre-release，下载 ZIP 与 SHA256SUMS.txt，完整解压后运行安装.cmd 或 LingdongCapsule.exe。测试范围与限制见 [测试版说明](docs/PUBLIC_BETA.md)，版本变化见 [更新记录](CHANGELOG.md)。
+
 本机 MSP 工具、内容块与图片读取规则见 [外部接入](docs/EXTERNAL.md)。
 
 安装、升级备份、回退与卸载边界见 [安装维护](docs/INSTALLATION.md)。
