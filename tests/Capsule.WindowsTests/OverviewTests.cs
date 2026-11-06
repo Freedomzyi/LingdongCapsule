@@ -25,6 +25,7 @@ internal static class OverviewTests
         var index=Array.IndexOf(args,"--overview-test");
         var output=index+1<args.Length && !args[index+1].StartsWith("--") ? Path.GetFullPath(args[index+1]) : throw new Exception("Provide an output directory");
         Directory.CreateDirectory(output);var run=Guid.NewGuid().ToString("N");var cache=Path.Combine(output,"test-weather-"+run+".json");
+        SharedRuntimeGrouping();
         var handler=new WeatherHandler();
         using(var weather=new WeatherService(new HttpClient(handler),cache))
         {
@@ -67,9 +68,9 @@ internal static class OverviewTests
             {
                 var identity=new ProcessIdentity(child.Id,child.StartTime,child.ProcessName,child.SessionId);
                 var wrong=new MemoryGroup(identity.Name,0,new[]{identity with{Started=identity.Started.AddSeconds(-1)}},null);
-                if(OverviewService.EndConfirmed(wrong)!=1 || child.HasExited)throw new Exception("Mismatched process identity was allowed");
+                if(await OverviewService.EndConfirmedAsync(wrong)!=1 || child.HasExited)throw new Exception("Mismatched process identity was allowed");
                 var correct=new MemoryGroup(identity.Name,0,new[]{identity},null);
-                if(OverviewService.EndConfirmed(correct)!=0 || !child.WaitForExit(5000))throw new Exception("Owned test process did not end");
+                if(await OverviewService.EndConfirmedAsync(correct)!=0 || !child.HasExited)throw new Exception("Owned test process did not end before completion was reported");
             }
             finally{if(!child.HasExited){child.Kill();child.WaitForExit();}}
         }
@@ -81,6 +82,7 @@ internal static class OverviewTests
             Console.WriteLine("PASS Public weather service returned current and two daily forecasts");
         }
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();app.ShutdownMode=System.Windows.ShutdownMode.OnExplicitShutdown;Design.ApplySystemTheme();
+        await EndDialogAsync(app,output);
         await CitySaveFailureAsync(app,output,run);
         var window=new Capsule.App.MainWindow(suppressOnboarding:true,initialSettings:new Settings{NotificationsEnabled=false,MediaEnabled=false,ThemeMode=1});
         try
@@ -96,6 +98,54 @@ internal static class OverviewTests
             Console.WriteLine("PASS Actual WPF overview displays live hardware, network and process ranking");
         }
         finally{window.Close();}
+    }
+    private static void SharedRuntimeGrouping()
+    {
+        var time=DateTime.Now.AddMinutes(-2);
+        var ids=new Dictionary<int,ProcessIdentity>
+        {
+            [1]=new(1,time,"Weixin",1),[2]=new(2,time,"QQMusic",1),
+            [3]=new(3,time.AddSeconds(1),"WeChatAppEx",1),[4]=new(4,time.AddSeconds(2),"WeChatAppEx",1),
+            [5]=new(5,time.AddSeconds(1),"WeChatAppEx",1),[6]=new(6,time.AddSeconds(2),"WeChatAppEx",1),
+            [7]=new(7,time,"explorer",1)
+        };
+        var parents=new Dictionary<int,int>{{3,1},{4,3},{5,2},{6,5}};
+        if(OverviewService.GroupProcess(4,ids,parents)!="Weixin" || OverviewService.GroupProcess(6,ids,parents)!="QQMusic")throw new Exception("Shared WeChatAppEx runtime was not assigned to its actual WeChat/QQ Music owner");
+        parents[5]=7;if(OverviewService.GroupProcess(6,ids,parents)!="WeChatAppEx")throw new Exception("Unknown helper owner was promoted to an unrelated application");
+        parents[5]=2;ids[2]=ids[2] with{Started=time.AddSeconds(10)};
+        if(OverviewService.GroupProcess(6,ids,parents)!="WeChatAppEx")throw new Exception("Reused parent PID was accepted");
+        ids[2]=ids[2] with{Started=time,Session=2};if(OverviewService.GroupProcess(6,ids,parents)!="WeChatAppEx")throw new Exception("Cross-session helper owner was accepted");
+        Console.WriteLine("PASS shared runtime ownership separates WeChat and QQ Music, rejects reused parent PID/foreign session and unknown host");
+    }
+    private static async Task EndDialogAsync(Capsule.App.App app,string output)
+    {
+        var start=new ProcessStartInfo("powershell.exe"){UseShellExecute=false,CreateNoWindow=true};start.ArgumentList.Add("-NoProfile");start.ArgumentList.Add("-Command");start.ArgumentList.Add("Start-Sleep -Seconds 60");
+        using var child=Process.Start(start)!;
+        var weather=new WeatherService(new HttpClient(new WeatherHandler()),Path.Combine(output,"end-dialog-weather.json"));
+        using var view=new OverviewView(new Settings(),()=>{},weather);
+        var identity=new ProcessIdentity(child.Id,child.StartTime,child.ProcessName,child.SessionId);
+        var group=new MemoryGroup(identity.Name,0,new[]{identity},null);
+        var cancel=true;var sawDialog=false;var timeout=false;var clock=Stopwatch.StartNew();
+        var timer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromMilliseconds(20)};
+        timer.Tick+=(_,_)=>
+        {
+            foreach(var dialog in app.Windows.OfType<System.Windows.Window>().ToArray())
+            {
+                if(clock.Elapsed.TotalSeconds>5){timeout=true;dialog.Close();continue;}
+                if(dialog.Title!="关闭应用程序？")continue;
+                sawDialog=true;
+                Descendants<System.Windows.Controls.Button>(dialog).Single(button=>Equals(button.Content,cancel ? "取消" : "结束进程")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            }
+        };
+        try
+        {
+            timer.Start();await view.ConfirmEndAsync(group);
+            if(!sawDialog || timeout || child.HasExited || view.DialogOpen)throw new Exception("Canceled real end dialog killed the owned fixture or retained modal state");
+            cancel=false;sawDialog=false;clock.Restart();await view.ConfirmEndAsync(group);
+            if(!sawDialog || timeout || !child.HasExited || view.DialogOpen)throw new Exception("Confirmed real end dialog did not await owned process exit");
+            Console.WriteLine("PASS actual confirmation cancel preserves owned process; accept waits for verified exit and releases modal state; no daily app terminated");
+        }
+        finally{timer.Stop();if(!child.HasExited){child.Kill();child.WaitForExit();}}
     }
     private static async Task CitySaveFailureAsync(Capsule.App.App app,string output,string run)
     {

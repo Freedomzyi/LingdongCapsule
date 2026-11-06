@@ -17,14 +17,14 @@ New-Item -ItemType Directory -Path $snapshot -Force | Out-Null
 $inventory=@($entries | Where-Object {-not $_.PSIsContainer} | ForEach-Object {[pscustomobject]@{Path=$_.FullName.Substring($source.Length+1);SHA256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}})
 foreach($entry in Get-ChildItem -LiteralPath $source -Force){Copy-Item -LiteralPath $entry.FullName -Destination $snapshot -Recurse -Force}
 foreach($entry in $inventory){if((Get-FileHash -LiteralPath (Join-Path $snapshot $entry.Path) -Algorithm SHA256).Hash -ne $entry.SHA256){throw 'Snapshot copy changed; app not launched.'}}
-$inventory | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $root 'inventory.json') -Encoding UTF8
+[IO.File]::WriteAllText((Join-Path $root 'inventory.json'),($inventory | ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($true))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'watch-soak.ps1') -Destination (Join-Path $root 'watch-soak.ps1')
 $child=Start-Process -FilePath (Join-Path $snapshot 'LingdongCapsule.exe') -ArgumentList @('--startup','--diagnostics-dir',('"'+$diagnostics+'"')) -WorkingDirectory $snapshot -WindowStyle Hidden -PassThru
 $run=[ordered]@{schemaVersion=1;runId=$id;pid=$child.Id;startedUtc=$child.StartTime.ToUniversalTime().ToString('o');sourceCommit=$info.sourceCommit;appPath=(Join-Path $snapshot 'LingdongCapsule.exe');diagnosticsDirectory=$diagnostics;requiredHours=24;scope='Actual packaged app with existing preferences. No synthetic player, notification, sleep, startup registration or settings changes are injected.'}
-$run | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $root 'run.json') -Encoding UTF8
+[IO.File]::WriteAllText((Join-Path $root 'run.json'),($run | ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($true))
 for($i=0;$i -lt 50;$i++){Start-Sleep -Milliseconds 200;$child.Refresh();if($child.HasExited){throw ('App exited before readiness; retained run '+$root)};if(Test-Path -LiteralPath $diagnostics){break}}
 if(-not(Test-Path -LiteralPath $diagnostics)){throw ('Diagnostic readiness missing; app was left running for inspection: '+$root)}
 $watcher=Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $root 'watch-soak.ps1')+'"'),'-RunDirectory',('"'+$root+'"')) -WindowStyle Hidden -PassThru
-[pscustomobject]@{WatcherPid=$watcher.Id;StartedUtc=$watcher.StartTime.ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'watcher.json') -Encoding UTF8
+[IO.File]::WriteAllText((Join-Path $root 'watcher.json'),([pscustomobject]@{WatcherPid=$watcher.Id;StartedUtc=$watcher.StartTime.ToUniversalTime().ToString('o')} | ConvertTo-Json),[Text.UTF8Encoding]::new($true))
 Write-Output ('Started actual fixed app; run evidence: '+$root)
 Write-Output ('App PID '+$child.Id+'; watcher PID '+$watcher.Id+'. This starts measurement, not acceptance.')

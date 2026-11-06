@@ -134,23 +134,30 @@ internal sealed class OverviewView : Grid,IDisposable
             var row=new Grid{Height=25,Margin=new Thickness(8,0,4,0)};row.ColumnDefinitions.Add(new(){Width=new GridLength(21)});row.ColumnDefinitions.Add(new());row.ColumnDefinitions.Add(new(){Width=GridLength.Auto});row.ColumnDefinitions.Add(new(){Width=new GridLength(25)});
             icons.TryGetValue(group.Name,out var source);
             if(source!=null)row.Children.Add(new Image{Source=source,Width=15,Height=15});else{var fallback=Text(10,true);fallback.Text=group.Name[..1];row.Children.Add(fallback);}
-            var name=Text(12);name.Text=group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase) ? "微信" : group.Name;name.TextAlignment=TextAlignment.Left;Grid.SetColumn(name,1);row.Children.Add(name);
+            var name=Text(12);name.Text=group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase) || group.Name.Equals("WeChat",StringComparison.OrdinalIgnoreCase) ? "微信" : group.Name.Equals("WeChatAppEx",StringComparison.OrdinalIgnoreCase) ? "共享辅助进程" : group.Name;name.ToolTip=group.Name;name.TextAlignment=TextAlignment.Left;Grid.SetColumn(name,1);row.Children.Add(name);
             var amount=Text(11,true);amount.Text=group.Bytes>=1073741824 ? $"{group.Bytes/1073741824d:0.0} GB" : $"{group.Bytes/1048576d:0} MB";Grid.SetColumn(amount,2);row.Children.Add(amount);
             var end=new Button{Content="×",Background=Brushes.Transparent,Foreground=new SolidColorBrush(Color.FromRgb(164,164,174)),FontSize=15,ToolTip="结束此进程组",IsEnabled=!group.Processes.Any(process=>process.Id==Environment.ProcessId)};
-            Design.Bind(end,Control.ForegroundProperty,"TextSecondary");Grid.SetColumn(end,3);end.Click+=(_,args)=>{args.Handled=true;ConfirmEnd(group);};row.Children.Add(end);processes.Children.Add(row);
+            Design.Bind(end,Control.ForegroundProperty,"TextSecondary");Grid.SetColumn(end,3);end.Click+=async(_,args)=>{args.Handled=true;await ConfirmEndAsync(group);};row.Children.Add(end);processes.Children.Add(row);
         }
         if(CurrentProcesses.Count==0){var empty=Text(12,true);empty.Text="暂无可读取的进程";empty.Height=75;processes.Children.Add(empty);}
     }
-    private void ConfirmEnd(MemoryGroup group)
+    internal async Task ConfirmEndAsync(MemoryGroup group)
     {
-        var wechat=group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase);
+        var wechat=group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase) || group.Name.Equals("WeChat",StringComparison.OrdinalIgnoreCase);
         var detail=wechat ? "微信\n将结束微信主程序及其子进程，未保存内容可能丢失。" : $"{group.Name} · {group.Processes.Count} 个同名进程\n将强制结束这些进程，未保存内容可能丢失。共享组件可能影响多个应用。";
-        string? confirmed;DialogOpen=true;
-        try{confirmed=CardDialog.Show("关闭应用程序？",detail,"结束进程",destructive:true);}finally{DialogOpen=false;}
-        if(confirmed==null)return;
-        var failures=OverviewService.EndConfirmed(group);nextProcesses=0;
-        if(failures>0)Design.PresentMessage("部分进程未能结束",$"{failures} 个进程无法结束，请在任务管理器中检查。");
-        _=TickAsync();
+        if(group.Name.Equals("WeChatAppEx",StringComparison.OrdinalIgnoreCase))detail="共享辅助进程\n未能确认所属应用。结束辅助进程不会退出微信等宿主应用，宿主可能自动重启它。";
+        if(DialogOpen || disposed)return;
+        DialogOpen=true;
+        try
+        {
+            if(CardDialog.Show("关闭应用程序？",detail,"结束进程",destructive:true)==null)return;
+            var failures=await OverviewService.EndConfirmedAsync(group);
+            if(disposed)return;
+            nextProcesses=0;
+            if(failures>0)Design.PresentMessage("部分进程未能结束",$"{failures} 个进程未能确认退出，可能权限不足或进程已变化。请在任务管理器中检查。");
+            await TickAsync();
+        }
+        finally{DialogOpen=false;}
     }
     public void Dispose(){disposed=true;weather.Dispose();icons.Clear();}
     internal void SetEnabled(bool enabled){if(!enabled)weather.Suspend();}

@@ -537,3 +537,6 @@ Windows PowerShell 5.1 隔离文件专项通过：`artifacts/deployment-tests/6e
 Owner 反馈播放/歌词、隐藏恢复、睡眠唤醒无异常，另报告媒体切入系统信息轻微卡顿与按钮外观问题。体验结论与实际诊断计数分开记录于旧候选 owner-followup-feedback.json；不将其扩大为完整交付通过。发现 OverviewView.TickAsync 同步执行网络枚举、RenderProcesses 同步提取 Shell 图标，两者占用过渡的 Dispatcher。改为串行后台采样/排行/图标解码，仅将冻结图像与数据回传界面；保留五秒排行节流，停用/关闭后拒绝迟到结果。切换按钮改为 15 像素自绘矢量显示器/音符，28 像素点击区，保持展开态才显示及完整对称布局。构建、真实硬件信息面板与城市保存回归、媒体切换输入和收放动画专项通过，证据 panel-switch-*.log；不以工程回归宣称 Owner 感受到的细微卡顿已经彻底消失。
 
 修复提交 5907330ff280c005c4d61338f1dc8b87fd8a7d91 已完成干净自包含打包；实际发行 App/Core/API DLL 的输入切换专项通过（panel-switch-packaged-input.log、input-routing-tests/b653a21434bb48ccb42d02d23def460e），解压包运行时与安装页启动通过 published-tests/0aac2768336d49279f2f0b04c4b9599c。内置组件和比例专项亦通过。已按精确 PID/启动身份/路径正常关闭旧候选，换为 soak/d5d3ab0b116d42138795f1acfa7f888f，应用 PID 7660、监测 PID 9572；设置哈希前后相同。旧候选的运行记录保留，未累计到新构建，也未声称 24 小时通过。此次为修复部署，仍待 Owner 确认切换瞬间的真实感受和新按钮外观。
+
+## 2026-11-06 内存排行关闭微信反馈
+Owner 确认点击微信相关程序、确认结束后无错误但仍在运行。只读核对本机发现 WeChatAppEx 同时属于 Weixin 与 QQMusic 两个真实父链，未对日用应用发送结束命令。原逻辑只把微信父链归组，QQ 音乐的同名辅助进程仍单列，容易与微信本体混淆；现按父链、会话与创建时间分别归属已识别宿主，未知宿主保留为共享辅助进程并明确结束辅助进程不会退出宿主，图标优先取主程序。结束改为异步等待实际退出，身份/会话拒绝计入失败，超时与权限失败显示反馈，操作期间保持模态状态。新增混合父链、父 PID 重用、跨会话和未知宿主回归；实际 WPF 确认/取消使用专用 PowerShell 子进程，接受后断言任务返回时已退出，取消则存活，全部通过 process-end-overview-final.log。并修复 PowerShell 7 启动取证时 run.json 无 BOM 导致 Windows PowerShell 5.1 监测器误读中文路径的工具兼容问题；不把缺少外部监测记录说成应用停止。

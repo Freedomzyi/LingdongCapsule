@@ -82,21 +82,22 @@ internal sealed class OverviewService
             catch(Exception error) when(error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException){ }
         }
         var parents=ReadParents();
-        string Group(int id)
+        var identities=entries.ToDictionary(row=>row.Key,row=>row.Value.Identity);
+        return entries.GroupBy(row=>GroupProcess(row.Key,identities,parents),StringComparer.OrdinalIgnoreCase).Select(group=>new MemoryGroup(group.Key,group.Sum(row=>row.Value.Bytes),group.Select(row=>row.Value.Identity).ToArray(),group.OrderByDescending(row=>row.Value.Identity.Name.Equals(group.Key,StringComparison.OrdinalIgnoreCase)).Select(row=>row.Value.Path).FirstOrDefault(path=>path!=null))).OrderByDescending(group=>group.Bytes).ThenBy(group=>group.Name).Take(3).ToArray();
+    }
+    internal static string GroupProcess(int id,IReadOnlyDictionary<int,ProcessIdentity> identities,IReadOnlyDictionary<int,int> parents)
+    {
+        var start=identities[id];
+        if(!start.Name.Equals("WeChatAppEx",StringComparison.OrdinalIgnoreCase))return start.Name;
+        var visited=new HashSet<int>();var child=start;
+        for(var depth=0;depth<20 && visited.Add(child.Id);depth++)
         {
-            var start=entries[id].Identity;
-            if(!start.Name.Equals("WeChatAppEx",StringComparison.OrdinalIgnoreCase))return start.Name;
-            var visited=new HashSet<int>();var child=start;
-            for(var depth=0;depth<20 && visited.Add(child.Id);depth++)
-            {
-                if(!parents.TryGetValue(child.Id,out var parentId) || !entries.TryGetValue(parentId,out var parent) || parent.Identity.Started>child.Started)break;
-                if(parent.Identity.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase))return "Weixin";
-                if(!parent.Identity.Name.Equals("WeChatAppEx",StringComparison.OrdinalIgnoreCase))break;
-                child=parent.Identity;
-            }
-            return start.Name;
+            if(!parents.TryGetValue(child.Id,out var parentId) || !identities.TryGetValue(parentId,out var parent) || parent.Started>child.Started || parent.Session!=start.Session)break;
+            if(!parent.Name.Equals("WeChatAppEx",StringComparison.OrdinalIgnoreCase))
+                return new[]{"Weixin","WeChat","QQMusic"}.Contains(parent.Name,StringComparer.OrdinalIgnoreCase) ? parent.Name : start.Name;
+            child=parent;
         }
-        return entries.GroupBy(row=>Group(row.Key),StringComparer.OrdinalIgnoreCase).Select(group=>new MemoryGroup(group.Key,group.Sum(row=>row.Value.Bytes),group.Select(row=>row.Value.Identity).ToArray(),group.Select(row=>row.Value.Path).FirstOrDefault(path=>path!=null))).OrderByDescending(group=>group.Bytes).ThenBy(group=>group.Name).Take(3).ToArray();
+        return start.Name;
     }
     private static Dictionary<int,int> ReadParents()
     {
@@ -111,18 +112,22 @@ internal sealed class OverviewService
         return parents;
     }
     // Caller must present these exact identities in a confirmation dialog first.
-    public static int EndConfirmed(MemoryGroup group)
+    public static async Task<int> EndConfirmedAsync(MemoryGroup group)
     {
         using var self=Process.GetCurrentProcess();var failed=0;
-        var roots=group.Processes.Where(item=>!group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase) || item.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase));
+        var wechat=group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase) || group.Name.Equals("WeChat",StringComparison.OrdinalIgnoreCase);
+        var roots=group.Processes.Where(item=>!wechat || item.Name.Equals(group.Name,StringComparison.OrdinalIgnoreCase));
         foreach(var identity in roots)
         {
-            if(identity.Id==self.Id || identity.Session==0 || identity.Session!=self.SessionId)continue;
+            if(identity.Id==self.Id || identity.Session==0 || identity.Session!=self.SessionId){failed++;continue;}
             try
             {
                 using var process=Process.GetProcessById(identity.Id);
                 if(process.SessionId!=identity.Session || process.StartTime!=identity.Started || !process.ProcessName.Equals(identity.Name,StringComparison.OrdinalIgnoreCase)){failed++;continue;}
-                process.Kill(entireProcessTree:group.Name.Equals("Weixin",StringComparison.OrdinalIgnoreCase));
+                process.Kill(entireProcessTree:wechat);
+                using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                try{await process.WaitForExitAsync(timeout.Token);}
+                catch(OperationCanceledException){failed++;}
             }
             catch(ArgumentException){ }
             catch(Exception error) when(error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException){failed++;}
