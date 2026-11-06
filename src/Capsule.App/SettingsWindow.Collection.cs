@@ -61,13 +61,17 @@ public sealed partial class SettingsWindow
     {
         directory??=Path.Combine(AppContext.BaseDirectory,"plugins");
         Heading(panel,"精选组件");
-        var entries=new[]{("capsule.focustimer","专注计时","25 / 45 分钟专注与短休息","#5FD2A5"),("capsule.dayprogress","今日进度","日期、星期与今日已过百分比","#64A6FF")};
+        var entries=new[]{
+            ("capsule.focustimer","专注计时","专心做事，到时提醒休息。\n单击开始/暂停，右键调整时长。","#5FD2A5","用途\n给自己一段不被打断的时间，计时结束后提醒休息。\n\n怎么用\n添加后，在胶囊中单击绿色圆环旁的倒计时，即可开始或暂停。右键选择 25/45 分钟专注、5 分钟休息，或重置计时。\n\n在哪里看\n组件显示在空闲胶囊中。播放媒体时，打开“显示设置 → 组合显示”，即可同时查看。\n\n提醒与恢复\n完成提醒遵循通知开关与安静设置。睡眠时间计入倒计时，唤醒后检查完成；停用或退出会结束本次计时。"),
+            ("capsule.dayprogress","今日进度","看看今天已经过去了多少时间。\n自动更新，悬停查看日期与星期。","#64A6FF","用途\n用百分比和蓝色圆环显示今天已经过去了多少时间。例如中午 12 点约为 50%。\n\n怎么用\n添加后自动更新，不需要开始或暂停。把鼠标放在组件上，可查看日期、星期和更精确的百分比。每天零点重新计算。\n\n在哪里看\n组件显示在空闲胶囊中。播放媒体时，打开“显示设置 → 组合显示”，即可同时查看。\n\n这个数字表示当天时间经过的比例，不是任务完成率，也不会统计你的工作表现。")};
         var refreshers=new List<Action>();
-        foreach(var (id,name,description,color) in entries)
+        foreach(var (id,name,description,color,help) in entries)
         {
             var content=new Grid();content.ColumnDefinitions.Add(new(){Width=new GridLength(68)});content.ColumnDefinitions.Add(new());content.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
             var preview=new Border{Width=54,Height=54,CornerRadius=new CornerRadius(16),Background=new SolidColorBrush((Color)ColorConverter.ConvertFromString(color))};preview.Child=new CollectionGlyph(id=="capsule.focustimer"){Width=30,Height=30,VerticalAlignment=VerticalAlignment.Center,HorizontalAlignment=HorizontalAlignment.Center};content.Children.Add(preview);
             var labels=new StackPanel{VerticalAlignment=VerticalAlignment.Center};var title=new TextBlock{Text=name,FontSize=14,FontWeight=FontWeights.SemiBold};Design.Bind(title,TextBlock.ForegroundProperty,"TextPrimary");labels.Children.Add(title);var detail=new TextBlock{Text=description,FontSize=11,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,5,6,0)};Design.Bind(detail,TextBlock.ForegroundProperty,"TextSecondary");labels.Children.Add(detail);Grid.SetColumn(labels,1);content.Children.Add(labels);
+            var instructions=new Button{Content="使用说明",FontSize=11,Foreground=new SolidColorBrush(Color.FromRgb(0,122,255)),Background=Brushes.Transparent,Padding=new Thickness(0,4,4,0),Margin=new Thickness(0,3,0,0),HorizontalAlignment=HorizontalAlignment.Left,Tag="help:"+id};
+            System.Windows.Automation.AutomationProperties.SetName(instructions,name+"使用说明");instructions.Click+=(_,_)=>Design.PresentMessage(name+" · 使用说明",help);labels.Children.Add(instructions);
             var add=new Button{Content="添加",Padding=new Thickness(12,8,12,8),VerticalAlignment=VerticalAlignment.Center,Tag="bundled:"+id};System.Windows.Automation.AutomationProperties.SetName(add,"添加"+name);Grid.SetColumn(add,2);content.Children.Add(add);
             var archive=Path.Combine(directory,id+"-0.1.0.zip");
             void Refresh(){var enabled=active().Contains(id);var entry=installed().FirstOrDefault(item=>item.Id==id && item.CanEnable);add.Content=enabled ? "停用" : entry!=null ? "启用" : File.Exists(archive) ? "添加" : "未附带";add.IsEnabled=enabled || entry!=null || File.Exists(archive);System.Windows.Automation.AutomationProperties.SetName(add,(enabled ? "停用" : "添加或启用")+name);}
