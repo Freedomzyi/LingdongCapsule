@@ -19,6 +19,7 @@ try {
         @{Name='settings-sync';Project='tests/Capsule.WindowsTests';Args=@('--settings-sync-test')},
         @{Name='about';Project='tests/Capsule.WindowsTests';Args=@('--about-test')},
         @{Name='maintenance';Project='tests/Capsule.WindowsTests';Args=@('--maintenance-test')},
+        @{Name='maintenance-bootstrap';Project='tests/Capsule.WindowsTests';Args=@('--maintenance-bootstrap-test')},
         @{Name='install-viewport';Project='tests/Capsule.WindowsTests';Args=@('--install-viewport-test')},
         @{Name='fonts';Project='tests/Capsule.WindowsTests';Args=@('--font-test')},
         @{Name='scale';Project='tests/Capsule.WindowsTests';Args=@('--scale-test')},

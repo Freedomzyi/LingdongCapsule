@@ -14,7 +14,7 @@ internal static class MaintenanceTests
         if(MaintenanceProgress.Parse("CAPSULE_PROGRESS|copying|5|10") is not {Completed:5,Total:10} || MaintenanceProgress.Parse("CAPSULE_PROGRESS|copying|11|10")!=null || MaintenanceProgress.Parse("private log")!=null)throw new Exception("Progress protocol validation failed");
         foreach(var theme in new[]{0,1})
         {
-            Design.ApplyTheme(theme);var calls=0;var wait=new TaskCompletionSource();var fail=true;string[]? arguments=null;
+            Design.ApplyTheme(theme);var calls=0;var wait=new TaskCompletionSource();string[]? arguments=null;
             Task Run(string script,string[] args,IProgress<MaintenanceProgress> progress){calls++;arguments=args;progress.Report(new("copying",3,10));return calls==1 ? Task.FromException(new IOException("Owned permission refusal")) : wait.Task;}
             var window=new MaintenanceWindow(directory:root,runner:Run){ShowActivated=false};
             Button Find(string text)=>Descendants<Button>(window).Single(button=>Equals(button.Content,text));

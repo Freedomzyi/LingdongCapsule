@@ -32,8 +32,8 @@ try {
         $symbol=Join-Path $stage $name
         if(Test-Path -LiteralPath $symbol){Remove-Item -LiteralPath $symbol}
     }
-    Copy-Item README.md,CHANGELOG.md,LICENSE,THIRD-PARTY-NOTICES.md,Install.ps1,Uninstall.ps1,Deployment.Common.ps1,安装.cmd -Destination $stage
-    foreach($script in 'Install.ps1','Uninstall.ps1','Deployment.Common.ps1') {
+    Copy-Item README.md,CHANGELOG.md,LICENSE,THIRD-PARTY-NOTICES.md,Install.ps1,Uninstall.ps1,Deployment.Common.ps1,MaintenanceCleanup.ps1,安装.cmd -Destination $stage
+    foreach($script in 'Install.ps1','Uninstall.ps1','Deployment.Common.ps1','MaintenanceCleanup.ps1') {
         $path=Join-Path $stage $script
         [IO.File]::WriteAllText($path,[IO.File]::ReadAllText($path),[Text.UTF8Encoding]::new($true))
     }

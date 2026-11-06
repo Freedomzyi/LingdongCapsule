@@ -42,8 +42,11 @@ $shortcut=$shell.CreateShortcut($link)
 $shortcut.TargetPath=$exe;$shortcut.WorkingDirectory=$target;$shortcut.IconLocation="$exe,0";$shortcut.Description='灵动胶囊 · Windows 桌面交互胶囊';$shortcut.Save()
 New-Item -Path $uninstall -Force | Out-Null
 $uninstallCommand='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $target 'Uninstall.ps1')+'"'
+if(-not $TestRegistrationId){$uninstallCommand='"'+$exe+'" --uninstall'}
 if($TestRegistrationId){$uninstallCommand+=' -TestRegistrationId '+$TestRegistrationId}
-(@{DisplayName='灵动胶囊';DisplayVersion='0.1.0';Publisher='LingdongCapsule contributors';DisplayIcon="$exe,0";InstallLocation=$target;UninstallString=$uninstallCommand}).GetEnumerator() | ForEach-Object {New-ItemProperty -Path $uninstall -Name $_.Key -Value $_.Value -PropertyType String -Force | Out-Null}
+$displayVersion=[Diagnostics.FileVersionInfo]::GetVersionInfo($exe).ProductVersion
+if([string]::IsNullOrWhiteSpace($displayVersion)){$displayVersion='0.1.0'}
+(@{DisplayName='灵动胶囊';DisplayVersion=$displayVersion;Publisher='LingdongCapsule contributors';DisplayIcon="$exe,0";InstallLocation=$target;UninstallString=$uninstallCommand}).GetEnumerator() | ForEach-Object {New-ItemProperty -Path $uninstall -Name $_.Key -Value $_.Value -PropertyType String -Force | Out-Null}
 if($oldRun -and -not(Test-CapsuleStartup $oldRun $exe) -and $oldRegistry -and $oldRegistry.ContainsKey('InstallLocation')){
     $oldExe=Join-Path $oldRegistry['InstallLocation'].Value 'LingdongCapsule.exe'
     if(Test-CapsuleStartup $oldRun $oldExe){$tail=[regex]::Match($oldRun,'^\s*(?:"[^"]+"|\S+)(.*)$').Groups[1].Value;Set-ItemProperty -Path $run -Name $registrationName -Value ('"'+$exe+'"'+$tail)}

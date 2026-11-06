@@ -22,6 +22,8 @@ internal sealed class MaintenanceWindow : Window
     private readonly ProgressBar progress=new(){Height=5,Minimum=0,Maximum=100};
     private bool busy;
     internal MaintenanceState State{get;private set;}
+    internal void BeginPreparation(){busy=true;ShowState(MaintenanceState.Working);stage.Text="准备卸载界面…";progress.IsIndeterminate=true;}
+    internal void EndPreparation(){busy=false;}
     internal MaintenanceWindow(bool uninstall=false,string? directory=null,Func<string,string[],IProgress<MaintenanceProgress>,Task>? runner=null)
     {
         this.uninstall=uninstall;source=directory ?? AppContext.BaseDirectory;this.runner=runner ?? MaintenanceProcess.RunAsync;

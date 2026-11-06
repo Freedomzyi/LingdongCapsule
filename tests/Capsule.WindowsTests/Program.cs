@@ -21,6 +21,7 @@ internal static class Program
     private static async Task RunAsync(string[] args)
     {
         if(args.Contains("--maintenance-test")){await MaintenanceTests.RunAsync();return;}
+        if(args.Contains("--maintenance-bootstrap-test")){await MaintenanceBootstrapTests.RunAsync();return;}
         if(args.Contains("--install-viewport-test")){await InstallWindowTests.RunAsync();return;}
         if(args.Contains("--collection-test")){await CollectionTests.RunAsync();return;}
         if(args.Contains("--media-readonly-check")){await LiveMediaChecks.RunAsync(args);return;}
