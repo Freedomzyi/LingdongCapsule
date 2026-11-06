@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,6 +17,37 @@ public sealed partial class SettingsWindow
     }
     internal const string ContactEmail="freedomzy@agent.qq.com";
     internal const string DouyinAccount="Freedomzyi";
+
+    internal static ProcessStartInfo? CreateUninstallCommand(string directory)
+    {
+        var root=Path.GetFullPath(directory);
+        if(!File.Exists(Path.Combine(root,"installed-files.json")))return null;
+        var executable=Path.Combine(root,"LingdongCapsule.exe");
+        if(!File.Exists(executable))throw new IOException("程序文件缺失，请重新安装后再卸载。");
+        var start=new ProcessStartInfo(executable){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root};
+        start.ArgumentList.Add("--uninstall");return start;
+    }
+
+    private void AddMaintenanceSection(StackPanel panel)
+    {
+        Heading(panel,"应用维护");
+        var section=new StackPanel();
+        var note=new TextBlock{Text="卸载前会再次确认，个人设置会保留。",FontSize=12,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,12)};
+        Design.Bind(note,TextBlock.ForegroundProperty,"TextSecondary");section.Children.Add(note);
+        var uninstall=new Button{Content="卸载灵动胶囊",Padding=new Thickness(12,10,12,10)};
+        System.Windows.Automation.AutomationProperties.SetName(uninstall,"卸载灵动胶囊");
+        uninstall.Click+=(_,_)=>
+        {
+            try
+            {
+                var command=CreateUninstallCommand(AppContext.BaseDirectory);
+                if(command==null){Design.PresentMessage("当前为便携版","便携版无需卸载。请从托盘退出灵动胶囊，再删除解压目录；个人设置会保留。");return;}
+                using var process=Process.Start(command) ?? throw new IOException("卸载界面未能启动，请稍后重试。");
+            }
+            catch(Exception error){Design.PresentMessage("无法打开卸载界面",error.Message);}
+        };
+        section.Children.Add(uninstall);panel.Children.Add(Design.Card(section));
+    }
 
     private void AddAuthorSection(StackPanel panel)
     {
