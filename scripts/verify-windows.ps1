@@ -18,6 +18,8 @@ try {
         @{Name='welcome';Project='tests/Capsule.WindowsTests';Args=@('--welcome-test')},
         @{Name='settings-sync';Project='tests/Capsule.WindowsTests';Args=@('--settings-sync-test')},
         @{Name='about';Project='tests/Capsule.WindowsTests';Args=@('--about-test')},
+        @{Name='maintenance';Project='tests/Capsule.WindowsTests';Args=@('--maintenance-test')},
+        @{Name='install-viewport';Project='tests/Capsule.WindowsTests';Args=@('--install-viewport-test')},
         @{Name='fonts';Project='tests/Capsule.WindowsTests';Args=@('--font-test')},
         @{Name='scale';Project='tests/Capsule.WindowsTests';Args=@('--scale-test')},
         @{Name='lyrics';Project='tests/Capsule.WindowsTests';Args=@('--lyrics-test')},

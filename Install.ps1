@@ -1,4 +1,4 @@
-﻿param([string]$InstallDir=(Join-Path $env:LOCALAPPDATA 'Programs\LingdongCapsule'),[switch]$NoLaunch,[switch]$NoRegistration,[string]$TestRegistrationId='')
+﻿param([string]$InstallDir=(Join-Path $env:LOCALAPPDATA 'Programs\LingdongCapsule'),[switch]$NoLaunch,[switch]$NoRegistration,[string]$TestRegistrationId='',[switch]$ReportProgress)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'Deployment.Common.ps1')
 $source=(Resolve-Path -LiteralPath $PSScriptRoot).Path
@@ -21,17 +21,21 @@ if(-not $NoRegistration){
     if(Test-Path -LiteralPath $uninstall){$key=Get-Item -LiteralPath $uninstall;try{$oldRegistry=@{};foreach($name in $key.GetValueNames()){$oldRegistry[$name]=@{Value=$key.GetValue($name,$null,[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames);Kind=$key.GetValueKind($name)}}}finally{$key.Dispose()}}
 }
 try {
+    Write-CapsuleProgress $ReportProgress preparing
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
     if(Test-Path -LiteralPath $target){foreach($entry in Get-ChildItem -LiteralPath $target -Force){Copy-Item -LiteralPath $entry.FullName -Destination $stage -Recurse -Force}}
     foreach($relative in $oldFiles){$old=Get-CapsuleChild $stage $relative;if(Test-Path -LiteralPath $old){Remove-Item -LiteralPath $old -Force}}
+    Write-CapsuleProgress $ReportProgress copying
     $files=@(Get-ChildItem -LiteralPath $source -File -Recurse -Force | Where-Object {$_.Name -ne 'installed-files.json'})
     foreach($file in $files){$relative=$file.FullName.Substring($source.Length+1);$destination=Get-CapsuleChild $stage $relative;if(Test-Path -LiteralPath $destination){throw '新程序文件与用户自有文件冲突，停止升级。'};New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null;Copy-Item -LiteralPath $file.FullName -Destination $destination -Force;if((Get-FileHash -LiteralPath $file.FullName).Hash -ne (Get-FileHash -LiteralPath $destination).Hash){throw '安装文件校验失败。'}}
     @($files | ForEach-Object {$_.FullName.Substring($source.Length+1)}) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'installed-files.json') -Encoding utf8
     $null=Read-CapsuleFiles $stage
+    Write-CapsuleProgress $ReportProgress committing
     Stop-CapsuleExecutable $exe
     if(Test-Path -LiteralPath $target){Move-Item -LiteralPath $target -Destination $backup;$movedOld=$true}
     Move-Item -LiteralPath $stage -Destination $target;$committed=$true
 if(-not $NoRegistration){
+    Write-CapsuleProgress $ReportProgress registering
     $registrationStarted=$true
 $shell=New-Object -ComObject WScript.Shell
 $shortcut=$shell.CreateShortcut($link)
@@ -62,4 +66,5 @@ if($oldRun -and -not(Test-CapsuleStartup $oldRun $exe) -and $oldRegistry -and $o
 if($movedOld){Write-Host "旧版完整保留在 $backup。"}
 Write-Host "已安装到 $target。"
 # Interactive launch requested by the installer user, not a background helper.
+Write-CapsuleProgress $ReportProgress completed
 if(-not $NoLaunch){Start-Process -FilePath $exe}

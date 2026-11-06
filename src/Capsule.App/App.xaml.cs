@@ -15,7 +15,7 @@ public partial class App : System.Windows.Application
         {
             base.OnStartup(e);
             Design.ApplySystemTheme();
-            MainWindow = new InstallWindow(); MainWindow.Show(); return;
+            MainWindow = new MaintenanceWindow(); MainWindow.Show(); return;
         }
         const string instanceName = "Local\\LingdongCapsule";
         instance = new SingleInstance(instanceName, () =>

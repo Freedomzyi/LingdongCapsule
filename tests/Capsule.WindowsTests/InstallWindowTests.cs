@@ -11,12 +11,12 @@ internal static class InstallWindowTests
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();app.ShutdownMode=ShutdownMode.OnExplicitShutdown;Design.ApplyTheme(0);
         foreach(var size in new[]{(420d,600d),(320d,240d),(240d,200d)})
         {
-            var window=new InstallWindow{Width=size.Item1,MaxHeight=size.Item2};window.Show();await Task.Delay(100);window.UpdateLayout();
+            var window=new MaintenanceWindow{Width=size.Item1,Height=size.Item2,MaxHeight=size.Item2};window.Show();await Task.Delay(100);window.UpdateLayout();
             try
             {
                 var buttons=Children<Button>(window).ToArray();
                 Console.WriteLine("Installer viewport "+size+" buttons: "+string.Join(" | ",buttons.Select(b=>b.Content?.ToString())));
-                foreach(var text in new[]{"安装并打开","暂不安装"})
+                foreach(var text in new[]{"开始安装","取消"})
                 {
                     var button=buttons.Single(b=>Equals(b.Content,text));
                     var bounds=button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
@@ -33,7 +33,7 @@ internal static class InstallWindowTests
                 var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(image));
                 var folder=System.IO.Path.GetFullPath("artifacts/install-viewport-tests");System.IO.Directory.CreateDirectory(folder);
                 using(var output=System.IO.File.Create(System.IO.Path.Combine(folder,$"{size.Item1}-{size.Item2}.png")))encoder.Save(output);
-                buttons.Single(b=>Equals(b.Content,"暂不安装")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                buttons.Single(b=>Equals(b.Content,"取消")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 if(window.IsVisible)throw new Exception("Cancel failed to close own installer");
             }
             finally{window.Close();}

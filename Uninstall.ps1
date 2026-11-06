@@ -1,4 +1,4 @@
-﻿param([string]$TestRegistrationId='')
+﻿param([string]$TestRegistrationId='',[switch]$ReportProgress)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'Deployment.Common.ps1')
 $target=Assert-CapsulePath ((Resolve-Path -LiteralPath $PSScriptRoot).Path)
@@ -8,6 +8,7 @@ $exe=Join-Path $target 'LingdongCapsule.exe'
 Assert-CapsuleTree $target
 $paths=@(Read-CapsuleFiles $target)
 $checked=@($paths | ForEach-Object {Get-CapsuleChild $target $_})
+Write-CapsuleProgress $ReportProgress stopping
 Stop-CapsuleExecutable $exe
 $registration=Get-CapsuleRegistration $TestRegistrationId;$run=$registration.Run;$registrationName=$registration.Name
 $startup=(Get-ItemProperty -Path $run -Name $registrationName -ErrorAction SilentlyContinue).$registrationName
@@ -16,8 +17,10 @@ $link=$registration.Link
 if(Test-Path -LiteralPath $link){$shell=New-Object -ComObject WScript.Shell;if($shell.CreateShortcut($link).TargetPath -eq $exe){Remove-Item -LiteralPath $link}}
 $uninstall=$registration.Key
 if((Get-ItemProperty -Path $uninstall -ErrorAction SilentlyContinue).InstallLocation -eq $target){Remove-Item -LiteralPath $uninstall}
+Write-CapsuleProgress $ReportProgress removing
 foreach($path in $checked){if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -Force}}
 Remove-Item -LiteralPath $manifest
 Get-ChildItem -LiteralPath $target -Directory -Recurse | Sort-Object FullName -Descending | ForEach-Object {$folder=Assert-CapsulePath $_.FullName;if(-not(Get-ChildItem -LiteralPath $folder -Force)){Remove-Item -LiteralPath $folder}}
 if(-not(Get-ChildItem -LiteralPath $target -Force)){Remove-Item -LiteralPath $target}
 Write-Host '灵动胶囊已卸载。个人设置已保留在 LocalAppData\LingdongCapsule。'
+Write-CapsuleProgress $ReportProgress completed

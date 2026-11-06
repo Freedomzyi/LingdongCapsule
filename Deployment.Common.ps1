@@ -41,6 +41,9 @@ function Get-CapsuleChild([string]$Root,[string]$Relative) {
     if(-not $full.StartsWith($Root+'\',[StringComparison]::OrdinalIgnoreCase)){throw '安装清单含越界路径。'}
     return (Assert-CapsulePath $full)
 }
+function Write-CapsuleProgress([bool]$Enabled,[string]$Stage,[int]$Completed=0,[int]$Total=0) {
+    if($Enabled){Write-Output ('CAPSULE_PROGRESS|'+$Stage+'|'+$Completed+'|'+$Total)}
+}
 function Read-CapsuleFiles([string]$Root) {
     $manifest=Join-Path $Root 'installed-files.json'
     if(-not(Test-Path -LiteralPath $manifest) -or (Get-Item -LiteralPath $manifest).Length -gt 4194304){throw '没有可用的安装清单。'}
