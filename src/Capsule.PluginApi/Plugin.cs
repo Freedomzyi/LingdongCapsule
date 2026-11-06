@@ -15,6 +15,13 @@ public interface ICapsulePlugin : IDisposable
     void Update(PluginFrame frame);
 }
 
+// Optional deadline work for enabled widgets whose presentation is not visible.
+// Called on the UI dispatcher at the host cadence; must remain lightweight.
+public interface ICapsuleBackgroundPlugin
+{
+    void UpdateBackground(PluginFrame frame);
+}
+
 public interface ICapsulePluginHost
 {
     PluginMedia CurrentMedia{get;}

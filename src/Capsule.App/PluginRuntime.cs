@@ -71,12 +71,12 @@ internal sealed class PluginRuntime : IDisposable
         }
         catch{try{module?.Dispose();}catch(Exception error){Errors[file]="加载失败后释放异常："+error.GetType().Name;}finally{host?.Close();}throw;}
     }
-    public void Update(PluginFrame frame)
+    public void Update(PluginFrame frame,bool visible=true)
     {
         View.Dispatcher.VerifyAccess();
         foreach(var entry in order.Select(id=>new KeyValuePair<string,Active>(id,active[id])).ToArray())
         {
-            try{entry.Value.Module.Plugin!.Update(frame);}
+            try{if(visible)entry.Value.Module.Plugin!.Update(frame);else if(entry.Value.Module.Plugin is ICapsuleBackgroundPlugin background)background.UpdateBackground(frame);}
             catch(Exception error){Errors[entry.Key]="插件更新失败："+error.GetType().Name;Disable(entry.Key);}
         }
     }

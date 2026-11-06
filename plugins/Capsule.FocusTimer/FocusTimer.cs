@@ -7,7 +7,7 @@ using Capsule.Widgets;
 
 namespace Capsule.FocusTimer;
 
-public sealed class FocusTimer : ICapsulePlugin
+public sealed class FocusTimer : ICapsulePlugin,ICapsuleBackgroundPlugin
 {
     public PluginIdentity Identity=>new("capsule.focustimer","专注计时","0.1.0");
     private RingWidget? widget;
@@ -64,6 +64,7 @@ public sealed class FocusTimer : ICapsulePlugin
         }
         Paint();
     }
+    public void UpdateBackground(PluginFrame frame)=>Update(frame);
     private async Task NotifyDoneAsync(){try{if(host!=null)await host.NotifyAsync("计时完成",minutes==5 ? "休息结束，准备好再继续。" : "这一段专注完成了，休息一下吧。");}catch(Exception){ /* A stopped host must not break the timer. */ }}
     private void Paint()
     {

@@ -144,7 +144,7 @@ public partial class MainWindow : Window
             if (closing) return;
             state.Tick(DateTimeOffset.Now); Render();
             (Application.Current as App)?.Diagnostics?.Observe(state.Mode,visibilityResult.PassThrough,state.Media.Playing,plugins.ActiveIds.Count,media.SourceId.StartsWith("LingdongCapsule.Owned.",StringComparison.OrdinalIgnoreCase));
-            if(modulesVisible && !settings.StandbyActive && !visibilityResult.PassThrough)plugins.Update(new(DateTimeOffset.Now,Design.IsDark,new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing)));
+            plugins.Update(new(DateTimeOffset.Now,Design.IsDark,new(state.Media.Title,state.Media.Artist,state.Media.Available,state.Media.Playing)),modulesVisible && !settings.StandbyActive && !visibilityResult.PassThrough);
             QuarantineFailedPlugins();
             if(overviewOpen)await overview.TickAsync();
             var localStatus=solo.Snapshot();

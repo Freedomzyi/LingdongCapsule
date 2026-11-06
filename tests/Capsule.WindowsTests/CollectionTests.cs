@@ -51,6 +51,17 @@ internal static class CollectionTests
         focus.Dispose();day.Dispose();focus.Update(frame);day.Update(frame);if(focusView.ContextMenu!=null || host.Notifications!=1)throw new Exception("Stopped widget retained its menu or emitted a late notification");
         Console.WriteLine("PASS real widget drawing; focus start/pause/one-shot completion, preference rollback/retry, day rollover, dark/light, accessibility and dispose; simulated frame times only");
         await SettingsAndPackages(root);
+        using(var runtime=new PluginRuntime(new Settings(),()=>host.CurrentMedia,(_,_,_,_)=>{host.Notifications++;return Task.FromResult(true);},()=>{}))
+        {
+            var package=PluginPackage.Install(Path.GetFullPath("artifacts/plugins/capsule.focustimer-0.1.0.zip"),Path.Combine(root,"background-package"));
+            var id=runtime.Enable(package.EntryFile);var widget=runtime.Widget(id);
+            widget.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Left){RoutedEvent=UIElement.MouseLeftButtonUpEvent});var count=host.Notifications;
+            runtime.Update(frame with{Now=DateTimeOffset.UtcNow.AddMinutes(26)},visible:false);runtime.Update(frame with{Now=DateTimeOffset.UtcNow.AddMinutes(27)},visible:false);
+            if(!AutomationProperties.GetName(widget).Contains("已完成") || host.Notifications!=count+1)throw new Exception("Actual packaged focus did not complete exactly once while hidden by host");
+            runtime.Disable(id);runtime.Update(frame with{Now=DateTimeOffset.UtcNow.AddHours(1)},visible:false);
+            if(host.Notifications!=count+1)throw new Exception("Stopped background widget sent a late notification");
+        }
+        Console.WriteLine("PASS actual packaged focus deadline while host marks widgets invisible, one-shot reminder and stop; no independent timer");
         Console.WriteLine("Collection evidence: "+root);
     }
     private static async Task SettingsAndPackages(string root)
@@ -85,6 +96,11 @@ internal static class CollectionTests
             }
             await Task.Delay(1100);Capture(page,Path.Combine(root,"component-collection.png"));Capture(island,Path.Combine(root,"compact-components.png"));
             foreach(var widget in island.LivePluginWidgets){var rect=widget.TransformToAncestor(island).TransformBounds(new Rect(widget.RenderSize));if(rect.Top<0 || rect.Bottom>island.ActualHeight+.5 || rect.Right>island.ActualWidth+.5)throw new Exception("Bundled widgets clipped in the standard-height 250px island");}
+            foreach(var height in new[]{32d,60d,35d})
+            {
+                settings.CompactHeight=height;typeof(MainWindow).GetMethod("Render",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,Type.EmptyTypes,null)!.Invoke(island,null);await Task.Delay(550);island.UpdateLayout();
+                foreach(var widget in island.LivePluginWidgets){var rect=widget.TransformToAncestor(island).TransformBounds(new Rect(widget.RenderSize));if(rect.Top<0 || rect.Bottom>island.ActualHeight+.5)throw new Exception("Widget clipped at supported compact height "+height);}
+            }
             var focusWidget=island.LivePluginWidgets.Single(widget=>AutomationProperties.GetName(widget).Contains("专注"));var windowCount=Application.Current.Windows.Count;
             var menuClick=new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Right){RoutedEvent=UIElement.MouseRightButtonUpEvent};focusWidget.RaiseEvent(menuClick);
             if(!menuClick.Handled || focusWidget.ContextMenu?.IsOpen!=true || Application.Current.Windows.Count!=windowCount)throw new Exception("Focus context menu leaked into island settings");focusWidget.ContextMenu.IsOpen=false;
