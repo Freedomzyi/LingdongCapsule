@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows10.0.19041.0</TargetFramework><UseWPF>true</UseWPF><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>LingdongCapsule.Setup</AssemblyName><Version>0.1.0-beta.3</Version><ApplicationIcon>../../assets/icon.ico</ApplicationIcon><ApplicationManifest>../Capsule.App/app.manifest</ApplicationManifest>
+    <AssemblyName>LingdongCapsule.Setup</AssemblyName><Version>0.1.0-beta.4</Version><ApplicationIcon>../../assets/icon.ico</ApplicationIcon><ApplicationManifest>../Capsule.App/app.manifest</ApplicationManifest>
     <AssemblyTitle>灵动胶囊安装程序</AssemblyTitle><Product>灵动胶囊</Product><Description>灵动胶囊安装程序</Description>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained><PublishSingleFile>true</PublishSingleFile><IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><EnableCompressionInSingleFile>true</EnableCompressionInSingleFile><DebugType>none</DebugType><DebugSymbols>false</DebugSymbols>
   </PropertyGroup>

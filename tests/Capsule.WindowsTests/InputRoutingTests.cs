@@ -4,6 +4,7 @@ using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Capsule.App;
@@ -14,6 +15,18 @@ internal static class InputRoutingTests
     internal static async Task RunAsync()
     {
         var app=new Capsule.App.App{SuppressStartupForTests=true};app.InitializeComponent();app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
+        var hidden=new Window{Title="Hidden player helper",Width=680,Height=440,ShowActivated=false};
+        var player=new Window{Title="Minimized player",Width=300,Height=180,ShowActivated=false,WindowState=WindowState.Minimized};
+        try
+        {
+            hidden.Show();hidden.Hide();player.Show();
+            await Task.Delay(100);
+            var target=AppActivation.FindDesktopWindow(new HashSet<uint>{(uint)Environment.ProcessId});
+            if(target!=new WindowInteropHelper(player).Handle)
+                throw new Exception("The visible minimized player lost to a larger hidden helper window");
+            Console.WriteLine("PASS player lookup prefers a minimized taskbar window to a larger hidden helper");
+        }
+        finally{player.Close();hidden.Close();}
         var settings=new Settings{MediaEnabled=false,NotificationsEnabled=false,OnlineCoversEnabled=false,HardwareEnabled=true,ExpandedMediaControls=true,ReturnToPlayer=true};
         var window=new MainWindow(suppressOnboarding:true,initialSettings:settings,pluginSettingsWriter:()=>{}){ShowActivated=false};
         try
