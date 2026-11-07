@@ -2,7 +2,7 @@
 
 灵动胶囊是 Windows 11 x64 桌面工具。它把时间、媒体播放、歌词和通知收在屏幕顶部，平时折叠，点开即可控制播放或查看详情。
 
-**公开测试版** · [下载安装 EXE](https://github.com/Freedomzyi/LingdongCapsule/releases/download/v0.1.0-beta.3/LingdongCapsule-Setup-win-x64.exe) · [便携 ZIP 与发布记录](https://github.com/Freedomzyi/LingdongCapsule/releases) · [插件上架申请](https://github.com/Freedomzyi/LingdongCapsule/issues/new?template=plugin_submission.md)
+**公开测试版 beta.5** · [下载安装 EXE](https://github.com/Freedomzyi/LingdongCapsule/releases/download/v0.1.0-beta.5/LingdongCapsule-Setup-win-x64.exe) · [便携 ZIP 与试用说明](https://github.com/Freedomzyi/LingdongCapsule/releases/tag/v0.1.0-beta.5) · [插件上架申请](https://github.com/Freedomzyi/LingdongCapsule/issues/new?template=plugin_submission.md)
 
 ## 界面一览
 
