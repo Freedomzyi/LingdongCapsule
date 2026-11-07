@@ -1,10 +1,38 @@
 # 灵动胶囊 · LingdongCapsule
 
-Windows 桌面交互胶囊。把时间、系统媒体和通知收在屏幕顶部，以少量操作完成日常查看和控制。
+灵动胶囊是 Windows 11 x64 桌面工具。它把时间、媒体播放、歌词和通知收在屏幕顶部，平时折叠，点开即可控制播放或查看详情。
 
-**Windows 11 x64 · 当前针对 Owner 本机环境验收。** 独立实现本机 NotchPeninsula 定制版的功能与交互；正式发布包以 GitHub Releases 为准，源码分支的构建不自动代表已交付版本。[对齐清单](docs/PARITY.md) · [验证记录](docs/VALIDATION.md) · [交付标准](docs/DELIVERY_PLAN.md)。
+**公开测试版** · [下载安装 EXE](https://github.com/Freedomzyi/LingdongCapsule/releases/download/v0.1.0-beta.3/LingdongCapsule-Setup-win-x64.exe) · [便携 ZIP 与发布记录](https://github.com/Freedomzyi/LingdongCapsule/releases) · [插件上架申请](https://github.com/Freedomzyi/LingdongCapsule/issues/new?template=plugin_submission.md)
 
-## 使用
+## 界面一览
+
+| 折叠时查看当前媒体 | 展开后控制播放 |
+| --- | --- |
+| ![折叠胶囊显示媒体标题](docs/screenshots/capsule-compact.png) | ![展开胶囊显示播放控制和系统信息切换入口](docs/screenshots/capsule-expanded.png) |
+
+### 个性化中心
+
+内置曜石、月光和流光玻璃主题。可以调整字体、背景材质、胶囊宽高和视觉比例。
+
+<img src="docs/screenshots/themes.png" width="640" alt="个性化中心，显示三款主题和外观设置">
+
+### 插件市场
+
+从「我的插件」打开市场，按名称、作者或简介搜索，按类别筛选，再安装或更新组件。线上目录目前提供官方时钟示例。第三方开发者可以按公开接口开发插件并申请审核上架。[插件开发与投稿指南](docs/PLUGINS.md)
+
+<img src="docs/screenshots/plugin-market.png" width="540" alt="插件市场，显示关键词搜索、分类筛选和时钟示例的安装按钮">
+
+截图来自 Windows 上运行的实际界面，媒体标题与市场条目使用演示数据。
+
+## 三步上手
+
+1. **安装**：下载上面的安装 EXE，双击并选择安装位置。使用便携版时，完整解压 ZIP 后运行 `LingdongCapsule.exe`。
+2. **打开**：完成首次引导。之后双击系统托盘的灵动胶囊图标，即可进入设置。
+3. **试用**：播放媒体后点开顶部胶囊，或到「个性化中心」试用主题、到「我的插件」添加专注计时和今日进度。
+
+安装版可在「设置 → 关于软件 → 应用维护」卸载，个人设置会保留。公开测试版的兼容范围与反馈方式见 [测试版说明](docs/PUBLIC_BETA.md)。
+
+## 使用细节
 
 公开测试版请从 [Releases](https://github.com/Freedomzyi/LingdongCapsule/releases) 选择主程序 Pre-release。推荐下载 `LingdongCapsule-Setup-win-x64.exe`，双击进入安装向导；便携使用则下载 ZIP 并完整解压。测试范围与限制见 [测试版说明](docs/PUBLIC_BETA.md)，版本变化见 [更新记录](CHANGELOG.md)。
 
