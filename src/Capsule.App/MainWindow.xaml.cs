@@ -196,6 +196,8 @@ public partial class MainWindow : Window
         NoticePanel.Visibility = mode == IslandMode.Notification ? Visibility.Visible : Visibility.Collapsed;
         Track.Text = state.Media.Title; Artist.Text = state.Media.Artist;
         var artwork=EffectiveCover;CoverArt.Source=artwork;CoverFrame.Visibility=artwork is null ? Visibility.Collapsed : Visibility.Visible;
+        CoverFrame.Cursor=settings.ReturnToPlayer ? Cursors.Hand : null;
+        CoverFrame.ToolTip=settings.ReturnToPlayer ? "打开播放器" : null;
         Artist.Visibility = IsMediaExpanded && state.Media.Artist.Length>0 ? Visibility.Visible : Visibility.Collapsed;
         var coverSize = IsMediaExpanded ? 38 : Math.Clamp(settings.CompactHeight - 10, 22, 40);
         if (CoverFrame.Width != coverSize) { CoverFrame.Width = CoverFrame.Height = coverSize; CoverArt.Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, coverSize, coverSize), 6, 6); }

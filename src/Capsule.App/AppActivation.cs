@@ -18,7 +18,7 @@ internal static class AppActivation
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
     [StructLayout(LayoutKind.Sequential)] private struct Rect{public int Left,Top,Right,Bottom;}
 
-    public static bool Open(string sourceId)
+    public static bool Open(string sourceId,bool reopenHiddenPlayer=false)
     {
         if(string.IsNullOrWhiteSpace(sourceId))return false;
         try
@@ -31,8 +31,8 @@ internal static class AppActivation
             var name=Path.GetFileNameWithoutExtension(sourceId);
             HashSet<uint> ids=[];
             foreach(var process in Process.GetProcesses())using(process){if(process.ProcessName.Equals(name,StringComparison.OrdinalIgnoreCase) || name.StartsWith(process.ProcessName+'.',StringComparison.OrdinalIgnoreCase))ids.Add((uint)process.Id);}
-            var window=FindDesktopWindow(ids);
-            if(window==IntPtr.Zero)return false;
+            var window=FindDesktopWindow(ids,visibleOnly:reopenHiddenPlayer);
+            if(window==IntPtr.Zero)return reopenHiddenPlayer && ReopenRunningPlayer(name);
             // A minimized taskbar window stays visible in Win32, but needs a restore request.
             var needsRestore=IsIconic(window) || !IsWindowVisible(window);
             var restoreRequested=needsRestore && ShowWindowAsync(window,9);
@@ -41,7 +41,27 @@ internal static class AppActivation
         catch{return false;}
     }
 
-    internal static IntPtr FindDesktopWindow(IReadOnlySet<uint> processIds)
+    private static bool ReopenRunningPlayer(string processName)
+    {
+        foreach(var process in Process.GetProcessesByName(processName))
+        {
+            using(process)
+            {
+                var path=process.MainModule?.FileName;
+                if(path==null || !Path.IsPathFullyQualified(path) || !Path.GetFileName(path).Equals(processName+".exe",StringComparison.OrdinalIgnoreCase) || !File.Exists(path))continue;
+                // Use the running player's verified executable, never a path from media metadata.
+                using var launched=Process.Start(new ProcessStartInfo(path)
+                {
+                    UseShellExecute=true,
+                    WorkingDirectory=Path.GetDirectoryName(path)!
+                });
+                return true;
+            }
+        }
+        return false;
+    }
+
+    internal static IntPtr FindDesktopWindow(IReadOnlySet<uint> processIds,bool visibleOnly=false)
     {
         var best=IntPtr.Zero;
         var bestVisible=false;
@@ -56,6 +76,7 @@ internal static class AppActivation
             if(title.Length==0)return true;
 
             var visible=IsWindowVisible(window);
+            if(visibleOnly && !visible)return true;
             var area=(long)Math.Max(0,rect.Right-rect.Left)*Math.Max(0,rect.Bottom-rect.Top);
             if(area>0 && (best==IntPtr.Zero || visible && !bestVisible || visible==bestVisible && area>bestArea))
             {

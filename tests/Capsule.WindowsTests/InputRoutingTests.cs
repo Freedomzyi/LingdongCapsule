@@ -19,9 +19,13 @@ internal static class InputRoutingTests
         var player=new Window{Title="Minimized player",Width=300,Height=180,ShowActivated=false,WindowState=WindowState.Minimized};
         try
         {
-            hidden.Show();hidden.Hide();player.Show();
+            hidden.Show();hidden.Hide();
+            var processIds=new HashSet<uint>{(uint)Environment.ProcessId};
+            if(AppActivation.FindDesktopWindow(processIds,visibleOnly:true)!=IntPtr.Zero)
+                throw new Exception("Tray-only player lookup accepted a hidden helper window");
+            player.Show();
             await Task.Delay(100);
-            var target=AppActivation.FindDesktopWindow(new HashSet<uint>{(uint)Environment.ProcessId});
+            var target=AppActivation.FindDesktopWindow(processIds,visibleOnly:true);
             if(target!=new WindowInteropHelper(player).Handle)
                 throw new Exception("The visible minimized player lost to a larger hidden helper window");
             Console.WriteLine("PASS player lookup prefers a minimized taskbar window to a larger hidden helper");
@@ -130,6 +134,29 @@ internal static class InputRoutingTests
         using var bytes=new MemoryStream();var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(pixels));encoder.Save(bytes);bytes.Position=0;
         var bitmap=new BitmapImage();bitmap.BeginInit();bitmap.CacheOption=BitmapCacheOption.OnLoad;bitmap.StreamSource=bytes;bitmap.EndInit();bitmap.Freeze();
         settings.MediaEnabled=true;settings.ExpandedMediaControls=true;settings.LyricsEnabled=false;settings.ShowSpectrum=false;settings.CoverProgress=false;settings.Width=280;
+        settings.ReturnToPlayer=true;
+        cover.SetValue(service,bitmap);
+        window.LiveState.UpdateMedia(new("Own cover route","Own artist",true,true,SourceId:"no-such-capsule-fixture-"+Guid.NewGuid().ToString("N")));
+        foreach(var expanded in new[]{false,true})
+        {
+            typeof(MainWindow).GetField("controlsOpen",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(window,expanded);
+            render.Invoke(window,null);await Task.Delay(550);window.UpdateLayout();
+            var frame=(Border)window.FindName("CoverFrame");
+            var point=frame.TranslatePoint(new Point(frame.ActualWidth/2,frame.ActualHeight/2),window);
+            if(frame.Cursor!=Cursors.Hand || !Equals(frame.ToolTip,"打开播放器") || window.InputHitTest(point) is not UIElement hit)
+                throw new Exception("Album cover does not expose a clickable player target");
+            var dialogs=0;
+            var guard=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(20)};
+            guard.Tick+=(_,_)=>
+            {
+                foreach(var dialog in Application.Current.Windows.OfType<Window>().Where(item=>item.Title=="无法唤回播放器").ToArray())
+                {dialogs++;dialog.Close();}
+            };
+            var click=new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Left){RoutedEvent=Mouse.MouseUpEvent};
+            guard.Start();try{hit.RaiseEvent(click);}finally{guard.Stop();}
+            if(!click.Handled || dialogs!=1)throw new Exception($"Album cover click did not reach player activation. Expanded={expanded}");
+        }
+        Console.WriteLine("PASS compact and expanded album cover hit-test, hand cursor, tooltip and routed player activation");
         typeof(MainWindow).GetField("controlsOpen",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(window,true);
         window.LiveState.UpdateMedia(new("Own hover layout","Own artist",true,true));
         var play=(Button)window.FindName("Play");

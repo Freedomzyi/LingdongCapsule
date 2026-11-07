@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings><AssemblyName>LingdongCapsule</AssemblyName>
-    <ApplicationManifest>app.manifest</ApplicationManifest><Version>0.1.0-beta.4</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest><Version>0.1.0-beta.5</Version>
     <AssemblyTitle>灵动胶囊</AssemblyTitle><Product>灵动胶囊</Product><Description>灵动胶囊</Description>
     <ApplicationIcon>../../assets/icon.ico</ApplicationIcon>
   </PropertyGroup>

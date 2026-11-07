@@ -22,7 +22,16 @@
    <StackPanel x:Name="MediaPanel" Visibility="Collapsed" VerticalAlignment="Center">
     <Grid>
      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-     <Border x:Name="CoverFrame" Width="32" Height="32" CornerRadius="7" Margin="0,0,9,0" Visibility="Collapsed" ClipToBounds="True" MouseLeftButtonUp="OnCoverClick"><Image x:Name="CoverArt" Stretch="UniformToFill"><Image.Clip><RectangleGeometry Rect="0,0,32,32" RadiusX="7" RadiusY="7"/></Image.Clip></Image></Border>
+     <Border x:Name="CoverFrame" Width="32" Height="32" CornerRadius="7" Margin="0,0,9,0" Visibility="Collapsed" Background="Transparent" ClipToBounds="True" MouseLeftButtonUp="OnCoverClick">
+      <Grid>
+       <Image x:Name="CoverArt" Stretch="UniformToFill"><Image.Clip><RectangleGeometry Rect="0,0,32,32" RadiusX="7" RadiusY="7"/></Image.Clip></Image>
+       <Border CornerRadius="7" IsHitTestVisible="False">
+        <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding IsMouseOver, ElementName=CoverFrame}" Value="True">
+         <Setter Property="Background" Value="#26FFFFFF"/>
+        </DataTrigger></Style.Triggers></Style></Border.Style>
+       </Border>
+      </Grid>
+     </Border>
      <StackPanel Grid.Column="1" VerticalAlignment="Center">
       <TextBlock x:Name="Track" Foreground="White" FontSize="13" TextTrimming="CharacterEllipsis" TextAlignment="Center"/>
       <local:LyricView x:Name="LiveLyrics" Height="31" Visibility="Collapsed"/>

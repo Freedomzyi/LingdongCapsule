@@ -102,6 +102,6 @@ public partial class MainWindow
     {
         if(!settings.ReturnToPlayer)return;
         e.Handled=true;
-        if(!AppActivation.Open(media.SourceId))Design.PresentMessage("无法唤回播放器","未找到对应的软件窗口，请从任务栏或开始菜单打开播放器。");
+        if(!AppActivation.Open(state.Media.SourceId,reopenHiddenPlayer:true))Design.PresentMessage("无法唤回播放器","请从任务栏或开始菜单打开播放器。");
     }
 }
